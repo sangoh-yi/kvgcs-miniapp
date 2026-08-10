@@ -539,8 +539,8 @@
         const viewer=new Cesium.Viewer("cesiumContainer",{...commonOpts,baseLayer:imagery(),
           homeButton:true,sceneModePicker:true,sceneMode:Cesium.SceneMode.SCENE3D}); // 미니앱 기본 = 3D 지구본(단일) + 정보 접힘 — 최종
         window.viewer=viewer;
-        // 미니앱(휴대폰) 보정 — DPR3 풀해상도 연속 렌더는 WebView GPU 를 넘긴다
-        viewer.resolutionScale=Math.min(1, 2.5/(window.devicePixelRatio||1));
+        // 단일 지구본 + 같은 오리진 구성이라 GPU 여유가 생겼다 — 기기 원 해상도로 렌더
+        viewer.resolutionScale=1;
         // 타일이 어떤 이유로든 실패해도 지구가 '검은 허공'이 되지 않게 — 바다색 실루엣 폴백
         viewer.scene.globe.baseColor=Cesium.Color.fromCssColorString("#0e3a5c");
         try{viewer.scene.postProcessStages.fxaa.enabled=false;}catch(e){}
