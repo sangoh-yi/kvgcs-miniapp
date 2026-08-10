@@ -148,7 +148,7 @@
 <script>
 const TG=window.Telegram?.WebApp; TG?.ready(); TG?.expand();
 const GIST_ID=(new URLSearchParams(location.search).get("g")||"5404bef7f8d5b9f4e8d2824515fc8728");
-const REV="p1";
+const REV="p08110456";
 let GLOBECODE="";      // 지구본 세션 선택(선택기 → postMessage)
 const BODY={};
 async function loadBody(name){
@@ -376,7 +376,7 @@ function v3D(){
       allow="accelerometer;gyroscope"></iframe></div>`;
 }
 async function mountFrames(){
-  // 같은 오리진 페이지 — 평범한 iframe src 로 돌아간다(콘솔에서 돌던 그 조건)
+  // 같은 오리진 — 평범한 iframe (콘솔에서 돌던 조건)
   if(TAB==="d3"){const f=document.getElementById("if3d");
     if(f&&!f.dataset.on){f.dataset.on="1"; f.src="./antenna3d.html?v="+REV;}}
   if(TAB==="globe"){const f=document.getElementById("ifgl");
