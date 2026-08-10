@@ -1,0 +1,489 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>세종 22m 안테나 3D — 적경적위 → Az/El 구동</title>
+<style>
+:root{--mono:'Cascadia Code','Consolas',ui-monospace,monospace;--sans:'Malgun Gothic','Segoe UI',system-ui,sans-serif;}
+*{box-sizing:border-box} html,body{margin:0;height:100%;overflow:hidden;font-family:var(--sans)}
+body{background:radial-gradient(120% 90% at 50% 8%,#16233a 0%,#0a1120 45%,#060a12 100%)}
+body.embed{background:radial-gradient(130% 95% at 50% 14%,#1b2a45 0%,#0d1728 52%,#0a1220 100%)}
+#c{display:block;width:100vw;height:100vh}
+.pnl{position:fixed;background:rgba(10,16,24,.78);border:1px solid #22313f;border-radius:12px;
+ padding:12px 15px;color:#e6eef6;backdrop-filter:blur(4px)}
+#hud{top:14px;left:14px;min-width:300px}
+#hud h1{margin:0 0 11px;font-size:18px;font-weight:800}
+.r{display:flex;justify-content:space-between;gap:18px;padding:5px 0;font-size:15px}
+.r .k{color:#8598ab} .r .v{font-family:var(--mono);font-weight:850;font-size:17px}
+.sec{border-top:1px solid #22313f;margin-top:9px;padding-top:8px}
+.sec .t{font-size:12.5px;color:#5aaaff;font-weight:800;text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+.badge{font-weight:800;font-size:11.5px;padding:2px 9px;border-radius:20px}
+.b-ok{background:rgba(43,204,140,.2);color:#2bcc8c} .b-warn{background:rgba(224,169,46,.2);color:#e0a92e}
+.b-idle{background:rgba(124,141,166,.2);color:#9fb0c4}
+.note{font-size:10.5px;color:#54677a;margin-top:7px;line-height:1.4}
+#ctl{top:14px;right:14px;display:flex;gap:8px;background:none;border:0;padding:0}
+.btn{background:rgba(19,29,42,.85);color:#e6eef6;border:2px solid #22313f;border-radius:10px;padding:8px 13px;
+ font-weight:700;font-size:12.5px;text-decoration:none;cursor:pointer}
+#src{bottom:14px;left:14px;min-width:250px}
+#src label{font-size:11px;color:#8598ab} #src select,#src input{width:100%;background:#131d2a;border:1px solid #22313f;
+ border-radius:8px;color:#e6eef6;font-family:var(--mono);padding:6px 8px;font-size:13px;margin-top:2px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.modebtn{display:flex;gap:6px;margin-bottom:8px}
+.modebtn button{flex:1;padding:6px;font-size:12px;border-radius:8px;border:2px solid #22313f;background:#131d2a;color:#8598ab;font-weight:700;cursor:pointer}
+.modebtn button.on{border-color:#37e8cf;color:#37e8cf}
+.mgo{width:100%;margin-top:8px;padding:8px;border-radius:8px;border:2px solid #37e8cf;background:rgba(55,232,207,.14);
+ color:#37e8cf;font-weight:800;font-size:13px;cursor:pointer}
+#m-spd{width:100%;margin-top:3px;accent-color:#37e8cf}
+.jog{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:9px}
+.jog span{display:block}
+.jog button{padding:9px 0;border-radius:8px;border:2px solid #22313f;background:#131d2a;color:#cfe0f0;
+ font-weight:800;font-size:13px;cursor:pointer;user-select:none;touch-action:none}
+.jog button:active{border-color:#37e8cf;color:#37e8cf}
+.jog button.stop{border-color:#e0774a;color:#e0956a}
+#lbls span{position:fixed;font-family:var(--mono);font-size:11px;color:#9fb4c8;background:rgba(10,16,24,.7);
+ padding:1px 6px;border-radius:5px;pointer-events:none;transform:translate(-50%,-50%);white-space:nowrap;display:none}
+/* ===== embed(대시보드 임베드) 전용 ===== */
+body.embed #hud,body.embed #src,body.embed #ctl,body.embed #lbls{display:none!important}
+#mini{display:none;position:fixed;top:10px;left:11px;color:#e6eef6}
+body.embed #mini{display:block}
+#mini .ms{font-family:var(--mono);font-weight:850;font-size:13px;color:#37e8cf}
+#mini .mg{display:flex;gap:12px;margin-top:3px}
+#mini .mg b{font-family:var(--mono);font-weight:850;font-size:15px}
+#mini .mg span{font-size:10px;color:#8598ab;display:block;letter-spacing:.03em}
+#mini .mb{margin-top:5px}
+#foot{display:none;position:fixed;right:10px;bottom:9px;font-family:var(--mono);font-size:10px;color:#5c718a}
+body.embed #foot{display:block}
+</style>
+<style>
+/* ── 미니앱(좁은 화면) 보정 — 패널이 안테나를 덮지 않게 ── */
+@media (max-width: 820px){
+  #hud, #src{
+    left:8px; right:8px; min-width:0; width:auto; padding:9px 11px;
+    background:rgba(8,14,22,.9); font-size:13px;
+    max-height:44vh; overflow:auto; -webkit-overflow-scrolling:touch;
+  }
+  #hud{top:8px}
+  #src{bottom:8px; top:auto}
+  #hud h1{font-size:15px; margin:0 0 7px}
+  .r{padding:3px 0; font-size:13px; gap:10px}
+  .r .v{font-size:14px}
+  .sec{font-size:11.5px; margin-top:7px}
+  .note{font-size:10.5px; line-height:1.4}
+  #ctl{top:8px; right:8px; gap:6px}
+  .btn{padding:6px 10px; font-size:11.5px}
+  .modebtn{padding:7px 8px; font-size:11.5px}
+  /* 접힘 상태 — 제목 줄만 남기고 감춘다 */
+  #hud.fold > *:not(h1):not(.foldbtn){display:none}
+  #hud.fold{max-height:none; padding-bottom:9px}
+  #src.fold > *:not(.foldbtn){display:none}
+  #src.fold{max-height:none; padding:7px 11px}
+  .foldbtn{position:absolute; top:6px; right:8px; z-index:5;
+    background:rgba(74,163,255,.22); color:#9fd0ff; border:1px solid rgba(74,163,255,.5);
+    border-radius:8px; padding:3px 9px; font-size:11px; font-weight:800; cursor:pointer}
+  #src .foldbtn{top:5px}
+}
+</style>
+<script>
+/* 좁은 화면에서는 두 패널을 접은 채로 시작한다 — 안테나가 먼저 보이게 */
+addEventListener("DOMContentLoaded", function(){
+  if(innerWidth > 820) return;
+  for(const [id, label] of [["hud","제원"],["src","조작"]]){
+    const el = document.getElementById(id); if(!el) continue;
+    el.classList.add("fold");
+    const b = document.createElement("div");
+    b.className = "foldbtn"; b.textContent = label + " 펼치기";
+    b.onclick = function(ev){ ev.stopPropagation();
+      const on = el.classList.toggle("fold");
+      b.textContent = label + (on ? " 펼치기" : " 접기"); };
+    el.appendChild(b);
+  }
+});
+</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<!-- 임베드용 컴팩트 오버레이 -->
+<div id="mini">
+ <div class="ms" id="mi-src">—</div>
+ <div class="mg"><div><span>방위 AZ</span><b id="mi-az">—</b></div><div><span>고도 EL</span><b id="mi-el">—</b></div></div>
+ <div class="mb"><span class="badge b-idle" id="mi-on">—</span></div>
+</div>
+<div id="foot">세종 22m · 로컬 계산 구동</div>
+
+<!-- 전체페이지 HUD -->
+<div class="pnl" id="hud">
+ <h1>세종 22m 안테나 (KVGSJ)</h1>
+ <div class="r"><span class="k">위경도</span><span class="v" id="h-site">—</span></div>
+ <div class="sec"><div class="t">구동 (수평각/수직각)</div>
+  <div class="r"><span class="k">방위 Az</span><span class="v" id="h-az">—</span></div>
+  <div class="r"><span class="k">고도 El</span><span class="v" id="h-el">—</span></div>
+  <div class="r"><span class="k">지향</span><span class="v" id="h-on">—</span></div></div>
+ <div class="sec"><div class="t">관측 좌표 (적경/적위)</div>
+  <div class="r"><span class="k">소스</span><span class="v" id="h-src">—</span></div>
+  <div class="r"><span class="k">적경 RA</span><span class="v" id="h-ra">—</span></div>
+  <div class="r"><span class="k">적위 Dec</span><span class="v" id="h-dec">—</span></div>
+  <div class="r"><span class="k">LST / HA</span><span class="v" id="h-lst">—</span></div>
+  <div class="r"><span class="k">실측 Az/El</span><span class="v" id="h-act">—</span></div></div>
+ <div class="note" id="h-note"></div>
+</div>
+<div class="pnl" id="src">
+ <div class="modebtn"><button id="m-live" class="on" onclick="setMode('live')">실제 추종</button>
+  <button id="m-calc" onclick="setMode('calc')">적경적위</button>
+  <button id="m-man" onclick="setMode('man')">수동 구동</button></div>
+ <div id="cblk">
+  <label>관측 소스</label>
+  <select id="srcSel" onchange="pickSrc()"></select>
+  <div class="row2" style="margin-top:6px">
+   <div><label>적경 RA (deg)</label><input id="in-ra" value="350.85" onchange="setMode('calc')"></div>
+   <div><label>적위 Dec (deg)</label><input id="in-dec" value="58.81" onchange="setMode('calc')"></div>
+  </div>
+ </div>
+ <div id="mblk" style="display:none">
+  <div class="row2">
+   <div><label>목표 방위 Az (deg)</label><input id="m-az" value="180"></div>
+   <div><label>목표 고도 El (deg)</label><input id="m-el" value="45"></div>
+  </div>
+  <button class="mgo" onclick="manApply()">▶ 구동 (설정 속도로 경로 이동)</button>
+  <label style="margin-top:9px;display:block">구동 속도 <b id="m-spd-l" style="color:#37e8cf">3.0</b> °/s</label>
+  <input type="range" id="m-spd" min="0.2" max="20" step="0.1" value="3" oninput="manSpd()">
+  <div class="jog">
+   <span></span><button onmousedown="jog(0,1)" ontouchstart="jog(0,1)" onmouseup="jogStop()" onmouseleave="jogStop()" ontouchend="jogStop()">El ▲</button><span></span>
+   <button onmousedown="jog(-1,0)" ontouchstart="jog(-1,0)" onmouseup="jogStop()" onmouseleave="jogStop()" ontouchend="jogStop()">◀ Az</button>
+   <button class="stop" onclick="manStop()">■ 정지</button>
+   <button onmousedown="jog(1,0)" ontouchstart="jog(1,0)" onmouseup="jogStop()" onmouseleave="jogStop()" ontouchend="jogStop()">Az ▶</button>
+   <span></span><button onmousedown="jog(0,-1)" ontouchstart="jog(0,-1)" onmouseup="jogStop()" onmouseleave="jogStop()" ontouchend="jogStop()">El ▼</button><span></span>
+  </div>
+ </div>
+ <div class="note" id="src-note">실제 추종: /api/all 캐시(SSH 무부하)의 실측 Az/El. 계산: RA/Dec→LST→HA→Az/El 항성시 추적. 수동: 목표각 이동 또는 속도·방향 조그.</div>
+</div>
+<div id="ctl" class="pnl"><button class="btn" onclick="toggleLbl()">부품명</button><a class="btn" href="/perf.html">← 성능</a></div>
+<div id="lbls">
+ <span data-p="feed">피드</span><span data-p="sub">부반사기</span><span data-p="dish">주반사판 22m</span>
+ <span data-p="quad">Quadripod</span><span data-p="bus">BUS(백업구조)</span><span data-p="rx">Receiver Room</span>
+ <span data-p="elax">고각축(Elevation)</span><span data-p="cw">Counter Weight</span><span data-p="yoke">Yoke</span>
+ <span data-p="cone">Cone(받침대)</span><span data-p="found">Foundation</span>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+const T=THREE, D2R=Math.PI/180, R2D=180/Math.PI;
+const LAT=36.5219, LON=127.3025;   // 세종 KVGSJ 측지좌표
+const EMBED=new URLSearchParams(location.search).has('embed');
+if(EMBED)document.body.classList.add('embed');
+const $=id=>document.getElementById(id);
+if($('h-site'))$('h-site').textContent=LAT.toFixed(3)+'N '+LON.toFixed(3)+'E';
+
+// ===================== 씬 / 렌더러 =====================
+const scene=new T.Scene();
+if(!EMBED)scene.fog=new T.Fog(0x0a1120,240,560);
+const cam=new T.PerspectiveCamera(38, innerWidth/innerHeight, 0.5, 1200);
+const rn=new T.WebGLRenderer({canvas:$('c'),antialias:true,alpha:true});
+rn.setSize(innerWidth,innerHeight); rn.setPixelRatio(Math.min(devicePixelRatio,2));
+rn.setClearColor(0x000000,0);
+rn.shadowMap.enabled=true; rn.shadowMap.type=T.PCFSoftShadowMap;
+if('outputEncoding' in rn)rn.outputEncoding=T.sRGBEncoding;
+if('physicallyCorrectLights' in rn)rn.physicallyCorrectLights=false;
+
+// 조명: 하늘/지면 반구광 + 주광(그림자) + 냉색 보조광 + 림광
+scene.add(new T.HemisphereLight(0xcadcf2,0x1a2431,0.62));
+const sun=new T.DirectionalLight(0xfff4e0,1.35); sun.position.set(46,72,34); sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048); sun.shadow.bias=-0.0004;
+Object.assign(sun.shadow.camera,{left:-60,right:60,top:70,bottom:-30,near:1,far:240}); sun.shadow.camera.updateProjectionMatrix();
+scene.add(sun);
+const fill=new T.DirectionalLight(0x88aaff,0.35); fill.position.set(-52,34,-30); scene.add(fill);
+const rim=new T.DirectionalLight(0xbfd0ff,0.30); rim.position.set(-10,26,-60); scene.add(rim);
+
+// 간이 환경맵(하늘→지면 그라디언트) — 매끈한 반사경/금속이 부드럽게 반사
+(function(){const cv=document.createElement('canvas');cv.width=16;cv.height=256;const g=cv.getContext('2d');
+ const gr=g.createLinearGradient(0,0,0,256);
+ gr.addColorStop(0,'#7f97b8');gr.addColorStop(.42,'#3d506c');
+ gr.addColorStop(.62,'#20304a');gr.addColorStop(1,'#080d16');
+ g.fillStyle=gr;g.fillRect(0,0,16,256);
+ const tex=new T.CanvasTexture(cv);tex.mapping=T.EquirectangularReflectionMapping;
+ const pm=new T.PMREMGenerator(rn);scene.environment=pm.fromEquirectangular(tex).texture;pm.dispose();tex.dispose();})();
+
+// 지면(콘크리트 패드) + 그리드 + 나침반
+const pad=new T.Mesh(new T.CylinderGeometry(19,19,0.7,72),
+  new T.MeshStandardMaterial({color:0x141b26,roughness:.98,metalness:.02}));
+pad.position.y=-0.35; pad.receiveShadow=true; scene.add(pad);
+const ground=new T.Mesh(new T.CircleGeometry(240,72),
+  new T.MeshStandardMaterial({color:0x0c121b,roughness:1}));
+ground.rotation.x=-Math.PI/2; ground.position.y=-0.72; ground.receiveShadow=true; scene.add(ground);
+const grid=new T.GridHelper(240,60,0x22344a,0x16202e); grid.position.y=-0.68; scene.add(grid);
+// 나침반 (N=-Z, E=+X, S=+Z, W=-X : Az=0→North, Az=90→East)
+(function(){function tag(txt,col,x,z){const s=256,cv=document.createElement('canvas');cv.width=cv.height=s;
+  const g=cv.getContext('2d');g.clearRect(0,0,s,s);g.fillStyle=col;g.font='bold 150px sans-serif';
+  g.textAlign='center';g.textBaseline='middle';g.fillText(txt,s/2,s/2+8);
+  const m=new T.MeshBasicMaterial({map:new T.CanvasTexture(cv),transparent:true,depthWrite:false});
+  const p=new T.Mesh(new T.PlaneGeometry(2.4,2.4),m);p.rotation.x=-Math.PI/2;p.position.set(x,-0.64,z);scene.add(p);}
+ tag('N','#5fb8ff',0,-17);tag('E','#8fa3ba',17,0);tag('S','#8fa3ba',0,17);tag('W','#8fa3ba',-17,0);})();
+
+// ===================== 재질 =====================
+const dishTex=(function(){  // 패널 게이지(방사 게이트 + 동심 링) — 매끈 유지, 조립 패널감
+  const s=1024,cv=document.createElement('canvas');cv.width=cv.height=s;const g=cv.getContext('2d');
+  g.fillStyle='#eaf0f7';g.fillRect(0,0,s,s);
+  g.strokeStyle='rgba(120,140,168,.5)';g.lineWidth=1.4;
+  for(let i=1;i<8;i++){const y=s*i/8;g.beginPath();g.moveTo(0,y);g.lineTo(s,y);g.stroke();}  // 링(반경)
+  for(let i=0;i<56;i++){const x=s*i/56;g.beginPath();g.moveTo(x,0);g.lineTo(x,s);g.stroke();}  // 게이트(방위)
+  const t=new T.CanvasTexture(cv);t.anisotropy=8;return t;})();
+const panel =new T.MeshStandardMaterial({color:0xffffff,map:dishTex,metalness:.16,roughness:.34,side:T.DoubleSide});
+const panelBk=new T.MeshStandardMaterial({color:0xdbe4ee,metalness:.2,roughness:.5,side:T.DoubleSide});
+const structL=new T.MeshStandardMaterial({color:0xb2bcc7,metalness:.35,roughness:.5});
+const structM=new T.MeshStandardMaterial({color:0x7c8a99,metalness:.5,roughness:.45});
+const structD=new T.MeshStandardMaterial({color:0x515e6c,metalness:.5,roughness:.5});
+const steel  =new T.MeshStandardMaterial({color:0x8b98a6,metalness:.82,roughness:.3});
+const steelD =new T.MeshStandardMaterial({color:0x596471,metalness:.7,roughness:.4});
+const metalW =new T.MeshStandardMaterial({color:0xd9e2ea,metalness:.72,roughness:.24,side:T.DoubleSide});
+const concrete=new T.MeshStandardMaterial({color:0x323c48,metalness:.05,roughness:.96});
+const warn   =new T.MeshStandardMaterial({color:0xd8a53a,metalness:.55,roughness:.4});
+
+function mesh(g,m,par){const o=new T.Mesh(g,m);o.castShadow=true;o.receiveShadow=true;(par||scene).add(o);return o;}
+const YUP=new T.Vector3(0,1,0);
+function strut(a,b,rad,mat,par){const dir=new T.Vector3().subVectors(b,a),len=dir.length();
+  const m=mesh(new T.CylinderGeometry(rad,rad,len,10),mat||steel,par);
+  m.position.copy(a).add(b).multiplyScalar(0.5); m.quaternion.setFromUnitVectors(YUP,dir.clone().normalize()); return m;}
+function box(w,h,d,mat,par,x,y,z){const m=mesh(new T.BoxGeometry(w,h,d),mat,par);m.position.set(x||0,y||0,z||0);return m;}
+
+// ===================== 도면 기반 구조 (m). 디시 22m =====================
+// 주반사경을 마운트 대비 확대(직경 22m 실척감) — R/F 동반 확대로 f/D 유지, 부속 광학 자동 스케일
+const R=28.0, F=20.4, rimY=R*R/(4*F);       // 주반사경 확대(마운트 대비 크되 과하지 않게), f/D=F/R≈0.73 유지
+const parts={};
+
+// Foundation(기초 건물) + Cone(콘크리트 받침대)
+parts.found=mesh(new T.CylinderGeometry(6.6,7.2,4.4,48), concrete); parts.found.position.y=1.9;
+// 건물 창/디테일 링
+mesh(new T.TorusGeometry(6.85,0.12,8,48), structD).position.y=3.4;
+parts.cone=mesh(new T.CylinderGeometry(3.7,5.6,8.6,48), structL); parts.cone.position.y=8.4;
+for(let k=0;k<8;k++){const a=k/8*Math.PI*2;                       // 받침대 수직 리브
+  const rb=mesh(new T.BoxGeometry(0.35,8.6,0.7),structM);rb.position.set(Math.cos(a)*4.6,8.4,Math.sin(a)*4.6);rb.lookAt(0,8.4,0);}
+mesh(new T.CylinderGeometry(3.9,3.9,1.1,48), steelD).position.y=13.0;   // AZ 하부 링
+
+// ===== AZ 회전 그룹 =====
+const azG=new T.Group(); azG.position.y=13.5; scene.add(azG);
+mesh(new T.CylinderGeometry(3.6,3.9,1.3,48), steel, azG).position.y=0.65;   // 턴헤드/AZ 베어링
+mesh(new T.TorusGeometry(3.75,0.16,10,48), warn, azG).position.y=1.25;      // 베어링 상단 링(악센트)
+// Yoke(요크) 하부 플랫폼
+box(12.4,1.9,6.2, structL, azG, 0,2.1,0);
+box(11.0,0.5,5.4, structM, azG, 0,3.15,0);
+// 요크 두 팔(고각 베어링까지 상승, 살짝 안쪽 기움)
+const elPivotY=8.6;                       // azG 로컬 기준 고각축 높이
+for(const sx of[-1,1]){
+  const arm=mesh(new T.BoxGeometry(2.5,elPivotY-2.4,4.6), structL, azG);
+  arm.position.set(sx*5.15,(elPivotY+2.9)/2+0.15,0);
+  parts.yoke=arm;
+  mesh(new T.CylinderGeometry(1.75,1.75,1.3,28), steel, azG)  // 고각 베어링 하우징
+    .position.set(sx*5.15,elPivotY,0);
+  mesh(new T.CylinderGeometry(1.75,1.75,1.3,28), steel, azG).rotation.z=Math.PI/2;
+  const bh=azG.children[azG.children.length-1]; bh.position.set(sx*5.15,elPivotY,0);
+}
+
+// ===== EL 회전 그룹 (고각축) =====
+const elG=new T.Group(); elG.position.set(0,elPivotY,0); azG.add(elG);
+parts.elax=mesh(new T.CylinderGeometry(0.85,0.85,11.6,24), steel, elG); parts.elax.rotation.z=Math.PI/2;
+// 고각 섹터 기어(양측 큰 부채꼴)
+for(const sx of[-1,1]){const sec=mesh(new T.TorusGeometry(4.2,0.32,10,40,Math.PI*0.9), structD, elG);
+  sec.position.x=sx*4.9; sec.rotation.y=Math.PI/2; sec.rotation.z=-Math.PI*0.2;}
+
+// ----- 디시 조립(elG 자식). El=90 → 개방면 +Y(천정) -----
+// 반사경을 고각축 앞으로 오프셋 → El축·섹터기어 등 구동부가 반사면 뒤로 숨음(앞면 매끈)
+const dishA=new T.Group(); dishA.position.y=2.2; elG.add(dishA);
+
+// 주반사판(포물면) — 매끈한 반사경, 고해상도 + 부드러운 노멀 + 패널 게이지
+const prof=[]; for(let i=0;i<=220;i++){const r=R*i/220; prof.push(new T.Vector2(r, r*r/(4*F)));}
+const dishGeo=new T.LatheGeometry(prof,220); dishGeo.computeVertexNormals();
+parts.dish=mesh(dishGeo, panel, dishA);
+// 얇은 외곽 림
+const rimR=mesh(new T.TorusGeometry(R,0.11,14,220), structL, dishA); rimR.rotation.x=Math.PI/2; rimR.position.y=rimY;
+
+// BUS(백업 구조): 방사형 리브 + 동심 후프링 (뒤 = -Y)
+const busHub=new T.Vector3(0,-3.0,0);
+for(let k=0;k<28;k++){const a=k/28*Math.PI*2;
+  const ro=R*0.965, yo=ro*ro/(4*F);
+  const p=new T.Vector3(Math.cos(a)*ro,yo,Math.sin(a)*ro);
+  strut(p,busHub,0.055,structD,dishA);
+  const mid=new T.Vector3(Math.cos(a)*ro*0.55,(ro*0.55)**2/(4*F),Math.sin(a)*ro*0.55);
+  strut(p,new T.Vector3(Math.cos((k+1)/28*Math.PI*2)*ro,yo,Math.sin((k+1)/28*Math.PI*2)*ro),0.03,structM,dishA);}
+for(const rr of[R*0.42,R*0.72,R*0.94]){const ring=mesh(new T.TorusGeometry(rr,0.05,8,80),structM,dishA);
+  ring.rotation.x=Math.PI/2; ring.position.y=rr*rr/(4*F)-0.35;}
+parts.bus=mesh(new T.CylinderGeometry(1.4,1.9,1.2,20),structD,dishA); parts.bus.position.y=-2.9;
+
+// Receiver Room(정점 뒤 수신기실) — 정점보다 확실히 뒤(-Y)로 배치해 반사면에 안 비치게
+parts.rx=box(4.2,3.0,4.2, structL, dishA, 0,-3.2,0);
+box(4.5,0.4,4.5, structM, dishA, 0,-4.7,0);
+mesh(new T.BoxGeometry(1.3,1.7,0.15),steelD,dishA).position.set(0,-3.2,2.15);  // 도어
+
+// Quadripod(4각) — 뿌리 넓고 정점 좁은 테이퍼 트러스
+const apex=new T.Vector3(0,F+0.2,0);
+const legFoot=[];
+for(let k=0;k<4;k++){const a=k/4*Math.PI*2+Math.PI/4;
+  const ro=R*0.80, yo=ro*ro/(4*F);
+  const foot=new T.Vector3(Math.cos(a)*ro,yo,Math.sin(a)*ro); legFoot.push(foot);
+  strut(foot,apex,0.17,steel,dishA);
+  // 각 다리 보조 현재
+  const kn=new T.Vector3().lerpVectors(foot,apex,0.5);
+  strut(new T.Vector3(Math.cos(a)*ro*0.9,yo*0.9+0.3,Math.sin(a)*ro*0.9),kn,0.06,steelD,dishA);}
+parts.quad=dishA.children[dishA.children.length-1];
+// 다리 사이 링 브레이싱(중간 높이)
+for(let k=0;k<4;k++){const m1=new T.Vector3().lerpVectors(legFoot[k],apex,0.5);
+  const m2=new T.Vector3().lerpVectors(legFoot[(k+1)%4],apex,0.5); strut(m1,m2,0.05,steelD,dishA);}
+// 정점 허브
+mesh(new T.CylinderGeometry(1.05,1.25,0.9,24), steel, dishA).position.y=F+0.2;
+
+// Subreflector(카세그레인 볼록 쌍곡면, 아래=디시쪽 향함) + 지지 링
+const subP=[]; for(let i=0;i<=24;i++){const r=1.85*i/24; subP.push(new T.Vector2(r, 0.42*r*r/1.85));}
+parts.sub=mesh(new T.LatheGeometry(subP,48), metalW, dishA);
+parts.sub.position.y=F+0.5; parts.sub.rotation.x=Math.PI;   // 볼록면이 디시(-Y)쪽
+mesh(new T.TorusGeometry(1.85,0.09,10,48), steel, dishA).position.y=F+0.5;
+// Hexapod(부반사경 6각 조정 지지대)
+for(let k=0;k<6;k++){const a=k/6*Math.PI*2;
+  strut(new T.Vector3(Math.cos(a)*1.05,F-0.5,Math.sin(a)*1.05),
+        new T.Vector3(Math.cos(a+0.5)*1.6,F+0.35,Math.sin(a+0.5)*1.6),0.05,warn,dishA);}
+
+// Feed(피드 혼: 정점 홀에서 부반사경 향해 위로)
+parts.feed=mesh(new T.CylinderGeometry(0.42,0.72,1.6,28), warn, dishA); parts.feed.position.y=F-2.2;
+mesh(new T.CylinderGeometry(0.72,0.72,0.3,28), steel, dishA).position.y=F-1.35;
+
+// ===================== 카메라(간이 오빗) =====================
+// 북쪽(-Z)을 화면 왼쪽에 고정: camPh=π. 자동회전 없음(드래그로만 회전)
+let camR=EMBED?142:156, camTh=EMBED?0.45*Math.PI:0.40*Math.PI, camPh=Math.PI;
+const tgt=new T.Vector3(0,EMBED?22:23,0);
+function updCam(){cam.position.set(tgt.x+camR*Math.sin(camTh)*Math.cos(camPh),
+  tgt.y+camR*Math.cos(camTh), tgt.z+camR*Math.sin(camTh)*Math.sin(camPh)); cam.lookAt(tgt);}
+let drag=false,px=0,py=0;
+addEventListener('pointerdown',e=>{drag=true;px=e.clientX;py=e.clientY;});
+addEventListener('pointerup',()=>drag=false);
+addEventListener('pointermove',e=>{if(!drag)return;camPh-=(e.clientX-px)*0.006;
+  camTh=Math.max(0.1,Math.min(1.4,camTh-(e.clientY-py)*0.006));px=e.clientX;py=e.clientY;});
+addEventListener('wheel',e=>{camR=Math.max(50,Math.min(340,camR+e.deltaY*0.07));dirty=true;},{passive:true});
+addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();rn.setSize(innerWidth,innerHeight);dirty=true;});
+addEventListener('pointermove',()=>{if(drag)dirty=true;});
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)dirty=true;});
+
+// ===================== 적경/적위 → Az/El (세종 측지좌표) =====================
+function raDecToAzEl(raDeg,decDeg,ms){
+  const JD=ms/86400000+2440587.5, Tt=(JD-2451545)/36525;
+  let g=280.46061837+360.98564736629*(JD-2451545)+0.000387933*Tt*Tt; g=((g%360)+360)%360;
+  const lst=((g+LON)%360+360)%360; let ha=((lst-raDeg)%360+360)%360; if(ha>180)ha-=360;
+  const la=LAT*D2R,de=decDeg*D2R,H=ha*D2R;
+  const el=Math.asin(Math.sin(de)*Math.sin(la)+Math.cos(de)*Math.cos(la)*Math.cos(H))*R2D;
+  let az=Math.atan2(-Math.cos(de)*Math.sin(H),Math.sin(de)*Math.cos(la)-Math.cos(de)*Math.sin(la)*Math.cos(H))*R2D;
+  return {az:(az%360+360)%360, el, lst:lst/15, ha:ha/15};
+}
+const PRESET={'Cas A':[350.850,58.815],'Cyg A':[299.868,40.734],'Tau A(게성운)':[83.633,22.015],
+ 'Vir A':[187.706,12.391],'3C273':[187.278,2.052],'Sgr A*':[266.417,-29.008]};
+let MODE='live', LIVE={az:null,el:null,onsrc:'',source:'',exp:'',observing:false};
+let CURSRC=null, CUREXP='';
+function fillSel(cur){const s=$('srcSel'); if(!s)return; let o='';
+ if(cur)o+=`<option value="cur">현재 관측 소스: ${cur}</option>`;
+ for(const k in PRESET)o+=`<option value="${k}">${k}</option>`; s.innerHTML=o; if(cur)s.value='cur';}
+function pickSrc(){const v=$('srcSel').value;
+ if(v==='cur'&&CURSRC){$('in-ra').value=CURSRC.ra.toFixed(3);$('in-dec').value=CURSRC.dec.toFixed(3);$('h-src').textContent=CURSRC.name;}
+ else if(PRESET[v]){$('in-ra').value=PRESET[v][0];$('in-dec').value=PRESET[v][1];$('h-src').textContent=v;}
+ setMode('calc');}
+function setMode(m,keep){MODE=m;
+ for(const b of['live','calc','man'])if($('m-'+b))$('m-'+b).className=(m===b?'on':'');
+ if($('cblk'))$('cblk').style.display=(m==='calc'?'block':'none');
+ if($('mblk'))$('mblk').style.display=(m==='man'?'block':'none');
+ if(m==='man'){lastT=null; jogStop();
+  if(!keep){manAz=normAz(cAz);manEl=Math.max(0,Math.min(90,cEl));   // 진입 시 현재 위치에서 시작
+   if($('m-az'))$('m-az').value=manAz.toFixed(1); if($('m-el'))$('m-el').value=manEl.toFixed(1);}}}
+// ── 수동 구동(속도·방위각·수직각 설정 → 구동 시 경로 이동, 또는 방향 조그) ──
+let jogAz=0,jogEl=0,jogSpeed=3,manAz=180,manEl=45,lastT=null,gotoOn=false,gAz=180,gEl=45;
+function jog(daz,del){if(MODE!=='man')setMode('man');gotoOn=false;jogAz=daz;jogEl=del;}
+function jogStop(){jogAz=0;jogEl=0;}
+function manStop(){jogStop();gotoOn=false;}                       // 정지: 조그+구동 모두 정지
+function manApply(){const a=parseFloat($('m-az').value),e=parseFloat($('m-el').value);   // 구동: 목표각으로 경로 이동
+ if(Number.isFinite(a))gAz=normAz(a); if(Number.isFinite(e))gEl=Math.max(0,Math.min(90,e));
+ gotoOn=true; jogStop(); setMode('man',true);}
+function manSpd(){jogSpeed=parseFloat($('m-spd').value);$('m-spd-l').textContent=jogSpeed.toFixed(1);}
+
+// ── /api/all (백그라운드 캐시, SSH 무부하) 에서 실측 Az/El·소스·exp ──
+async function poll(){
+ try{
+  const s=await(await fetch('https://gist.githubusercontent.com/sangoh-yi/5404bef7f8d5b9f4e8d2824515fc8728/raw/kvgcs_status.json?t='+Date.now())).json();
+  const d={exp:s.exp}, l={az:s.az,el:s.el,onsrc:s.onsrc,source:s.source,observing:s.observing,exp:s.live_exp};
+  LIVE.az=parseFloat(l.az);LIVE.el=parseFloat(l.el);LIVE.onsrc=l.onsrc||'';
+  LIVE.source=l.source||'';LIVE.observing=!!l.observing; LIVE.exp=(d.exp||l.exp||'').toLowerCase();
+  if($('h-on'))$('h-on').innerHTML='<span class="badge '+(l.onsrc==='On-Source'?'b-ok':'b-warn')+'">'+(l.onsrc||'—')+'</span>';
+  if($('h-act'))$('h-act').textContent=(Number.isFinite(LIVE.az)?LIVE.az.toFixed(1):'—')+'° / '+(Number.isFinite(LIVE.el)?LIVE.el.toFixed(1):'—')+'°';
+  // 현재 세션 스케줄에서 현재 스캔 소스 RA/Dec (로컬 파일, SSH 무부하). exp 바뀌면 재취득
+  if(false){
+   try{const s=await(await fetch('/api/globe/schedule?code='+encodeURIComponent(LIVE.exp))).json();
+    const sc=s.scans||[]; if(sc.length){const nowMjd=Date.now()/86400000+40587; let best=sc[0];
+     for(const x of sc)if(x.mjd<=nowMjd)best=x; CURSRC={name:best.source,ra:best.raDeg,dec:best.decDeg}; fillSel(best.source);}}catch(e){}
+  }
+  if(!LIVE.exp||LIVE.exp==='none'){CURSRC=null;CUREXP='';}
+  dirty=true;                                          // 새 데이터 → 1회 재렌더
+ }catch(e){}
+}
+poll(); setInterval(poll,15000); fillSel(null);         // 15s 폴링(캐시된 /api/all — KVGCS 무부하)
+
+// 부품명 라벨(전체페이지)
+const LBL=$('lbls');let showLbl=false;
+function toggleLbl(){showLbl=!showLbl;for(const s of LBL.children)s.style.display=showLbl?'block':'none';}
+const v3=new T.Vector3();
+function projLbls(){if(!showLbl)return;for(const s of LBL.children){const p=parts[s.dataset.p];if(!p)continue;
+ p.getWorldPosition(v3);v3.project(cam);s.style.left=(v3.x*.5+.5)*innerWidth+'px';s.style.top=(-v3.y*.5+.5)*innerHeight+'px';
+ s.style.display=(v3.z<1)?'block':'none';}}
+
+// ===================== 구동 루프 =====================
+let tAz=180,tEl=80,cAz=180,cEl=80;
+// 온디맨드 렌더: 움직이거나 상호작용/데이터갱신 때만 그림 그리기 + 숨김 시 완전정지(로컬 부하 최소화)
+let _lastF=0,_lastR=0,dirty=true;
+function loop(ts){requestAnimationFrame(loop);
+ if(document.hidden)return;                           // 탭/창 숨김 → 렌더·계산 정지
+ ts=ts||performance.now(); if(ts-_lastF<42)return; _lastF=ts;   // ~24fps 상한
+ let note='', srcName='—', ra=null,dec=null, idle=false;
+ if(MODE==='calc'){
+  ra=parseFloat(($('in-ra')||{}).value);dec=parseFloat(($('in-dec')||{}).value);
+  if(Number.isFinite(ra)&&Number.isFinite(dec)){const c=raDecToAzEl(ra,dec,Date.now());
+   if(c.el>0){tAz=c.az;tEl=c.el;}
+   if($('h-ra')){$('h-ra').textContent=ra.toFixed(3)+'°';$('h-dec').textContent=dec.toFixed(3)+'°';
+    $('h-lst').textContent=fmtH(c.lst)+' / '+c.ha.toFixed(2)+'h';}
+   note=c.el<=0?'지평선 아래 (관측 불가)':'계산 Az/El · 항성시 추적';}
+  srcName=($('h-src')||{}).textContent||'—';
+ }else if(MODE==='man'){ // 수동 구동 — 설정 속도로 목표각 경로 이동 또는 방향 조그
+  const now=performance.now(); if(lastT==null)lastT=now; const dt=Math.min(0.12,(now-lastT)/1000); lastT=now;
+  const step=jogSpeed*dt;
+  if(jogAz||jogEl){ gotoOn=false;                                    // 조그(연속 이동)
+   manAz=normAz(manAz+jogAz*step); manEl=Math.max(0,Math.min(90,manEl+jogEl*step));
+  }else if(gotoOn){                                                  // 구동(목표각까지 경로 이동)
+   const dA=shortest(manAz,gAz), dE=gEl-manEl;
+   manAz=Math.abs(dA)<=step?gAz:normAz(manAz+Math.sign(dA)*step);
+   manEl=Math.abs(dE)<=step?gEl:manEl+Math.sign(dE)*step;
+   if(manAz===gAz&&manEl===gEl)gotoOn=false;
+  }
+  tAz=manAz; tEl=manEl; srcName='수동 구동';
+  if(gotoOn||jogAz||jogEl)dirty=true;   // MAN은 cAz=tAz 스냅이라 moving 게이트가 안 걸림 → 구동 중 매 프레임 렌더
+  note='수동 구동 · '+jogSpeed.toFixed(1)+'°/s'+(gotoOn?(' → '+gAz.toFixed(0)+'°/'+gEl.toFixed(0)+'° 구동중'):((jogAz||jogEl)?' (조그중)':' (정지)'));
+ }else{ // 실제 안테나 추종
+  if(Number.isFinite(LIVE.az)&&Number.isFinite(LIVE.el)){tAz=LIVE.az;tEl=LIVE.el; note='실측 Az/El(실제 안테나)';}
+  else if(CURSRC){const c=raDecToAzEl(CURSRC.ra,CURSRC.dec,Date.now());
+   if(c.el>0){tAz=c.az;tEl=c.el;} ra=CURSRC.ra;dec=CURSRC.dec; note='계산 추종('+CURSRC.name+')';}
+  else{tEl=85; idle=true; note='유휴 — 대기(스토우)';}
+  srcName=CURSRC?CURSRC.name:cleanSrc(LIVE.source);
+  if($('h-ra')&&ra!=null){$('h-ra').textContent=ra.toFixed(3)+'°';$('h-dec').textContent=dec.toFixed(3)+'°';}
+ }
+ // 슬루(수동=설정 속도로 직접 구동, 그 외 부드럽게)
+ if(MODE==='man'){cAz=tAz;cEl=tEl;} else {cAz+=shortest(cAz,tAz)*0.06; cEl+=(tEl-cEl)*0.06;}
+ azG.rotation.y=D2R*(-cAz); elG.rotation.x=D2R*(cEl-90);
+ // 표시각: 실제 안테나 추종 시 KVGCS 실측 원값(360° 초과도 그대로) → 대시보드=KVGCS 동일 표기
+ const liveAz=(MODE==='live'&&Number.isFinite(LIVE.az)), liveEl=(MODE==='live'&&Number.isFinite(LIVE.el));
+ const azTxt=(liveAz?LIVE.az:cAz).toFixed(1), elTxt=(liveEl?LIVE.el:cEl).toFixed(1);
+ if($('h-az')){$('h-az').textContent=azTxt+'°';$('h-el').textContent=elTxt+'°';
+  if($('h-src'))$('h-src').textContent=srcName; if($('h-note'))$('h-note').innerHTML=badge(note,idle);}
+ if(EMBED){$('mi-src').textContent=srcName; $('mi-az').textContent=azTxt+'°'; $('mi-el').textContent=elTxt+'°';
+  $('mi-on').className='badge '+(idle?'b-idle':(LIVE.onsrc==='On-Source'?'b-ok':(LIVE.observing?'b-warn':'b-idle')));
+  $('mi-on').textContent=idle?'대기(스토우)':(LIVE.onsrc||(LIVE.observing?'관측 중':'추종'));}
+ // 온디맨드: 슬루 중·드래그·데이터갱신·저속 하트비트(항성시 드리프트)일 때만 렌더
+ const moving=Math.abs(shortest(cAz,tAz))>0.02||Math.abs(tEl-cEl)>0.02;
+ if(dirty||moving||drag||ts-_lastR>2500){ updCam(); projLbls(); rn.render(scene,cam); _lastR=ts; dirty=false; }
+}
+function badge(txt,idle){const c=/불가|아래/.test(txt)?'b-warn':(idle?'b-idle':'b-ok');
+  return '<span class="badge '+c+'">'+txt+'</span>';}
+function cleanSrc(s){s=(s||'').trim();return(!s||s==='?'||s==='none')?'—':s;}
+function normAz(a){return ((a%360)+360)%360;}
+function shortest(a,b){return ((b-a)%360+540)%360-180;}
+function fmtH(h){const H=Math.floor(h),M=Math.floor((h-H)*60);return (H<10?'0':'')+H+':'+(M<10?'0':'')+M;}
+updCam(); loop();
+</script>
+</body></html>
