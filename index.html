@@ -6,21 +6,37 @@
 <title>세종 VLBI 관측 현황</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
-  :root{
+  /* ── 테마 — [테마] 탭에서 고르면 <html data-theme> 로 갈린다. 기본은 기기 설정 따라감 ── */
+  :root, [data-theme="dark"]{
     --bg:#080e16;--bg2:#0d1723;--card:#121d2c;--card2:#162435;--line:#22344c;
     --tx:#e9f1fa;--dim:#8ba0b8;--navy:#4aa3ff;--gold:#eab94a;--ok:#2fd982;--warn:#f5a83c;--bad:#ff5f54;
+    --scan:.035;
   }
   @media (prefers-color-scheme:light){
-    :root{--bg:#eaeff7;--bg2:#e1e8f2;--card:#fff;--card2:#f4f7fb;--line:#d7e1ee;
+    :root:not([data-theme]){--bg:#eaeff7;--bg2:#e1e8f2;--card:#fff;--card2:#f4f7fb;--line:#d7e1ee;
       --tx:#0d1825;--dim:#5b6d85;--navy:#1670d6;--gold:#b3860f;--ok:#10a45b;--warn:#d18a10;--bad:#db392e;}
   }
+  [data-theme="light"]{--bg:#eaeff7;--bg2:#e1e8f2;--card:#fff;--card2:#f4f7fb;--line:#d7e1ee;
+    --tx:#0d1825;--dim:#5b6d85;--navy:#1670d6;--gold:#b3860f;--ok:#10a45b;--warn:#d18a10;--bad:#db392e;--scan:.02;}
+  /* 관제실 — 검정 바탕에 앰버, 야간 당직에 눈이 편하다 */
+  [data-theme="ops"]{--bg:#000;--bg2:#0a0906;--card:#12100a;--card2:#191509;--line:#3b3110;
+    --tx:#ffd98a;--dim:#a38a4e;--navy:#ffb340;--gold:#ffd24a;--ok:#8fd14f;--warn:#ffa726;--bad:#ff5f52;--scan:.06;}
+  /* 심야 — 명암을 낮춰 어두운 방에서 눈부시지 않게 */
+  [data-theme="night"]{--bg:#04070b;--bg2:#070c12;--card:#0b1119;--card2:#0f1620;--line:#18232f;
+    --tx:#b9c6d4;--dim:#68788a;--navy:#3f7fbf;--gold:#b08f45;--ok:#3f9e68;--warn:#b8863a;--bad:#b8564e;--scan:.02;}
+  /* 청사진 — 남색 계열 단색, 보고·시연용 */
+  [data-theme="blueprint"]{--bg:#071a2b;--bg2:#0a2338;--card:#0d2b44;--card2:#12354f;--line:#1d4a6e;
+    --tx:#dcecf8;--dim:#8fb2cc;--navy:#5cc8ff;--gold:#ffd98a;--ok:#4fd6a0;--warn:#ffc46b;--bad:#ff7b72;--scan:.05;}
+  /* 종이 — 밝은 배경, 인쇄·회의 화면 공유용 */
+  [data-theme="paper"]{--bg:#f6f4ee;--bg2:#efece3;--card:#fff;--card2:#f7f5f0;--line:#ded9cc;
+    --tx:#22201b;--dim:#6b6558;--navy:#1c5fa8;--gold:#96701a;--ok:#187a4a;--warn:#a86d10;--bad:#b8382c;--scan:0;}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   body{margin:0;background:radial-gradient(1000px 520px at 50% -8%,var(--bg2),var(--bg));
     color:var(--tx);font-size:15px;line-height:1.45;min-height:100vh;overflow-x:hidden;
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Malgun Gothic",sans-serif;
     padding:0 11px calc(18px + env(safe-area-inset-bottom))}
   /* 스캔라인 — 계측 장비 느낌 */
-  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.035;
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:var(--scan,.035);
     background:repeating-linear-gradient(0deg,var(--tx) 0 1px,transparent 1px 3px)}
   #app,#top,#tabs,#foot{position:relative;z-index:1}
   .mono{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
@@ -148,7 +164,7 @@
 <script>
 const TG=window.Telegram?.WebApp; TG?.ready(); TG?.expand();
 const GIST_ID=(new URLSearchParams(location.search).get("g")||"5404bef7f8d5b9f4e8d2824515fc8728");
-const REV="p08110638";
+const REV="p08110658";
 let GLOBECODE="";      // 지구본 세션 선택(선택기 → postMessage)
 const BODY={};
 async function loadBody(name){
@@ -163,6 +179,25 @@ const jget=async n=>{const r=await fetch(RAW+n+"?t="+Date.now());
   if(!r.ok) throw new Error("HTTP "+r.status); return r.json();};
 const esc=s=>String(s??"").replace(/[<>&]/g,c=>({"<":"&lt;",">":"&gt;","&":"&amp;"}[c]));
 const n2=v=>(v==null||v===""||isNaN(v))?null:Number(v);
+const THEMES=[
+  ["auto","자동","기기 설정을 따라간다"],
+  ["dark","다크","기본값 · 짙은 남색"],
+  ["light","라이트","밝은 화면"],
+  ["ops","관제실","검정 바탕 앰버 — 야간 당직"],
+  ["night","심야","명암을 낮춰 눈부심 억제"],
+  ["blueprint","청사진","남색 단색 · 보고용"],
+  ["paper","종이","밝은 배경 · 화면 공유"],
+];
+function applyTheme(k){
+  const el=document.documentElement;
+  if(!k||k==="auto") el.removeAttribute("data-theme"); else el.setAttribute("data-theme",k);
+  try{localStorage.setItem("kvgcsTheme",k||"auto");}catch(e){}
+  try{ const bg=getComputedStyle(el).getPropertyValue("--bg").trim();
+       TG?.setHeaderColor?.(bg); TG?.setBackgroundColor?.(bg); }catch(e){}
+}
+let THEME=(()=>{try{return localStorage.getItem("kvgcsTheme")||"auto";}catch(e){return "auto";}})();
+applyTheme(THEME);
+function setTheme(k){THEME=k; applyTheme(k); TG?.HapticFeedback?.selectionChanged?.(); render();}
 let D=null, drift=0, t0=0, TAB=(new URLSearchParams(location.search).get("tab"))||"over";
 
 /* 각 자동화 단계가 무엇을 하는지 — 화면에서 바로 확인할 수 있게 */
@@ -391,6 +426,38 @@ addEventListener("message",e=>{               // 지구본 안 세션 선택 →
     render();}
 });
 
+function vTheme(){
+  let h=`<div class="card"><h2>테마</h2>
+    <div class="lbl" style="margin-bottom:10px">고른 테마는 이 기기에 저장된다</div>`;
+  for(const [k,name,desc] of THEMES){
+    const on=(THEME===k);
+    h+=`<div class="tile" onclick="setTheme('${k}')" style="cursor:pointer;margin-bottom:8px;
+        border-color:${on?"var(--navy)":"transparent"};display:flex;align-items:center;gap:11px">
+      <div style="width:22px;height:22px;border-radius:50%;flex:0 0 22px;display:grid;place-items:center;
+        border:2px solid ${on?"var(--navy)":"var(--line)"};background:${on?"var(--navy)":"transparent"};
+        color:#fff;font-size:11px;font-weight:800">${on?"✓":""}</div>
+      <div style="flex:1;min-width:0">
+        <div class="val" style="font-size:14px">${esc(name)}</div>
+        <div class="lbl">${esc(desc)}</div>
+      </div>
+      <div style="display:flex;gap:3px">${
+        ["--bg","--card","--navy","--gold","--ok"].map(v=>
+          `<span style="width:13px;height:22px;border-radius:3px;border:1px solid var(--line);
+            background:${k==="auto"?"var("+v+")":swatch(k,v)}"></span>`).join("")}</div>
+    </div>`;
+  }
+  return h+`</div>`;
+}
+const SW={
+  dark:{"--bg":"#080e16","--card":"#121d2c","--navy":"#4aa3ff","--gold":"#eab94a","--ok":"#2fd982"},
+  light:{"--bg":"#eaeff7","--card":"#ffffff","--navy":"#1670d6","--gold":"#b3860f","--ok":"#10a45b"},
+  ops:{"--bg":"#000000","--card":"#12100a","--navy":"#ffb340","--gold":"#ffd24a","--ok":"#8fd14f"},
+  night:{"--bg":"#04070b","--card":"#0b1119","--navy":"#3f7fbf","--gold":"#b08f45","--ok":"#3f9e68"},
+  blueprint:{"--bg":"#071a2b","--card":"#0d2b44","--navy":"#5cc8ff","--gold":"#ffd98a","--ok":"#4fd6a0"},
+  paper:{"--bg":"#f6f4ee","--card":"#ffffff","--navy":"#1c5fa8","--gold":"#96701a","--ok":"#187a4a"},
+};
+const swatch=(k,v)=>(SW[k]&&SW[k][v])||"var("+v+")";
+
 function vSys(d){
   const fm=n2(d.fmout_gps_us), lvl=d.monitor_level||"idle";
   const mc={ok:"c-live",idle:"c-idle",warn:"c-warn",error:"c-bad",fail:"c-bad"}[lvl]||"c-idle";
@@ -433,7 +500,7 @@ function render(full=true){
 
   const T=[["over","개요",""],["stages","단계",`${doneN}/${st.length}`],
            ["ant","안테나",""],["d3","3D",""],["beam","포인팅",""],["globe","지구본",""],["tr","전송",(d.transfers||[]).length||""],
-           ["sys","계통",bad?String(bad):""]];
+           ["sys","계통",bad?String(bad):""],["theme","테마",""]];
   document.getElementById("tabs").innerHTML=T.map(([k,n,b])=>
     `<div class="tab ${TAB===k?"on":""}" onclick="go('${k}')">${n}${b?`<span class="b">${b}</span>`:""}</div>`).join("");
 
@@ -449,7 +516,7 @@ function render(full=true){
     return;
   }
   const v={over:()=>vOver(d,live,pct,st,doneN,age),stages:()=>vStages(d,st),
-           ant:()=>vAnt(d,live),d3:()=>v3D(),beam:()=>vBeam(),globe:()=>vGlobe(),tr:()=>vTrans(d),sys:()=>vSys(d)}[TAB];
+           ant:()=>vAnt(d,live),d3:()=>v3D(),beam:()=>vBeam(),globe:()=>vGlobe(),tr:()=>vTrans(d),sys:()=>vSys(d),theme:()=>vTheme()}[TAB];
   const app=document.getElementById("app");
   app.innerHTML=`<div class="view">${v()}</div>`;
   mountFrames();
