@@ -82,6 +82,11 @@
       @keyframes lb{50%{opacity:.35}}
       @media(prefers-reduced-motion:reduce){#liveBtn.on::before{animation:none}}
       /* 정보 패널 숨기기 토글 — 지구본 가림 해결 */
+      #sessBar{position:absolute;top:64px;left:50%;transform:translateX(-50%);z-index:33;
+        pointer-events:auto;max-width:min(78vw,420px);}
+      #sessPick{width:100%;background:rgba(10,16,24,.9);color:#e6f3fb;
+        border:1px solid rgba(95,214,255,.45);border-radius:9px;padding:6px 10px;
+        font-size:12.5px;font-weight:700;backdrop-filter:blur(4px);}
       #panelToggle{position:absolute;top:14px;right:230px;z-index:32;pointer-events:auto;
         background:rgba(6,13,25,.82);color:#bfe3ff;border:1px solid rgba(95,214,255,.35);
         border-radius:16px;padding:6px 13px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;}
@@ -153,6 +158,8 @@
   #speedSlider{ width:84px }
   /* 시계(중앙)와 [정보 보기] 버튼(우측)이 폰 폭에서 겹치지 않게 */
   #clock{ padding:4px 10px !important; gap:8px !important; font-size:11px }
+  #sessBar{ top:58px; max-width:86vw }
+  #sessPick{ font-size:12px; padding:5px 8px }
   #clock .czone+.czone{ padding-left:8px !important }
   #panelToggle{ top:auto !important; bottom:64px !important; right:8px !important }
   #panelToggle{ padding:5px 9px; font-size:11px }
@@ -173,9 +180,8 @@
         <span class="lchip" id="lc-state">—</span><span class="lchip" id="lc-scan">—</span>
         <span class="lchip" id="lc-rec">—</span><span class="lchip" id="lc-ant">—</span>
       </div></div>
+    <div id="sessBar"><select id="sessPick"></select></div>
     <div class="panel" id="sess">
-      <div class="info">IVS 세션 선택 (● = 지금 관측 중 · ★ = 세종 참여)</div>
-      <select id="sessPick" style="width:100%;background:#0b1526;color:#e6f3fb;border:1px solid rgba(95,214,255,.3);border-radius:6px;padding:5px;font-size:12.5px;margin:4px 0 8px"></select>
       <div class="info" id="sessSelectLabel">다음 스캔</div>
       <div id="nextScan" style="font-size:15px;font-weight:800;color:#eaf7ff;font-variant-numeric:tabular-nums">—</div>
       <div class="info" id="sessInfo">불러오는 중…</div>
