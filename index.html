@@ -185,7 +185,7 @@
 <script>
 const TG=window.Telegram?.WebApp; TG?.ready(); TG?.expand();
 const GIST_ID=(new URLSearchParams(location.search).get("g")||"5404bef7f8d5b9f4e8d2824515fc8728");
-const REV="p10020610";
+const REV="p10020638";
 let GLOBECODE="";      // 지구본 세션 선택(선택기 → postMessage)
 const BODY={};
 async function loadBody(name){
@@ -333,7 +333,7 @@ function vOver(d,live,pct,st,doneN,age){
   return h;
 }
 
-/* ThreeStar(자동 관측 프로그램) — 세종이 만든 관측 프로그램으로 IVS 관측을 처음부터 자동으로(2026-10-02 r41279 부터) */
+/* ThreeStar(자동 관측 프로그램) — IVS 관측을 처음부터 자동으로(2026-10-02 r41279 부터) */
 const TS_RANK=`<svg viewBox="0 0 64 25" aria-label="ThreeStar"><rect x=".8" y=".8" width="62.4" height="23.4" rx="5" fill="#16264a" stroke="#d4af37" stroke-width="1.6"/><g fill="#eef1f5"><path d="M14 4.4L15.84 10.07L21.8 10.07L16.98 13.57L18.82 19.23L14 15.73L9.18 19.23L11.02 13.57L6.2 10.07L12.16 10.07Z"/><path d="M32 4.4L33.84 10.07L39.8 10.07L34.98 13.57L36.82 19.23L32 15.73L27.18 19.23L29.02 13.57L24.2 10.07L30.16 10.07Z"/><path d="M50 4.4L51.84 10.07L57.8 10.07L52.98 13.57L54.82 19.23L50 15.73L45.18 19.23L47.02 13.57L42.2 10.07L48.16 10.07Z"/></g></svg>`;
 const TS_COL={ok:"var(--ok)",late:"var(--warn)",suspect:"#bc8cff",skipped:"var(--dim)",late_skip:"var(--dim)",sun:"var(--dim)",failed:"var(--bad)",aborted:"var(--bad)",running:"var(--navy)"};
 const TS_KO={ok:"기록",late:"늦게 기록",suspect:"자료 의심",skipped:"건너뜀",late_skip:"늦어 건너뜀",sun:"태양 회피",failed:"실패",aborted:"중단",running:"기록 중",pending:"대기"};
@@ -348,7 +348,7 @@ function vTS(t){
   else if(cr&&cr.state==="skipped") crs="이번 세션 실측 없음 → 최근 실측 적용: "+(cr.applied||[]).map(a=>`${esc(a.band)} ${esc(a.source)} ${esc(a.verdict)}`).join(" · ");
   const cur=t.current||{};
   return `<div class="card"><div class="ts-h">${TS_RANK}<div><b>Three<span>Star</span> 자동 관측</b>
-      <div class="lbl">세종이 만든 관측 프로그램 · v${esc(t.version||"?")}${t.alive===false?' · <span style="color:var(--bad)">엔진 응답 없음</span>':""}</div></div>
+      <div class="lbl">v${esc(t.version||"?")}${t.alive===false?' · <span style="color:var(--bad)">엔진 응답 없음</span>':""}</div></div>
       <span class="chip ${t.state==="RUNNING"?"c-live":"c-idle"}" style="margin-left:auto">${esc(t.state_ko||t.state||"")}</span></div>
     <div class="grid g2">
       <div class="tile hot"><div class="lbl">기록한 스캔</div><div class="val mono">${esc(t.recorded??"–")} <span class="lbl">/ ${esc(t.scheduled??"–")}</span></div></div>
@@ -380,7 +380,7 @@ function vTSL(){
   const t=TSL, s=t.session, cur=s.current||{}, nx=s.next||{}, now=Date.now()/1000;
   const pct=Math.round((s.done||0)/Math.max(1,s.n_scans||1)*100), c=s.counts||{};
   let h=`<div class="card hero"><div class="ts-h">${TS_RANK}<div><b>Three<span>Star</span> 자동 관측</b>
-      <div class="lbl">세종이 만든 관측 프로그램 · v${esc(t.version||"?")}</div></div>
+      <div class="lbl">v${esc(t.version||"?")}</div></div>
       <span class="chip ${s.state==="RUNNING"?"c-live":"c-idle"}" style="margin-left:auto">${s.state==="RUNNING"?'<i class="pulse"></i>':""}${esc(s.state_ko||s.state)}</span></div>
     <div class="dial">${ring(pct,`${s.done||0}`,`/ ${s.n_scans||0} 스캔`)}
       <div style="flex:1;min-width:0">
