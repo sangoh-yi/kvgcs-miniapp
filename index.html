@@ -185,7 +185,7 @@
 <script>
 const TG=window.Telegram?.WebApp; TG?.ready(); TG?.expand();
 const GIST_ID=(new URLSearchParams(location.search).get("g")||"5404bef7f8d5b9f4e8d2824515fc8728");
-const REV="p10020518";
+const REV="p10020610";
 let GLOBECODE="";      // 지구본 세션 선택(선택기 → postMessage)
 const BODY={};
 async function loadBody(name){
@@ -430,10 +430,14 @@ function vTSL(){
   // 장비
   const lk=(t.links||[]).map(l=>{const ok=!(l.errors>0&&l.stale>0)&&!(l.stale>0);
     return `<div class="tsl-link" title="오류 ${l.errors} · 재접속 ${l.reconnects}"><i style="background:${ok?"var(--ok)":"var(--bad)"}"></i><span>${esc(l.name)}</span></div>`;}).join("");
-  const rt=(t.recorder?.runtimes||[]).map(r=>`<div class="tsl-link"><i style="background:${r.on?"var(--ok)":"var(--dim)"}"></i><span>기록 ${esc(r.rt)} ${r.on?"켜짐":"꺼짐"}</span></div>`).join("");
+  // 기록은 스캔마다 켰다 끈다 — 스캔 사이 '꺼짐'은 정상이라 '대기'로, 기록해야 할 때(기록 중 단계) 꺼져 있을 때만 빨갛게(10-02)
+  const recNow=cur.stage==="REC_WAIT";
+  const rt=(t.recorder?.runtimes||[]).map(r=>{const [c,txt]=r.on?["var(--ok)","기록 중"]:recNow?["var(--bad)","안 켜짐"]:["var(--dim)","대기(스캔 사이)"];
+    return `<div class="tsl-link"><i style="background:${c}"></i><span>기록기 ${esc(r.rt)} ${txt}</span></div>`;}).join("");
   h+=`<div class="card"><div class="tsl-sec">장비 연결</div><div class="tsl-links">${lk}${rt}
     <div class="tsl-link"><i style="background:${t.mcast?.connected?"var(--ok)":"var(--bad)"}"></i><span>DBBC3 멀티캐스트</span></div></div>
-    <div class="lbl" style="margin-top:7px">단계 ${esc(t.phase||"–")} · KVGCS ${t.kvgcs_down?"내려감":"돌고 있음"} · Tsys ${esc(t.tsys||"–")}</div></div>`;
+    <div class="lbl" style="margin-top:7px">기록기 응답 ${t.recorder?.ok?"정상":"<b style='color:var(--bad)'>이상</b>"} · 기록은 스캔마다 켜고 끈다 ·
+      단계 ${esc(t.phase||"–")} · KVGCS ${t.kvgcs_down?"내려감":"돌고 있음"} · Tsys ${esc(t.tsys||"–")}</div></div>`;
   // 지향 보정 · 십자 스캔 · 기상 · 클럭
   const pc=s.pointing_corr||{}, cr=t.cross||{}, w=t.weather||{}, ck=t.clock||{};
   h+=`<div class="card"><div class="grid g2">
