@@ -78,6 +78,12 @@
   .grid{display:grid;gap:8px}.g2{grid-template-columns:1fr 1fr}.g3{grid-template-columns:repeat(3,1fr)}
   .tile{background:var(--card2);border-radius:11px;padding:9px 10px;border:1px solid transparent}
   .tile.hot{border-color:color-mix(in srgb,var(--navy) 45%,transparent)}
+  .ts-h{display:flex;align-items:center;gap:9px;margin-bottom:9px}
+  .ts-h svg{width:54px;height:21px;flex:none}
+  .ts-h b{font-size:15px}.ts-h b span{color:#d4af37}
+  .ts-stack{display:flex;height:9px;border-radius:6px;overflow:hidden;background:var(--line);margin:6px 0 4px}
+  .ts-stack i{display:block;height:100%}
+  .ts-al{font-size:12px;color:var(--warn);margin-top:4px}
 
   /* 게이지 */
   .dial{display:flex;align-items:center;gap:14px}
@@ -164,7 +170,7 @@
 <script>
 const TG=window.Telegram?.WebApp; TG?.ready(); TG?.expand();
 const GIST_ID=(new URLSearchParams(location.search).get("g")||"5404bef7f8d5b9f4e8d2824515fc8728");
-const REV="p08132049";
+const REV="p10020351";
 let GLOBECODE="";      // 지구본 세션 선택(선택기 → postMessage)
 const BODY={};
 async function loadBody(name){
@@ -292,6 +298,7 @@ function vOver(d,live,pct,st,doneN,age){
       <div class="lbl mono">${esc(d.next.start||"")}</div></div>`;
   }
   h+=`</div></div>${live?`<div class="bar run" style="margin-top:13px"><i style="width:${pct}%"></i></div>`:""}</div>`;
+  if(d.threestar) h+=vTS(d.threestar);
 
   h+=`<div class="card"><h2>지금 단계</h2><div class="pipe">`;
   const cur=st.find(s=>s.id===d.current_stage)||st.find(s=>s.state==="running");
@@ -309,6 +316,39 @@ function vOver(d,live,pct,st,doneN,age){
       </div></div></div>`;
   }
   return h;
+}
+
+/* ThreeStar(자동 관측 프로그램) — 세종이 만든 관측 프로그램으로 IVS 관측을 처음부터 자동으로(2026-10-02 r41279 부터) */
+const TS_RANK=`<svg viewBox="0 0 64 25" aria-label="ThreeStar"><rect x=".8" y=".8" width="62.4" height="23.4" rx="5" fill="#16264a" stroke="#d4af37" stroke-width="1.6"/><g fill="#eef1f5"><path d="M14 4.4L15.84 10.07L21.8 10.07L16.98 13.57L18.82 19.23L14 15.73L9.18 19.23L11.02 13.57L6.2 10.07L12.16 10.07Z"/><path d="M32 4.4L33.84 10.07L39.8 10.07L34.98 13.57L36.82 19.23L32 15.73L27.18 19.23L29.02 13.57L24.2 10.07L30.16 10.07Z"/><path d="M50 4.4L51.84 10.07L57.8 10.07L52.98 13.57L54.82 19.23L50 15.73L45.18 19.23L47.02 13.57L42.2 10.07L48.16 10.07Z"/></g></svg>`;
+const TS_COL={ok:"var(--ok)",late:"var(--warn)",suspect:"#bc8cff",skipped:"var(--dim)",late_skip:"var(--dim)",sun:"var(--dim)",failed:"var(--bad)",aborted:"var(--bad)",running:"var(--navy)"};
+const TS_KO={ok:"기록",late:"늦게 기록",suspect:"자료 의심",skipped:"건너뜀",late_skip:"늦어 건너뜀",sun:"태양 회피",failed:"실패",aborted:"중단",running:"기록 중",pending:"대기"};
+function vTS(t){
+  if(!t) return "";
+  const c=t.counts||{}, tot=Math.max(1,t.scheduled||Object.values(c).reduce((a,b)=>a+b,0));
+  const stack=Object.keys(TS_COL).filter(k=>c[k]).map(k=>`<i style="width:${(c[k]/tot*100).toFixed(2)}%;background:${TS_COL[k]}" title="${TS_KO[k]} ${c[k]}"></i>`).join("");
+  const leg=Object.keys(TS_KO).filter(k=>c[k]&&k!=="pending").map(k=>`${TS_KO[k]} ${c[k]}`).join(" · ");
+  const pc=t.pointing_corr, cr=t.cross;
+  let crs="—";
+  if(cr&&cr.state==="done") crs=`${esc(cr.source||"")} ${esc(cr.verdict||"")} (이번 세션)`;
+  else if(cr&&cr.state==="skipped") crs="이번 세션 실측 없음 → 최근 실측 적용: "+(cr.applied||[]).map(a=>`${esc(a.band)} ${esc(a.source)} ${esc(a.verdict)}`).join(" · ");
+  const cur=t.current||{};
+  return `<div class="card"><div class="ts-h">${TS_RANK}<div><b>Three<span>Star</span> 자동 관측</b>
+      <div class="lbl">세종이 만든 관측 프로그램 · v${esc(t.version||"?")}${t.alive===false?' · <span style="color:var(--bad)">엔진 응답 없음</span>':""}</div></div>
+      <span class="chip ${t.state==="RUNNING"?"c-live":"c-idle"}" style="margin-left:auto">${esc(t.state_ko||t.state||"")}</span></div>
+    <div class="grid g2">
+      <div class="tile hot"><div class="lbl">기록한 스캔</div><div class="val mono">${esc(t.recorded??"–")} <span class="lbl">/ ${esc(t.scheduled??"–")}</span></div></div>
+      <div class="tile"><div class="lbl">지금 스캔</div><div class="val mono" style="font-size:13.5px">${esc(cur.scan||t.last_scan||"—")}</div>
+        <div class="lbl mono">${esc(cur.source||"")}</div></div>
+    </div>
+    <div class="ts-stack">${stack}</div><div class="lbl">${esc(leg||"아직 기록한 스캔 없음")}${t.not_recorded?` · 못 한 스캔 ${t.not_recorded}`:""}</div>
+    <div class="grid g2" style="margin-top:8px">
+      <div class="tile"><div class="lbl">지향 보정${pc&&pc.band?` (${esc(pc.band)} 대역)`:""}</div>
+        <div class="val mono" style="font-size:13px">${pc?`방위 ${pc.az>0?"+":""}${esc(pc.az)}″ · 고도 ${pc.el>0?"+":""}${esc(pc.el)}″`:"없음"}</div></div>
+      <div class="tile"><div class="lbl">기록기 · pcal</div><div class="val mono" style="font-size:13px">${esc(t.recorder||"—")} · ${esc(t.pcal||"—")}</div></div>
+    </div>
+    <div class="lbl" style="margin-top:8px">십자 스캔: ${crs}</div>
+    ${(t.alerts||[]).length?`<div class="ts-al">경보 ${t.alerts.length} — ${t.alerts.map(esc).join(" · ")}</div>`:`<div class="lbl" style="color:var(--ok);margin-top:4px">경보 없음</div>`}
+  </div>`;
 }
 
 function stepRow(s,d){
@@ -494,7 +534,7 @@ function render(full=true){
 
   document.getElementById("top").innerHTML=
     `<div><div class="exp mono">${esc(d.exp||"—")}</div>
-     <div class="sub">세종 22 m · KVGSJ</div></div>
+     <div class="sub">세종 22 m · KVGSJ${d.engine==="threestar"?' · <b style="color:#d4af37">ThreeStar ★★★</b> 자동 관측':""}</div></div>
      <span class="chip ${live?"c-live":stale?"c-bad":"c-idle"}">
        ${live?'<i class="pulse"></i>관측 중':stale?"연결 끊김":"대기"}</span>`;
 
