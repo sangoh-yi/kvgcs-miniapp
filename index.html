@@ -84,6 +84,21 @@
   .ts-stack{display:flex;height:9px;border-radius:6px;overflow:hidden;background:var(--line);margin:6px 0 4px}
   .ts-stack i{display:block;height:100%}
   .ts-al{font-size:12px;color:var(--warn);margin-top:4px}
+  .tsl-clk{font-size:22px;font-weight:800;letter-spacing:.5px}
+  .tsl-big{font-size:19px;font-weight:800}
+  .tsl-sec{font-size:12.5px;font-weight:800;margin:2px 0 7px;display:flex;align-items:center;gap:6px}
+  .tsl-pill{display:inline-block;padding:1px 8px;border-radius:9px;font-size:11px;font-weight:700;line-height:17px;color:#fff}
+  .tsl-links{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .tsl-link{background:var(--card2);border-radius:9px;padding:6px 7px;font-size:11.5px;display:flex;align-items:center;gap:5px;min-width:0}
+  .tsl-link i{width:8px;height:8px;border-radius:50%;flex:none}
+  .tsl-link span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tsl-fil{display:flex;gap:6px;margin-bottom:8px;overflow-x:auto}
+  .tsl-fil div{padding:5px 11px;border-radius:999px;background:var(--card2);font-size:12px;white-space:nowrap;cursor:pointer}
+  .tsl-fil div.on{background:var(--navy);color:#fff}
+  .tsl-tr{display:grid;grid-template-columns:44px 1fr auto;gap:2px 8px;padding:6px 2px;border-bottom:1px solid var(--line);font-size:12.5px;align-items:center}
+  .tsl-tr.cur{background:color-mix(in srgb,var(--navy) 12%,transparent);border-radius:8px}
+  .tsl-tr .t{color:var(--dim);font-size:11.5px}
+  .tsl-tr .sub{grid-column:2/4;color:var(--dim);font-size:11px}
 
   /* 게이지 */
   .dial{display:flex;align-items:center;gap:14px}
@@ -170,7 +185,7 @@
 <script>
 const TG=window.Telegram?.WebApp; TG?.ready(); TG?.expand();
 const GIST_ID=(new URLSearchParams(location.search).get("g")||"5404bef7f8d5b9f4e8d2824515fc8728");
-const REV="p10020351";
+const REV="p10020518";
 let GLOBECODE="";      // 지구본 세션 선택(선택기 → postMessage)
 const BODY={};
 async function loadBody(name){
@@ -351,6 +366,107 @@ function vTS(t){
   </div>`;
 }
 
+/* ── ★ ThreeStar 메뉴 — 운용 화면(127.0.0.1:8793)과 같은 내용을 휴대폰에서(2026-10-02). 시각은 KST ── */
+let TSL=null, TSLT=0, TSF="near";
+async function loadTSL(){ try{ TSL=await jget("threestar_live.json"); TSLT=Date.now()/1000; }catch(e){ if(!TSL) TSL={err:1}; } }
+const kst=(t,n=19)=>t?new Date((t+9*3600)*1000).toISOString().slice(11,n):"—";
+const kstd=t=>t?new Date((t+9*3600)*1000).toISOString().slice(5,10).replace("-","/"):"";
+const mmss=s=>{s=Math.max(0,Math.round(s));const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60,P=v=>String(v).padStart(2,"0");return (h?h+":"+P(m):m)+":"+P(x);};
+const pill=(st,txt)=>`<span class="tsl-pill" style="background:${TS_COL[st]||"var(--dim)"}">${esc(txt||TS_KO[st]||st||"")}</span>`;
+function vTSL(){
+  if(TSL===null){ loadTSL().then(()=>render()); return `<div class="card"><div class="empty">ThreeStar 화면을 불러오는 중…</div></div>`; }
+  if(TSL.err||!TSL.session) return `<div class="card"><div class="ts-h">${TS_RANK}<b>Three<span>Star</span></b></div>
+    <div class="empty">지금 ThreeStar 가 돌리는 세션이 없습니다</div></div>`;
+  const t=TSL, s=t.session, cur=s.current||{}, nx=s.next||{}, now=Date.now()/1000;
+  const pct=Math.round((s.done||0)/Math.max(1,s.n_scans||1)*100), c=s.counts||{};
+  let h=`<div class="card hero"><div class="ts-h">${TS_RANK}<div><b>Three<span>Star</span> 자동 관측</b>
+      <div class="lbl">세종이 만든 관측 프로그램 · v${esc(t.version||"?")}</div></div>
+      <span class="chip ${s.state==="RUNNING"?"c-live":"c-idle"}" style="margin-left:auto">${s.state==="RUNNING"?'<i class="pulse"></i>':""}${esc(s.state_ko||s.state)}</span></div>
+    <div class="dial">${ring(pct,`${s.done||0}`,`/ ${s.n_scans||0} 스캔`)}
+      <div style="flex:1;min-width:0">
+        <div class="tile hot" style="margin-bottom:7px"><div class="lbl">세션</div><div class="val mono">${esc(s.code)}</div></div>
+        <div class="tile"><div class="lbl">KST</div><div class="tsl-clk mono" id="tsClk">${kst(now)}</div>
+          <div class="lbl mono">UTC <span id="tsUtc">${new Date(now*1000).toISOString().slice(11,19)}</span></div></div>
+      </div></div>
+    <div class="grid g2" style="margin-top:9px">
+      <div class="tile"><div class="lbl">시작 · 끝 (KST)</div><div class="val mono" style="font-size:13px">${kstd(s.first_start)} ${kst(s.first_start,16)} → ${kstd(s.last_stop)} ${kst(s.last_stop,16)}</div></div>
+      <div class="tile"><div class="lbl">끝까지</div><div class="val mono" id="tsRem">${hhmmss((s.last_stop||now)-now)}</div></div>
+    </div></div>`;
+  // 지금 · 다음
+  const cs=cur.start, ce=cur.stop, cp=cs&&ce?Math.max(0,Math.min(100,(now-cs)/(ce-cs)*100)):0;
+  h+=`<div class="card"><div class="tsl-sec">지금 스캔 ${cur.stage_ko?pill(cur.stage==="REC_WAIT"?"running":"pending",cur.stage_ko):""}</div>
+    <div style="display:flex;align-items:baseline;gap:9px"><span class="tsl-big mono">${esc(cur.scan||"—")}</span><span class="mono" style="font-weight:700">${esc(cur.source||"")}</span>
+      <span class="lbl mono" style="margin-left:auto">${kst(cs,19)} ~ ${kst(ce,19)}</span></div>
+    <div class="bar run" style="margin:8px 0 5px"><i id="tsCurBar" style="width:${cp.toFixed(1)}%"></i></div>
+    <div class="grid g3">
+      <div class="tile"><div class="lbl">기록 끝까지</div><div class="val mono" id="tsCur">${mmss((ce||now)-now)}</div></div>
+      <div class="tile"><div class="lbl">방위 · 고도</div><div class="val mono" style="font-size:13px">${n2(cur.az)?.toFixed(1)??"–"}° · ${n2(cur.el)?.toFixed(1)??"–"}°</div></div>
+      <div class="tile"><div class="lbl">늦음 예측</div><div class="val mono">${n2(cur.pred_late)!=null?n2(cur.pred_late).toFixed(0)+" s":"–"}</div></div>
+    </div>
+    <div class="tsl-sec" style="margin-top:11px">다음 스캔</div>
+    <div style="display:flex;align-items:baseline;gap:9px"><span class="val mono">${esc(nx.scan||"—")}</span><span class="mono">${esc(nx.source||"")}</span>
+      <span class="lbl mono" style="margin-left:auto">${kst(nx.start)} KST · 방위 ${n2(nx.az)?.toFixed(0)??"–"}° 고도 ${n2(nx.el)?.toFixed(0)??"–"}°</span></div>
+    <div class="lbl">시작까지 <b class="mono" id="tsNext">${mmss((nx.start||now)-now)}</b></div></div>`;
+  // 결과
+  const tot=Math.max(1,s.n_scans||1);
+  const stack=Object.keys(TS_COL).filter(k=>c[k]).map(k=>`<i style="width:${(c[k]/tot*100).toFixed(2)}%;background:${TS_COL[k]}"></i>`).join("");
+  const late=(t.plan||[]).reduce((a,r)=>a+(n2(r[9])||0),0);
+  h+=`<div class="card"><div class="tsl-sec">스캔 결과</div><div class="ts-stack">${stack}</div>
+    <div class="lbl">${Object.keys(TS_KO).filter(k=>c[k]).map(k=>`${TS_KO[k]} ${c[k]}`).join(" · ")}${late?` · 늦음 합계 ${late.toFixed(0)} s`:""}</div></div>`;
+  // 안테나
+  const a=t.antenna||{};
+  h+=`<div class="card"><div class="tsl-sec">안테나</div><div style="display:flex;gap:12px;align-items:center">
+    ${sky(n2(a.az),n2(a.el),s.state==="RUNNING",false)}
+    <div style="flex:1" class="grid">
+      <div class="tile"><div class="lbl">방위 · 고도</div><div class="val mono">${n2(a.az)?.toFixed(2)??"–"}° · ${n2(a.el)?.toFixed(2)??"–"}°</div></div>
+      <div class="tile"><div class="lbl">지향 오차</div><div class="val mono" style="font-size:13px">방위 ${esc(a.err_az_arcsec??"–")}″ · 고도 ${esc(a.err_el_arcsec??"–")}″</div></div>
+      <div class="tile"><div class="lbl">ACU</div><div class="val mono" style="font-size:13px">${esc(a.acu_mode||"–")} · ${esc(a.point||"–")}${a.hold?" · Hold":""}</div></div>
+    </div></div></div>`;
+  // 경보
+  const al=t.alerts||[];
+  h+=`<div class="card"><div class="tsl-sec">경보 ${al.length?`<span class="tsl-pill" style="background:var(--bad)">${al.length}</span>`:""}</div>
+    ${al.length?al.map(x=>`<div class="ts-al">● ${esc(x.title)}${x.manual?` <span class="lbl">매뉴얼 ${esc(x.manual)}</span>`:""}</div>`).join(""):`<div class="lbl" style="color:var(--ok)">경보 없음</div>`}
+    ${(t.alert_hist||[]).length?`<div class="lbl" style="margin-top:6px">지난 경보: ${(t.alert_hist||[]).slice().reverse().map(x=>esc(x.title)).join(" · ")}</div>`:""}</div>`;
+  // 장비
+  const lk=(t.links||[]).map(l=>{const ok=!(l.errors>0&&l.stale>0)&&!(l.stale>0);
+    return `<div class="tsl-link" title="오류 ${l.errors} · 재접속 ${l.reconnects}"><i style="background:${ok?"var(--ok)":"var(--bad)"}"></i><span>${esc(l.name)}</span></div>`;}).join("");
+  const rt=(t.recorder?.runtimes||[]).map(r=>`<div class="tsl-link"><i style="background:${r.on?"var(--ok)":"var(--dim)"}"></i><span>기록 ${esc(r.rt)} ${r.on?"켜짐":"꺼짐"}</span></div>`).join("");
+  h+=`<div class="card"><div class="tsl-sec">장비 연결</div><div class="tsl-links">${lk}${rt}
+    <div class="tsl-link"><i style="background:${t.mcast?.connected?"var(--ok)":"var(--bad)"}"></i><span>DBBC3 멀티캐스트</span></div></div>
+    <div class="lbl" style="margin-top:7px">단계 ${esc(t.phase||"–")} · KVGCS ${t.kvgcs_down?"내려감":"돌고 있음"} · Tsys ${esc(t.tsys||"–")}</div></div>`;
+  // 지향 보정 · 십자 스캔 · 기상 · 클럭
+  const pc=s.pointing_corr||{}, cr=t.cross||{}, w=t.weather||{}, ck=t.clock||{};
+  h+=`<div class="card"><div class="grid g2">
+    <div class="tile"><div class="lbl">지향 보정</div><div class="val mono" style="font-size:13px">방위 ${pc.az_arcsec>0?"+":""}${esc(pc.az_arcsec??0)}″ · 고도 ${pc.el_arcsec>0?"+":""}${esc(pc.el_arcsec??0)}″</div></div>
+    <div class="tile"><div class="lbl">십자 스캔</div><div class="val" style="font-size:12.5px">${cr.state==="done"?`${esc(cr.source)} ${esc(cr.verdict||"")}`:cr.state==="skipped"?`건너뜀 — ${esc(cr.why||"")}`:esc(cr.state||"–")}</div></div>
+    <div class="tile"><div class="lbl">기상</div><div class="val mono" style="font-size:13px">${esc(w.temp??"–")}°C · ${esc(w.humid??"–")}% · ${esc(w.press??"–")} hPa</div></div>
+    <div class="tile"><div class="lbl">클럭 fmout−GPS</div><div class="val mono" style="font-size:13px">${esc(ck.fmout_gps_us??"–")} µs</div></div>
+  </div></div>`;
+  // 스캔 표
+  const P=t.plan||[], ci=P.findIndex(r=>r[7]==="running"||r[1]===cur.scan);
+  const bad=["failed","skipped","late","suspect","late_skip","sun","aborted"];
+  let rows=TSF==="near"?P.slice(Math.max(0,ci-3),Math.max(0,ci)+9):TSF==="done"?P.filter(r=>["ok","late","suspect"].includes(r[7])).slice(-15).reverse()
+    :TSF==="issue"?P.filter(r=>bad.includes(r[7])):P;
+  h+=`<div class="card"><div class="tsl-sec">스캔 표</div><div class="tsl-fil">
+    ${[["near","지금 앞뒤"],["done","최근 기록"],["issue","문제"],["all",`전체 ${P.length}`]].map(([k,n])=>`<div class="${TSF===k?"on":""}" onclick="TSF='${k}';render()">${n}</div>`).join("")}</div>
+    ${rows.map(r=>`<div class="tsl-tr ${r[1]===cur.scan?"cur":""}"><span class="t mono">${kst(r[3],16)}</span>
+      <span class="mono"><b>${esc(r[1])}</b> ${esc(r[2])}</span>${pill(r[7]||"pending")}
+      <span class="sub mono">방위 ${n2(r[5])?.toFixed(0)??"–"}° 고도 ${n2(r[6])?.toFixed(0)??"–"}°${r[10]?` · 기록 ${n2(r[10]).toFixed(0)} s`:""}${n2(r[9])?` · 늦음 ${n2(r[9]).toFixed(0)} s`:""}${r[8]?` · ${esc(r[8])}`:""}</span></div>`).join("")||`<div class="empty">해당 스캔 없음</div>`}
+  </div>`;
+  h+=`<div class="lbl" style="text-align:center">ThreeStar 운용 화면을 그대로 옮긴 요약 · 조회 전용 · 자료 ${ago(Date.now()/1000-(t.gen_epoch||0))}</div>`;
+  return h;
+}
+function tickTSL(){
+  if(TAB!=="ts"||!TSL||!TSL.session) return;
+  const now=Date.now()/1000, s=TSL.session, cur=s.current||{}, nx=s.next||{}, q=id=>document.getElementById(id);
+  if(q("tsClk")) q("tsClk").textContent=kst(now);
+  if(q("tsUtc")) q("tsUtc").textContent=new Date(now*1000).toISOString().slice(11,19);
+  if(q("tsRem")) q("tsRem").textContent=hhmmss((s.last_stop||now)-now);
+  if(q("tsCur")) q("tsCur").textContent=mmss((cur.stop||now)-now);
+  if(q("tsNext")) q("tsNext").textContent=mmss((nx.start||now)-now);
+  if(q("tsCurBar")&&cur.start&&cur.stop) q("tsCurBar").style.width=Math.max(0,Math.min(100,(now-cur.start)/(cur.stop-cur.start)*100)).toFixed(1)+"%";
+}
+
 function stepRow(s,d){
   const cls="s-"+(s.state||"ready"), cur=s.id===d.current_stage;
   return `<div class="st ${cls}" onclick="go('stages')">
@@ -522,7 +638,8 @@ function vSys(d){
   return h;
 }
 
-function go(t){TAB=t; TG?.HapticFeedback?.selectionChanged?.(); render();}
+function go(t){TAB=t; TG?.HapticFeedback?.selectionChanged?.(); render();
+  if(t==="ts") loadTSL().then(()=>{ if(TAB==="ts") render(); });}
 
 function render(full=true){
   const d=D; if(!d) return;
@@ -538,7 +655,7 @@ function render(full=true){
      <span class="chip ${live?"c-live":stale?"c-bad":"c-idle"}">
        ${live?'<i class="pulse"></i>관측 중':stale?"연결 끊김":"대기"}</span>`;
 
-  const T=[["over","개요",""],["stages","단계",`${doneN}/${st.length}`],
+  const T=[["over","개요",""],["ts","★ ThreeStar",""],["stages","단계",`${doneN}/${st.length}`],
            ["ant","안테나",""],["d3","3D",""],["beam","포인팅",""],["globe","지구본",""],["tr","전송",(d.transfers||[]).length||""],
            ["sys","계통",bad?String(bad):""],["theme","테마",""]];
   document.getElementById("tabs").innerHTML=T.map(([k,n,b])=>
@@ -550,12 +667,13 @@ function render(full=true){
   if(!full){                       // 매초 호출 — 흐르는 값만 갈아 끼운다(깜빡임 없음)
     const cd=document.getElementById("cd");
     if(cd&&d.next) cd.textContent=hhmmss((n2(d.next.in_sec)??0)-age);
+    tickTSL();
     const ft=document.getElementById("foot");
     if(ft) ft.innerHTML=`<span class="pulse" style="color:${stale?"var(--bad)":"var(--ok)"}"></span>
       ${ago(age)} 갱신 · 30초마다 자동 · 조회 전용`;
     return;
   }
-  const v={over:()=>vOver(d,live,pct,st,doneN,age),stages:()=>vStages(d,st),
+  const v={over:()=>vOver(d,live,pct,st,doneN,age),ts:()=>vTSL(),stages:()=>vStages(d,st),
            ant:()=>vAnt(d,live),d3:()=>v3D(),beam:()=>vBeam(),globe:()=>vGlobe(),tr:()=>vTrans(d),sys:()=>vSys(d),theme:()=>vTheme()}[TAB];
   const app=document.getElementById("app");
   app.innerHTML=`<div class="view">${v()}</div>`;
@@ -571,7 +689,9 @@ async function pull(){
     const same=D&&JSON.stringify(nd)===JSON.stringify(D);
     D=nd;
     drift=D.gen_epoch?Math.max(0,Date.now()/1000-D.gen_epoch):0;
-    t0=Date.now(); render(!same);
+    let tsNew=false;
+    if(TAB==="ts"){ const g=TSL&&TSL.gen_epoch; await loadTSL(); tsNew=(TSL&&TSL.gen_epoch)!==g; }
+    t0=Date.now(); render(!same||tsNew);
   }catch(e){
     document.getElementById("app").innerHTML=
       `<div class="card"><div class="err">상태를 불러오지 못했습니다</div>
