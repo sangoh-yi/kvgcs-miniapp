@@ -169,7 +169,7 @@
   .xf-bar b{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;background:#fff;box-shadow:0 0 7px #fff}
   .tl-svg{width:100%;height:62px;display:block}.tl-pulse{animation:tsmP 1.6s ease-in-out infinite}
   .tsm-note{font-size:11.5px;color:var(--dim);margin:2px 0 4px}
-  .tsm-3d{position:relative;height:270px;border-radius:10px;overflow:hidden;margin:6px 0 4px;border:1px solid color-mix(in srgb,var(--navy) 35%,var(--line));
+  .tsm-3d{position:relative;height:340px;border-radius:10px;overflow:hidden;margin:6px 0 4px;border:1px solid color-mix(in srgb,var(--navy) 35%,var(--line));
     background:radial-gradient(ellipse at 50% 30%,rgba(88,166,255,.18),transparent 62%),linear-gradient(180deg,#0a1222,#060a14);box-shadow:inset 0 0 36px rgba(0,0,0,.55)}
   .tsm-3dn{position:absolute;inset:0;display:grid;place-items:center;font-size:12px;color:#8ba0b8}
   .tsm-cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
@@ -270,7 +270,7 @@
 <script>
 const TG=window.Telegram?.WebApp; TG?.ready(); TG?.expand();
 const GIST_ID=(new URLSearchParams(location.search).get("g")||"5404bef7f8d5b9f4e8d2824515fc8728");
-const REV="p10021243";
+const REV="p10021430";
 let GLOBECODE="";      // 지구본 세션 선택(선택기 → postMessage)
 const BODY={};
 async function loadBody(name){
@@ -627,9 +627,15 @@ function mountTS3D(){
     if(note) note.remove(); sl.appendChild(TSCV);
     const ch=TSL.cross_full.channels[TSCH]; if(!ch) return;
     const fa=ch.fits.Az, fe=ch.fits.El, sig=TSCH+JSON.stringify([fa,fe]);
+    const cf=TSL.cross_full, SRCN={CYGA:"Cygnus A",CASA:"Cassiopeia A",TAUA:"Taurus A",VIRA:"Virgo A"};
+    const ri=(cf.info||[]).find(i=>i.band===(ch.band==="X"?"X":"S"))||(cf.info||[])[0];
+    const full=t=>t?new Date((t+9*3600)*1000).toISOString().slice(0,16).replace("T"," ")+" KST":"—";
+    const sc=ri?ri.src:cf.source, meta={when:ri?full(ri.t):"이번 세션", src:SRCN[sc]?`${SRCN[sc]} (${sc})`:(sc||""), band:`${ch.band||""} 대역 · ${TSCH}`,
+      verdict:ri?ri.v:cf.verdict, off:`오프셋 Az ${sgn(+fa.x0)} · El ${sgn(+fe.x0)} · 빔폭 ${Math.round(fa.fwhm)}/${Math.round(fe.fwhm)}″`,
+      note:cf.ref?"이번 세션 실측 없음 — 가장 최근 실측":"이번 세션 십자 스캔"};
     requestAnimationFrame(()=>{ TS3D.resize(); if(sig!==TSSIG){ TSSIG=sig;
       TS3D.draw({az:{amp:+fa.amp,x0:+fa.x0,fwhm:+fa.fwhm,base:+fa.base,slope:+(fa.slope||0)},el:{amp:+fe.amp,x0:+fe.x0,fwhm:+fe.fwhm,base:+fe.base,slope:+(fe.slope||0)},
-        ptsAz:ch.pts.Az||[],ptsEl:ch.pts.El||[],hp:n2(ch.hp)||1200}); } });
+        ptsAz:ch.pts.Az||[],ptsEl:ch.pts.El||[],hp:n2(ch.hp)||1200,meta}); } });
   });
 }
 function tickTSL(){

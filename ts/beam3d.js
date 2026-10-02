@@ -22,6 +22,12 @@
   const cssv = (n, d) => (getComputedStyle(document.documentElement).getPropertyValue(n).trim() || d);
 
   // 글 스프라이트 — 캔버스를 글 폭에 맞추고, 세상 높이 hw 로 크기를 정한다(글 길이와 상관없이 같은 글자 크기)
+  // 곡면 색 — 바탕(빔 밖)은 어두운 남색으로 가라앉히고 빔만 plasma 로 빛나게(10-02 바닥이 새파랗게 떠 보이던 것)
+  const NAVY = [0.02, 0.035, 0.09];
+  function ground(t) {
+    const c = plasma(t), w = Math.min(1, Math.max(0, (t - 0.01) / 0.22)), k = 0.08 + 0.92 * w * w * (3 - 2 * w);
+    return [NAVY[0] + (c[0] - NAVY[0]) * k, NAVY[1] + (c[1] - NAVY[1]) * k, NAVY[2] + (c[2] - NAVY[2]) * k];
+  }
   function textSprite(T, txt, color, hw, box) {
     const fs = 64, pad = box ? 22 : 10;
     const font = `700 ${fs}px "Cascadia Mono", Consolas, "Malgun Gothic", monospace`;
@@ -71,7 +77,9 @@
     const warm = new T.PointLight(0xff9a5c, 0.45, 8); warm.position.set(-2.4, 1.2, 2.0); scene.add(warm);
     const root = new T.Group(); scene.add(root);
     const fx = new T.Group(); scene.add(fx);                // 움직이는 빛(봉우리 맥동·훑기 점) — 매 장면 새로 만든다
-    let th = 0.95, ph = -0.62, rad = 4.3;
+    // 기본 시점 — 오른쪽 앞(+x,+z)에서 본다: 뒷벽(z=-1)·옆벽(x=-1)이 늘 뒤에 있게. 한 바퀴 돌지 않고 좌우로 천천히 흔든다(10-02)
+    const TH0 = 1.0, PH0 = 0.8, RAD0 = 4.5;
+    let th = TH0, ph = PH0, rad = RAD0, phBase = PH0, sway = 0;
     const tgt = new T.Vector3(0, 0.3, 0);
     function upd() {
       cam.position.set(tgt.x + rad * Math.sin(th) * Math.sin(ph), tgt.y + rad * Math.cos(th), tgt.z + rad * Math.sin(th) * Math.cos(ph));
@@ -84,10 +92,11 @@
     canvas.addEventListener('pointermove', (e) => {
       if (!drag) return;
       ph -= (e.clientX - px) * 0.008; th = Math.max(0.2, Math.min(1.45, th - (e.clientY - py) * 0.008));
+      phBase = ph; sway = 0;
       px = e.clientX; py = e.clientY; touch(); render();
     });
     canvas.addEventListener('wheel', (e) => { rad = Math.max(2.2, Math.min(8, rad + e.deltaY * 0.004)); touch(); render(); e.preventDefault(); }, { passive: false });
-    canvas.addEventListener('dblclick', () => { th = 0.95; ph = -0.62; rad = 4.3; touch(); render(); });
+    canvas.addEventListener('dblclick', () => { th = TH0; ph = phBase = PH0; rad = RAD0; sway = 0; touch(); render(); });
     if ('IntersectionObserver' in window) new IntersectionObserver((es) => { visible = es[0].isIntersecting; }).observe(canvas);
 
     let model = null, anim = null;
@@ -118,15 +127,15 @@
       for (let i = 0; i < pos.count; i++) {
         const x = pos.getX(i) * R, y = -pos.getZ(i) * R, z = zf(x, y);
         pos.setY(i, Y(z));
-        const c = plasma(z / amp);
+        const c = ground(z / amp);
         cols.set(c, i * 3); fcols.set(c, i * 3);
       }
       geo.setAttribute('color', new T.BufferAttribute(cols, 3));
       geo.computeVertexNormals();
-      root.add(new T.Mesh(geo, new T.MeshPhongMaterial({ vertexColors: true, side: T.DoubleSide, shininess: 85, specular: 0x5a5a6a,
+      root.add(new T.Mesh(geo, new T.MeshPhongMaterial({ vertexColors: true, side: T.DoubleSide, shininess: 60, specular: 0x2c2c36,
         emissive: 0x0a0618, transparent: true, opacity: 0.97 })));
       fgeo.setAttribute('color', new T.BufferAttribute(fcols, 3));
-      const floor = new T.Mesh(fgeo, new T.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.26, depthWrite: false }));
+      const floor = new T.Mesh(fgeo, new T.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.16, depthWrite: false }));
       floor.position.y = -0.002; root.add(floor);
       // 와이어 격자(곡면을 따라)
       const W = 30, wg = new T.PlaneGeometry(2, 2, W, W); wg.rotateX(-Math.PI / 2);
@@ -176,6 +185,51 @@
       const pAz = cutPts(true), pEl = cutPts(false);
       root.add(new T.Line(new T.BufferGeometry().setFromPoints(pAz), new T.LineBasicMaterial({ color: 0x61b4f0 })));
       root.add(new T.Line(new T.BufferGeometry().setFromPoints(pEl), new T.LineBasicMaterial({ color: 0x37e8cf })));
+      // ── 3D 차트 상자(10-02): 뒷벽(z=-1, 방위 단면)·옆벽(x=-1, 고도 단면) — 격자·전력 눈금, 단면 그림자(맞춘 곡선+측정 점) ──
+      const HW = H * 1.12;
+      const wallM = new T.MeshBasicMaterial({ color: 0x0c1a33, transparent: true, opacity: 0.55, side: T.DoubleSide, depthWrite: false });
+      const back = new T.Mesh(new T.PlaneGeometry(2, HW), wallM); back.position.set(0, HW / 2, -1); root.add(back);
+      const side = new T.Mesh(new T.PlaneGeometry(2, HW), wallM.clone()); side.rotation.y = Math.PI / 2; side.position.set(-1, HW / 2, 0); root.add(side);
+      const wg2 = [], gm = new T.LineBasicMaterial({ color: 0x4a6a96, transparent: true, opacity: 0.55 });
+      for (const L of [0.25, 0.5, 0.75, 1.0]) {                 // 전력 눈금선(두 벽)
+        const yy = Y(L * amp);
+        wg2.push(new T.Vector3(-1, yy, -0.999), new T.Vector3(1, yy, -0.999), new T.Vector3(-0.999, yy, -1), new T.Vector3(-0.999, yy, 1));
+      }
+      for (let k = -Math.floor(R / hp); k <= Math.floor(R / hp); k++) {   // 빔폭마다 세로선(두 벽)
+        const v = (k * hp) / R;
+        wg2.push(new T.Vector3(v, 0, -0.999), new T.Vector3(v, HW, -0.999), new T.Vector3(-0.999, 0, v), new T.Vector3(-0.999, HW, v));
+      }
+      root.add(new T.LineSegments(new T.BufferGeometry().setFromPoints(wg2), gm));
+      const projAz = [], projEl = [];
+      for (let k = 0; k <= 200; k++) {
+        const tt = -R + (2 * R * k) / 200;
+        projAz.push(new T.Vector3(X(tt), Y(zf(tt, E.x0)), -0.996));
+        projEl.push(new T.Vector3(-0.996, Y(zf(A.x0, tt)), Z(tt)));
+      }
+      root.add(new T.Line(new T.BufferGeometry().setFromPoints(projAz), new T.LineBasicMaterial({ color: 0x61b4f0 })));
+      root.add(new T.Line(new T.BufferGeometry().setFromPoints(projEl), new T.LineBasicMaterial({ color: 0x37e8cf })));
+      // 봉우리 자리 표시선(벽 위 x0) — 지향 오차가 벽에서도 보이게
+      root.add(new T.LineSegments(new T.BufferGeometry().setFromPoints([new T.Vector3(X(A.x0), 0, -0.995), new T.Vector3(X(A.x0), H, -0.995),
+        new T.Vector3(-0.995, 0, Z(E.x0)), new T.Vector3(-0.995, H, Z(E.x0))]), new T.LineDashedMaterial({ color: 0xff8078, dashSize: 0.03, gapSize: 0.025 })).computeLineDistances());
+      // 측정 커튼 — 훑은 점마다 바닥에서 측정값까지 세로 빛줄(방위 파랑·고도 청록) + 벽에 비친 측정 점
+      const curtain = (pts, fit, isAz, color) => {
+        const seg = [], wall = [];
+        for (const [x, y] of pts || []) {
+          if (Math.abs(x) > R) continue;
+          const zm = Math.max(0, y - (fit.base + fit.slope * x)), py = Y(zm);
+          const px = isAz ? X(x) : X(A.x0), pz = isAz ? Z(E.x0) : Z(x);
+          seg.push(new T.Vector3(px, 0, pz), new T.Vector3(px, py, pz));
+          wall.push(isAz ? X(x) : -0.994, py, isAz ? -0.994 : Z(x));
+        }
+        if (seg.length) root.add(new T.LineSegments(new T.BufferGeometry().setFromPoints(seg),
+          new T.LineBasicMaterial({ color, transparent: true, opacity: 0.28, depthWrite: false, blending: T.AdditiveBlending })));
+        if (wall.length) {
+          const g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(wall, 3));
+          root.add(new T.Points(g, new T.PointsMaterial({ color, size: 0.03, sizeAttenuation: true })));
+        }
+      };
+      curtain(model.ptsAz, A, true, 0x61b4f0);
+      curtain(model.ptsEl, E, false, 0x37e8cf);
       // 측정 점 — 빛 구슬(가산 혼합)
       const dotTex = glowTex(T, 'rgba(255,255,255,1)', 'rgba(255,255,255,.45)');
       const dots = (pts, fit, isAz, color) => {
@@ -210,7 +264,7 @@
       // 훑기 빛점 — 방위 단면·고도 단면을 번갈아 달린다(십자 스캔이 하는 일)
       const runAz = new T.Sprite(new T.SpriteMaterial({ map: glowTex(T, 'rgba(220,240,255,1)', 'rgba(97,180,240,.55)'), transparent: true, depthWrite: false, blending: T.AdditiveBlending }));
       const runEl = new T.Sprite(new T.SpriteMaterial({ map: glowTex(T, 'rgba(220,255,250,1)', 'rgba(55,232,207,.55)'), transparent: true, depthWrite: false, blending: T.AdditiveBlending }));
-      runAz.scale.set(0.16, 0.16, 1); runEl.scale.set(0.16, 0.16, 1); fx.add(runAz, runEl);
+      runAz.scale.set(0.16, 0.16, 1); runEl.scale.set(0.16, 0.16, 1); runAz.visible = false; runEl.visible = false; fx.add(runAz, runEl);
       anim = { halo, ring, runAz, runEl, pAz, pEl };
       // 글: 축 이름·눈금·봉우리
       const lbl = (txt, color, x, y, z, hw, box) => { const sp = textSprite(T, txt, color, hw, box); sp.position.set(x, y, z); root.add(sp); };
@@ -221,7 +275,10 @@
         lbl(t, mut, X(v), 0, 1.14, 0.095);
         lbl(t, mut, 1.2, 0, Z(v), 0.095);
       }
-      lbl('상대 전력', mut, -1, H * 1.18, -1, 0.1);
+      lbl('상대 전력', mut, -1, H * 1.24, -1, 0.1);
+      for (const L of [0, 0.5, 1]) lbl(`${Math.round(L * 100)}%`, mut, -1.06, Y(L * amp), -1.06, 0.085);
+      lbl('방위 단면', '#61b4f0', 0.62, H * 1.05, -0.99, 0.085);
+      lbl('고도 단면', '#37e8cf', -0.99, H * 1.05, 0.62, 0.085);
       const sgn = (v) => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(0) + '″';
       lbl(`봉우리 Az${sgn(A.x0)} El${sgn(E.x0)}`, '#ff8078', X(A.x0), H + 0.24, Z(E.x0), 0.13, { bg: cssv('--panel', '#161b22') });
     }
@@ -230,7 +287,7 @@
       raf = requestAnimationFrame(frame);
       if (!model || document.hidden || !visible || !canvas.clientWidth || t - lastT < 33) return;
       const dt = Math.min(3, (t - lastT) / 33); lastT = t;
-      if (auto && !drag && t - lastUser > 4000) ph += 0.0042 * dt;
+      if (auto && !drag && t - lastUser > 4000) { sway += 0.006 * dt; ph = phBase + 0.42 * Math.sin(sway); }
       if (anim) {
         const s = (t % 1800) / 1800, pulse = 0.5 + 0.5 * Math.sin(t / 260);
         anim.halo.scale.set(0.34 + 0.12 * pulse, 0.34 + 0.12 * pulse, 1);
@@ -244,6 +301,36 @@
       render();
     }
     raf = requestAnimationFrame(frame);
+    // 겉글 덧판 — model.meta = {when, src, band, verdict, note, off}. 캔버스 부모(상대 위치)에 붙는다(10-02 '측정 날짜도 잘 보이게')
+    function overlay() {
+      const host = canvas.parentElement;
+      if (!host) return;
+      let o = host.querySelector(':scope > .b3-meta'), cb = host.querySelector(':scope > .b3-cbar');
+      if (!o) {
+        o = document.createElement('div'); o.className = 'b3-meta';
+        o.style.cssText = 'position:absolute;left:10px;top:9px;z-index:3;pointer-events:none;font:600 12px "Malgun Gothic",sans-serif;color:#dbe7f5;' +
+          'background:rgba(6,12,24,.62);border:1px solid rgba(120,190,255,.4);border-radius:9px;padding:7px 10px;backdrop-filter:blur(3px);' +
+          'box-shadow:0 0 14px rgba(88,166,255,.25);max-width:72%';
+        host.appendChild(o);
+      }
+      if (!cb) {
+        cb = document.createElement('div'); cb.className = 'b3-cbar';
+        cb.style.cssText = 'position:absolute;right:10px;top:12px;bottom:34px;width:12px;border-radius:6px;z-index:3;pointer-events:none;' +
+          'background:linear-gradient(0deg,#0d0887,#5402a3,#8b0aa5,#b93289,#db5c68,#f48849,#febc2a,#f0f921);box-shadow:0 0 10px rgba(240,249,33,.25)';
+        cb.innerHTML = '<span style="position:absolute;right:16px;top:-3px;font:600 10px monospace;color:#cfd8e6">100%</span>' +
+          '<span style="position:absolute;right:16px;top:50%;transform:translateY(-50%);font:600 10px monospace;color:#cfd8e6">50%</span>' +
+          '<span style="position:absolute;right:16px;bottom:-3px;font:600 10px monospace;color:#cfd8e6">0%</span>';
+        host.appendChild(cb);
+      }
+      const m = (model && model.meta) || {};
+      const vcol = m.verdict === 'PASS' ? '#3fdc8a' : m.verdict === 'FAIL' ? '#ff6b6b' : '#f5b041';
+      o.style.display = model ? '' : 'none'; cb.style.display = model ? '' : 'none';
+      o.innerHTML = `<div style="font-size:10.5px;color:#8fb3e0;letter-spacing:.04em">십자 스캔 측정</div>` +
+        `<div style="font:800 15px monospace;color:#fff;text-shadow:0 0 10px rgba(88,166,255,.6)">${m.when || '—'}</div>` +
+        `<div>${m.src || ''}${m.band ? ' · ' + m.band : ''}${m.verdict ? ` · <b style="color:${vcol}">${m.verdict}</b>` : ''}</div>` +
+        (m.off ? `<div style="color:#ffb0a8;font:600 11.5px monospace">${m.off}</div>` : '') +
+        (m.note ? `<div style="color:#9fb0c6;font-size:10.5px;margin-top:2px">${m.note}</div>` : '');
+    }
     function render() { upd(); rn.render(scene, cam); }
     function resize() {
       const w = canvas.clientWidth, h = canvas.clientHeight;
@@ -254,12 +341,12 @@
       return true;
     }
     return {
-      draw(m) { model = m; build(); if (!resize()) render(); },
+      draw(m) { model = m; build(); overlay(); if (!resize()) render(); },
       resize,
       theme() { build(); render(); },
       clear() { model = null; clear(); render(); },
       setAuto(v) { auto = !!v; touch(); },
-      reset() { th = 0.95; ph = -0.62; rad = 4.3; render(); },
+      reset() { th = TH0; ph = phBase = PH0; rad = RAD0; sway = 0; render(); },
       dispose() { cancelAnimationFrame(raf); clear(); rn.dispose(); },
     };
   }
