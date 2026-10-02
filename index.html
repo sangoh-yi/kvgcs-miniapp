@@ -173,6 +173,9 @@
     background:radial-gradient(ellipse at 50% 30%,rgba(88,166,255,.18),transparent 62%),linear-gradient(180deg,#0a1222,#060a14);box-shadow:inset 0 0 36px rgba(0,0,0,.55)}
   .tsm-3dn{position:absolute;inset:0;display:grid;place-items:center;font-size:12px;color:#8ba0b8}
   .tsm-cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+  .tsm-core{position:relative;height:215px;border-radius:10px;overflow:hidden;margin:8px 0 4px;border:1px solid rgba(120,190,255,.38);
+    background:radial-gradient(ellipse at 50% 52%,#0e2a52 0%,#081630 46%,#050c1b 78%,#03070f 100%);box-shadow:inset 0 0 26px rgba(40,120,220,.25)}
+  .tsm-core::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:1;background:repeating-linear-gradient(0deg,rgba(150,210,255,.035) 0 1px,transparent 1px 3px)}
   .tsm-sub{font-size:11.5px;font-weight:700;margin-top:6px}.tsm-sub .dim{font-weight:400}
   .pf-svg{width:100%;height:150px;display:block}.pf-bg{fill:color-mix(in srgb,var(--card2) 80%,transparent)}.pf-grid{stroke:var(--line);stroke-width:1}
   .pf-pt{fill:var(--dim);opacity:.85}.pf-fit{fill:none;stroke:#f778ba;stroke-width:2}.pf-x0{stroke:#fff;stroke-width:1.5}.pf-x0l{font-size:10px;fill:var(--tx);font-family:ui-monospace,monospace}
@@ -270,7 +273,7 @@
 <script>
 const TG=window.Telegram?.WebApp; TG?.ready(); TG?.expand();
 const GIST_ID=(new URLSearchParams(location.search).get("g")||"5404bef7f8d5b9f4e8d2824515fc8728");
-const REV="p10021430";
+const REV="p10021554";
 let GLOBECODE="";      // 지구본 세션 선택(선택기 → postMessage)
 const BODY={};
 async function loadBody(name){
@@ -454,7 +457,7 @@ function vTS(t){
 /* ── ★ ThreeStar 메뉴 — 운용 화면(127.0.0.1:8793)과 같은 구성·디자인을 휴대폰 세로로(10-02 센터장님 "메인 페이지랑 같게").
    머리 HUD(REC·SLEW·ARM·경보) · 스캔 끝 막대 · 지금 스캔(단계 구슬·초읽기·기록 시간 막대·다음) · 데이터 전송 · 스캔 시간표 ·
    안테나 · 십자 스캔(three.js 3D 빔·단면 잔차·자세한 분석) · 장비 · 경보 · 기상·클럭·보정 · 스캔 표. 시각은 KST ── */
-let TSL=null, TSLT=0, TSF="near", TSCH="S1", TS3D=null, TSCV=null, TSSIG="";
+let TSL=null, TSLT=0, TSF="near", TSCH="S1", TS3D=null, TSCV=null, TSBW=null, TSSIG="", TSSC=null, TSSW=null, TSSF=false;
 async function loadTSL(){ try{ TSL=await jget("threestar_live.json"); TSLT=Date.now()/1000; }catch(e){ if(!TSL) TSL={err:1}; } }
 const kst=(t,n=19)=>t?new Date((t+9*3600)*1000).toISOString().slice(11,n):"—";
 const kstd=t=>t?new Date((t+9*3600)*1000).toISOString().slice(5,10).replace("-","/"):"";
@@ -464,9 +467,9 @@ const sgn=(v,d=0)=>v==null||!isFinite(v)?"—":(v>0?"+":v<0?"−":"")+Math.abs(v
 const K4=4*Math.LN2;
 // 같은 오리진 ts/ 의 three.js·beam3d.js 를 처음 볼 때만 불러온다
 let TS3P=null;
-function ensureThree(){ if(window.Beam3D) return Promise.resolve(true); if(TS3P) return TS3P;
+function ensureThree(){ if(window.Beam3D&&window.Scan3D) return Promise.resolve(true); if(TS3P) return TS3P;
   const ld=src=>new Promise((ok,no)=>{const e=document.createElement("script"); e.src=src+"?v="+REV; e.onload=ok; e.onerror=no; document.head.appendChild(e);});
-  TS3P=ld("./ts/three.min.js").then(()=>ld("./ts/beam3d.js")).then(()=>true).catch(()=>false); return TS3P; }
+  TS3P=ld("./ts/three.min.js").then(()=>ld("./ts/beam3d.js")).then(()=>ld("./ts/scan3d.js")).then(()=>true).catch(()=>false); return TS3P; }
 function stageIdx(st){ return ({SELECT:0,SLEW:0,TRACK_WAIT:1,PRE_REC:2,REC_ON:3,REC_WAIT:3,REC_OFF:4,DONE:4})[st]??-1; }
 function obsKind(s,cur){ if(!s||s.state!=="RUNNING") return ["ARMED","SETUP","REC_TEST","CROSS","BOOT","READY"].includes(s&&s.state)?"prep":"idle";
   const g=cur&&cur.stage; return g==="REC_WAIT"||g==="REC_ON"?"rec":g==="SLEW"||g==="SELECT"?"slew":g==="TRACK_WAIT"||g==="PRE_REC"?"arm":"idle"; }
@@ -551,10 +554,11 @@ function vTSL(){
   h+=`<div class="card tsm ${ob==="rec"?"tsm-rec":""}"><div class="tsm-h">지금 스캔 <span class="dim">#${(s.done||0)+1} · 남은 ${Math.max(0,N-(s.done||0)-1)}개</span>${cur.stage_ko?`<span class="tsm-badge ${ob==="rec"?"rec":"run"}" style="margin-left:auto"><i></i>${esc(cur.stage_ko)}</span>`:""}</div>
     <div class="tsm-scan"><span class="mono">${esc(cur.scan||"—")}</span><span class="tsm-tag">${esc(cur.sector||"")}</span></div><div class="dim">소스 <b class="mono" style="color:var(--tx)">${esc(cur.source||"—")}</b></div>
     <ol class="tsm-step">${steps.map((n,k)=>`<li class="${k<si?"done":k===si?("cur"+(k===3?" rec":"")):""}"><i></i>${n}</li>`).join("")}</ol>
-    <div class="grid g2" style="margin-top:8px">
+    <div class="tsm-core" id="tsScanSlot" hidden></div>
+    <div id="tsScanOld"><div class="grid g2" style="margin-top:8px">
       <div class="tile tsm-cd ${before?"on":""}"><div class="lbl">${before?"기록 시작까지":"기록 시작함"}</div><div class="tsm-big mono" id="tsCd1">${before?mmss(cur.start-now):kst(cur.start)}</div><div class="lbl mono">${kst(cur.start)} KST 시작</div></div>
       <div class="tile tsm-cd ${!before?"on":""} ${!before&&ob==="rec"?"rec":""}"><div class="lbl">${before?"기록 길이":"기록 끝까지"}</div><div class="tsm-big mono" id="tsCd2">${before?mmss((cur.stop||0)-(cur.start||0)):mmss((cur.stop||now)-now)}</div><div class="lbl mono">${kst(cur.stop)} KST 끝</div></div></div>
-    <div id="tsCycWrap">${cycleSvg(t,cur)}</div>
+    <div id="tsCycWrap">${cycleSvg(t,cur)}</div></div>
     <div class="grid g3 tsm-stats"><div><span>예측 선회</span><b>${n2(cur.pred_slew)!=null?(+cur.pred_slew).toFixed(1)+" s":"—"}</b></div><div><span>예측 늦음</span><b>${n2(cur.pred_late)!=null?(+cur.pred_late).toFixed(1)+" s":"—"}</b></div><div><span>방위·고도</span><b>${n2(cur.az)?.toFixed(1)??"–"}°·${n2(cur.el)?.toFixed(1)??"–"}°</b></div>
       <div><span>도착</span><b style="color:var(--ok)">${cur.arrived?kst(cur.arrived):"—"}</b></div><div><span>기록 켬</span><b>${cur.rec_on?kst(cur.rec_on):"—"}</b></div><div><span>기록 길이</span><b>${cur.start&&cur.stop?Math.round(cur.stop-cur.start)+" s":"—"}</b></div></div>
     <div class="tsm-next"><span class="tsm-tag">다음</span><b class="mono">${esc(nx.scan||"—")}</b> <span class="mono">${esc(nx.source||"")}</span><span class="dim mono" style="margin-left:auto">${kst(nx.start)} · T-<b id="tsNext">${mmss((nx.start||now)-now)}</b></span></div></div>`;
@@ -623,8 +627,10 @@ function mountTS3D(){
     const note=document.getElementById("tsBeamNote");
     if(!okk||!window.Beam3D){ if(note) note.textContent="3D 를 불러오지 못함 — 단면을 보세요"; return; }
     const sl=document.getElementById("tsBeamSlot"); if(!sl) return;
-    if(!TSCV){ TSCV=document.createElement("canvas"); TSCV.className="tsm-cv"; try{ TS3D=window.Beam3D.create(TSCV); }catch(e){ if(note) note.textContent="이 기기에서 WebGL 을 쓸 수 없습니다"; TSCV=null; return; } }
-    if(note) note.remove(); sl.appendChild(TSCV);
+    if(!TSCV){ TSBW=document.createElement("div"); TSBW.style.cssText="position:absolute;inset:0";
+      TSCV=document.createElement("canvas"); TSCV.className="tsm-cv"; TSBW.appendChild(TSCV);
+      try{ TS3D=window.Beam3D.create(TSCV); }catch(e){ if(note) note.textContent="이 기기에서 WebGL 을 쓸 수 없습니다"; TSCV=null; return; } }
+    if(note) note.remove(); sl.appendChild(TSBW);
     const ch=TSL.cross_full.channels[TSCH]; if(!ch) return;
     const fa=ch.fits.Az, fe=ch.fits.El, sig=TSCH+JSON.stringify([fa,fe]);
     const cf=TSL.cross_full, SRCN={CYGA:"Cygnus A",CASA:"Cassiopeia A",TAUA:"Taurus A",VIRA:"Virgo A"};
@@ -636,6 +642,22 @@ function mountTS3D(){
     requestAnimationFrame(()=>{ TS3D.resize(); if(sig!==TSSIG){ TSSIG=sig;
       TS3D.draw({az:{amp:+fa.amp,x0:+fa.x0,fwhm:+fa.fwhm,base:+fa.base,slope:+(fa.slope||0)},el:{amp:+fe.amp,x0:+fe.x0,fwhm:+fe.fwhm,base:+fe.base,slope:+(fe.slope||0)},
         ptsAz:ch.pts.Az||[],ptsEl:ch.pts.El||[],hp:n2(ch.hp)||1200,meta}); } });
+  });
+}
+// 지금 스캔 3D 원판(운용 화면과 같은 scan3d.js) — 감싼 상자를 다시 그릴 때마다 옮겨 붙인다. 못 뜨면 예전 칸·막대 그대로
+function mountTSScan(){
+  if(TAB!=="ts"||TSSF||!TSL||!TSL.session||!TSL.session.current) return;
+  ensureThree().then(okk=>{
+    const sl=document.getElementById("tsScanSlot"), old=document.getElementById("tsScanOld"); if(!sl||!okk||!window.Scan3D) return;
+    if(!TSSC){ TSSW=document.createElement("div"); TSSW.style.cssText="position:absolute;inset:0";
+      const cv=document.createElement("canvas"); cv.className="tsm-cv"; TSSW.appendChild(cv);
+      sl.hidden=false; sl.appendChild(TSSW);
+      try{ TSSC=window.Scan3D.create(cv,{now:()=>Date.now()/1000, fill:0.82}); }catch(e){ TSSC=null; TSSW=null; TSSF=true; sl.hidden=true; return; } }
+    sl.hidden=false; if(TSSW.parentNode!==sl) sl.appendChild(TSSW); if(old) old.style.display="none";
+    const t=TSL, s=t.session, cur=s.current, P=t.plan||[], ci=P.findIndex(r=>r[1]===cur.scan), prev=ci>0?P[ci-1]:null;
+    const t0=prev&&prev[4]<cur.start?prev[4]:cur.start-(n2(cur.pred_slew)||30)-20;
+    requestAnimationFrame(()=>{ TSSC.set({t0,predSlew:n2(cur.pred_slew)||0,start:cur.start,stop:cur.stop,recOn:n2(cur.rec_on),arrived:n2(cur.arrived),
+      stage:cur.stage,paused:s.state==="PAUSED",tiles:[]}); });
   });
 }
 function tickTSL(){
@@ -862,7 +884,7 @@ function render(full=true){
   const app=document.getElementById("app");
   app.innerHTML=`<div class="view">${v()}</div>`;
   mountFrames();
-  mountTS3D();
+  mountTS3D(); mountTSScan();
   document.getElementById("foot").innerHTML=
     `<span class="pulse" style="color:${stale?"var(--bad)":"var(--ok)"}"></span>
      ${ago(age)} 갱신 · 15초마다 자동 · 조회 전용`;
