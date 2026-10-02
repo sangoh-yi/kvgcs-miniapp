@@ -99,6 +99,91 @@
   .tsl-tr.cur{background:color-mix(in srgb,var(--navy) 12%,transparent);border-radius:8px}
   .tsl-tr .t{color:var(--dim);font-size:11.5px}
   .tsl-tr .sub{grid-column:2/4;color:var(--dim);font-size:11px}
+  /* ★ ThreeStar 메뉴 — 운용 화면과 같은 결(10-02): 유리질 카드·HUD 모서리·빛 막대·빛 구슬 */
+  .tsm{position:relative;background:linear-gradient(160deg,color-mix(in srgb,var(--card) 86%,var(--navy) 14%),var(--card) 60%);
+    border:1px solid color-mix(in srgb,var(--navy) 28%,var(--line));box-shadow:0 8px 24px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.05)}
+  .tsm::before,.tsm::after{content:"";position:absolute;width:12px;height:12px;border:1.5px solid color-mix(in srgb,var(--navy) 60%,transparent);pointer-events:none}
+  .tsm::before{top:5px;left:5px;border-right:0;border-bottom:0;border-top-left-radius:4px}
+  .tsm::after{bottom:5px;right:5px;border-left:0;border-top:0;border-bottom-right-radius:4px}
+  .tsm-h{display:flex;align-items:center;gap:7px;font-size:13px;font-weight:800;margin-bottom:8px}
+  .tsm-h::before{content:"";width:3px;height:13px;border-radius:2px;background:linear-gradient(180deg,var(--navy),var(--ok));box-shadow:0 0 8px color-mix(in srgb,var(--navy) 60%,transparent)}
+  .tsm-h .dim{font-weight:400;font-size:11px}
+  .tsm .dim{color:var(--dim)}
+  .tsm-top{display:flex;align-items:center;gap:10px}.tsm-top svg{width:56px;height:22px;flex:none;filter:drop-shadow(0 0 6px rgba(212,175,55,.45))}
+  .tsm-brand{font-size:17px;text-shadow:0 0 14px color-mix(in srgb,var(--navy) 50%,transparent)}.tsm-brand span{color:#d4af37}
+  .tsm-sess{margin-left:auto;display:flex;align-items:center;gap:6px}.tsm-sess b{font-size:16px}
+  .tsm-badge{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:700;
+    background:color-mix(in srgb,var(--navy) 16%,transparent);color:var(--navy);border:1px solid color-mix(in srgb,var(--navy) 40%,transparent)}
+  .tsm-badge i{width:7px;height:7px;border-radius:50%;background:currentColor}.tsm-badge.run i{animation:tsmP 1.4s ease-in-out infinite}
+  .tsm-badge.rec{color:#ff4d5e;background:rgba(255,77,94,.14);border-color:rgba(255,77,94,.5)}
+  .tsm-hud{display:flex;align-items:center;gap:7px;margin-top:10px;flex-wrap:wrap}
+  .hud-o,.hud-a{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:8px;font-size:11.5px;border:1px solid var(--line);background:var(--card2)}
+  .hud-o b{font-family:ui-monospace,monospace;letter-spacing:.08em}.hud-o span{color:var(--dim);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hud-o i,.hud-a i{width:9px;height:9px;border-radius:50%;background:var(--dim)}
+  .hud-o[data-k="rec"]{border-color:rgba(255,77,94,.6);box-shadow:0 0 14px rgba(255,77,94,.45)}.hud-o[data-k="rec"] b{color:#ff4d5e}
+  .hud-o[data-k="rec"] i{background:#ff4d5e;box-shadow:0 0 9px #ff4d5e;animation:tsmB 1s steps(2,start) infinite}
+  .hud-o[data-k="slew"] b{color:var(--warn)}.hud-o[data-k="slew"] i{background:var(--warn);animation:tsmP 1.2s infinite}
+  .hud-o[data-k="arm"] b,.hud-o[data-k="prep"] b{color:var(--navy)}.hud-o[data-k="arm"] i,.hud-o[data-k="prep"] i{background:var(--navy);animation:tsmP 1.6s infinite}
+  .hud-a{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 60%,transparent);animation:tsmA 1.1s ease-in-out infinite}.hud-a i{background:var(--bad)}
+  .tsm-clk{margin-left:auto;text-align:right;line-height:1.15}.tsm-clk b{font-size:20px;text-shadow:0 0 12px color-mix(in srgb,var(--navy) 50%,transparent)}
+  @keyframes tsmB{to{visibility:hidden}}@keyframes tsmP{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.75)}}
+  @keyframes tsmA{0%,100%{box-shadow:0 0 0 rgba(255,95,84,0)}50%{box-shadow:0 0 16px rgba(255,95,84,.55)}}
+  .tsm-prog-h{display:flex;justify-content:space-between;align-items:baseline;font-size:12.5px}.tsm-prog-h b{font-size:16px}
+  .tsm-pct{font-family:ui-monospace,monospace;font-weight:800;font-size:16px;background:linear-gradient(180deg,var(--tx),var(--ok) 70%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 8px rgba(47,217,130,.35))}
+  .tsm-prog{display:flex;gap:1px;height:13px;border-radius:7px;overflow:hidden;background:var(--line);margin:7px 0 6px;position:relative;box-shadow:inset 0 2px 4px rgba(0,0,0,.45)}
+  .tsm-prog i{position:relative}.tsm-prog i::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(255,255,255,.45),rgba(255,255,255,0) 55%,rgba(0,0,0,.22))}
+  .tsm-prog i:first-child{box-shadow:0 0 12px color-mix(in srgb,var(--ok) 60%,transparent)}
+  .tsm-prog::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);background-size:40% 100%;background-repeat:no-repeat;animation:tsmS 2.8s linear infinite}
+  @keyframes tsmS{from{background-position:-40% 0}to{background-position:140% 0}}
+  .tsm-leg{display:flex;flex-wrap:wrap;gap:4px 11px;font-size:11px;color:var(--dim)}.tsm-leg i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:3px}
+  .tsm-leg b{color:var(--tx);font-family:ui-monospace,monospace}.tsm-leg .z{opacity:.45}
+  .tsm-scan{display:flex;align-items:center;gap:8px}.tsm-scan .mono{font-size:22px;font-weight:800}
+  .tsm-tag{font-size:10.5px;padding:1px 7px;border-radius:6px;border:1px solid var(--line);color:var(--dim);background:var(--card2)}
+  .tsm-step{list-style:none;margin:10px 0 0;padding:0;display:grid;grid-template-columns:repeat(5,1fr);font-size:10.5px;color:var(--dim);text-align:center}
+  .tsm-step li{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px}
+  .tsm-step li::before{content:"";position:absolute;top:8px;right:50%;width:100%;height:3px;border-radius:2px;background:var(--line);z-index:0}
+  .tsm-step li:first-child::before{display:none}
+  .tsm-step li i{width:17px;height:17px;border-radius:50%;border:2px solid var(--line);background:var(--card);z-index:1}
+  .tsm-step li.done,.tsm-step li.cur{color:var(--tx)}.tsm-step li.cur{font-weight:800}
+  .tsm-step li.done::before,.tsm-step li.cur::before{background:linear-gradient(90deg,var(--ok),#8ef0a0);box-shadow:0 0 7px color-mix(in srgb,var(--ok) 60%,transparent)}
+  .tsm-step li.done i{background:radial-gradient(circle at 35% 30%,#b6f5c2,var(--ok) 60%,#157a43);border-color:#8ef0a0;box-shadow:0 0 9px color-mix(in srgb,var(--ok) 60%,transparent)}
+  .tsm-step li.cur i{background:radial-gradient(circle at 35% 30%,#cfe6ff,var(--navy) 60%,#1f5fb0);border-color:var(--navy);box-shadow:0 0 0 4px color-mix(in srgb,var(--navy) 22%,transparent),0 0 14px var(--navy);animation:tsmP 1.4s infinite}
+  .tsm-step li.cur.rec i{background:radial-gradient(circle at 35% 30%,#ffd0d4,#ff4d5e 60%,#a3141f);border-color:#ff8a95;box-shadow:0 0 0 4px rgba(255,77,94,.2),0 0 16px #ff4d5e}
+  .tsm-cd .tsm-big{font-size:25px;font-weight:800;color:var(--dim);line-height:1.15}
+  .tsm-cd.on{border-color:color-mix(in srgb,var(--navy) 60%,transparent);box-shadow:0 0 14px color-mix(in srgb,var(--navy) 22%,transparent)}.tsm-cd.on .tsm-big{color:var(--tx);text-shadow:0 0 12px color-mix(in srgb,var(--navy) 55%,transparent)}
+  .tsm-cd.on.rec{border-color:rgba(255,77,94,.6);box-shadow:0 0 16px rgba(255,77,94,.35)}.tsm-cd.on.rec .tsm-big{text-shadow:0 0 12px rgba(255,77,94,.6)}
+  .tsm-rec{border-color:rgba(255,77,94,.5);box-shadow:0 0 22px rgba(255,77,94,.18),0 8px 24px rgba(0,0,0,.22)}
+  .mc-svg{width:100%;height:50px;display:block;margin-top:8px;overflow:visible}.mc-track{fill:var(--line)}.mc-l{font-size:9.5px;fill:var(--dim);font-family:ui-monospace,monospace}
+  .tsm-stats{margin-top:8px;gap:6px}.tsm-stats>div{background:var(--card2);border-radius:8px;padding:5px 7px;display:flex;flex-direction:column;min-width:0}
+  .tsm-stats span{font-size:10px;color:var(--dim)}.tsm-stats b{font-family:ui-monospace,monospace;font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tsm-next{display:flex;align-items:center;gap:7px;margin-top:9px;padding-top:8px;border-top:1px dashed var(--line);font-size:12.5px}
+  .tsm-xf{border-color:rgba(57,197,207,.45);box-shadow:0 0 20px rgba(57,197,207,.14),0 8px 24px rgba(0,0,0,.22)}
+  .xf-row{display:flex;align-items:center;gap:14px}
+  .xf-pc{font-family:ui-monospace,monospace;font-size:42px;font-weight:800;line-height:1;background:linear-gradient(180deg,var(--tx),#2fb5c2 70%);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 12px rgba(57,197,207,.35))}
+  .xf-pc small{font-size:20px}
+  .xf-bar{position:relative;height:20px;border-radius:10px;background:var(--line);overflow:hidden;margin-top:9px;box-shadow:inset 0 2px 5px rgba(0,0,0,.45)}
+  .xf-bar i{position:absolute;left:0;top:0;bottom:0;border-radius:10px}
+  .xf-bar i.rec{background:repeating-linear-gradient(135deg,rgba(160,180,210,.32) 0 7px,rgba(160,180,210,.16) 7px 14px)}
+  .xf-bar i.sent{background:linear-gradient(180deg,#8ef0f6,#39c5cf 45%,#1c8f99);box-shadow:0 0 14px rgba(57,197,207,.65)}
+  .xf-bar i.sent::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent);background-size:30% 100%;background-repeat:no-repeat;animation:tsmS 2.2s linear infinite}
+  .xf-bar b{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;background:#fff;box-shadow:0 0 7px #fff}
+  .tl-svg{width:100%;height:62px;display:block}.tl-pulse{animation:tsmP 1.6s ease-in-out infinite}
+  .tsm-note{font-size:11.5px;color:var(--dim);margin:2px 0 4px}
+  .tsm-3d{position:relative;height:270px;border-radius:10px;overflow:hidden;margin:6px 0 4px;border:1px solid color-mix(in srgb,var(--navy) 35%,var(--line));
+    background:radial-gradient(ellipse at 50% 30%,rgba(88,166,255,.18),transparent 62%),linear-gradient(180deg,#0a1222,#060a14);box-shadow:inset 0 0 36px rgba(0,0,0,.55)}
+  .tsm-3dn{position:absolute;inset:0;display:grid;place-items:center;font-size:12px;color:#8ba0b8}
+  .tsm-cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+  .tsm-sub{font-size:11.5px;font-weight:700;margin-top:6px}.tsm-sub .dim{font-weight:400}
+  .pf-svg{width:100%;height:150px;display:block}.pf-bg{fill:color-mix(in srgb,var(--card2) 80%,transparent)}.pf-grid{stroke:var(--line);stroke-width:1}
+  .pf-pt{fill:var(--dim);opacity:.85}.pf-fit{fill:none;stroke:#f778ba;stroke-width:2}.pf-x0{stroke:#fff;stroke-width:1.5}.pf-x0l{font-size:10px;fill:var(--tx);font-family:ui-monospace,monospace}
+  .pf-res{fill:color-mix(in srgb,var(--card2) 70%,transparent)}.pf-3s{stroke:var(--warn);stroke-dasharray:3 3;stroke-width:1}.pf-rp{fill:var(--navy);opacity:.8}.pf-out{fill:var(--bad)}
+  .tsm-kv{display:grid;grid-template-columns:72px auto 1fr;gap:2px 8px;align-items:center;font-size:12px;padding:3px 0}
+  .tsm-kv span{color:var(--dim)}.tsm-kv b{font-family:ui-monospace,monospace}.tsm-kv em{font-style:normal;font-size:10.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tsm-bar{grid-column:1/-1;display:block;height:5px;border-radius:3px;background:var(--line);overflow:hidden}.tsm-bar i{display:block;height:100%;border-radius:3px}
+  .tsm-bar.good i{background:var(--ok);box-shadow:0 0 7px var(--ok)}.tsm-bar.warn i{background:var(--warn)}.tsm-bar.bad i{background:var(--bad)}
+  .tsm-rs{margin:6px 0 0;padding-left:16px;font-size:11.5px;color:var(--dim)}
+  .tsm-alarm{border-color:color-mix(in srgb,var(--bad) 60%,transparent);animation:tsmA 1.4s ease-in-out infinite}
+  @media (prefers-reduced-motion:reduce){.tsm *,.tsm{animation:none!important}}
 
   /* 게이지 */
   .dial{display:flex;align-items:center;gap:14px}
@@ -185,7 +270,7 @@
 <script>
 const TG=window.Telegram?.WebApp; TG?.ready(); TG?.expand();
 const GIST_ID=(new URLSearchParams(location.search).get("g")||"5404bef7f8d5b9f4e8d2824515fc8728");
-const REV="p10020638";
+const REV="p10021243";
 let GLOBECODE="";      // 지구본 세션 선택(선택기 → postMessage)
 const BODY={};
 async function loadBody(name){
@@ -366,99 +451,186 @@ function vTS(t){
   </div>`;
 }
 
-/* ── ★ ThreeStar 메뉴 — 운용 화면(127.0.0.1:8793)과 같은 내용을 휴대폰에서(2026-10-02). 시각은 KST ── */
-let TSL=null, TSLT=0, TSF="near";
+/* ── ★ ThreeStar 메뉴 — 운용 화면(127.0.0.1:8793)과 같은 구성·디자인을 휴대폰 세로로(10-02 센터장님 "메인 페이지랑 같게").
+   머리 HUD(REC·SLEW·ARM·경보) · 스캔 끝 막대 · 지금 스캔(단계 구슬·초읽기·기록 시간 막대·다음) · 데이터 전송 · 스캔 시간표 ·
+   안테나 · 십자 스캔(three.js 3D 빔·단면 잔차·자세한 분석) · 장비 · 경보 · 기상·클럭·보정 · 스캔 표. 시각은 KST ── */
+let TSL=null, TSLT=0, TSF="near", TSCH="S1", TS3D=null, TSCV=null, TSSIG="";
 async function loadTSL(){ try{ TSL=await jget("threestar_live.json"); TSLT=Date.now()/1000; }catch(e){ if(!TSL) TSL={err:1}; } }
 const kst=(t,n=19)=>t?new Date((t+9*3600)*1000).toISOString().slice(11,n):"—";
 const kstd=t=>t?new Date((t+9*3600)*1000).toISOString().slice(5,10).replace("-","/"):"";
 const mmss=s=>{s=Math.max(0,Math.round(s));const h=Math.floor(s/3600),m=Math.floor(s%3600/60),x=s%60,P=v=>String(v).padStart(2,"0");return (h?h+":"+P(m):m)+":"+P(x);};
 const pill=(st,txt)=>`<span class="tsl-pill" style="background:${TS_COL[st]||"var(--dim)"}">${esc(txt||TS_KO[st]||st||"")}</span>`;
+const sgn=(v,d=0)=>v==null||!isFinite(v)?"—":(v>0?"+":v<0?"−":"")+Math.abs(v).toFixed(d)+"″";
+const K4=4*Math.LN2;
+// 같은 오리진 ts/ 의 three.js·beam3d.js 를 처음 볼 때만 불러온다
+let TS3P=null;
+function ensureThree(){ if(window.Beam3D) return Promise.resolve(true); if(TS3P) return TS3P;
+  const ld=src=>new Promise((ok,no)=>{const e=document.createElement("script"); e.src=src+"?v="+REV; e.onload=ok; e.onerror=no; document.head.appendChild(e);});
+  TS3P=ld("./ts/three.min.js").then(()=>ld("./ts/beam3d.js")).then(()=>true).catch(()=>false); return TS3P; }
+function stageIdx(st){ return ({SELECT:0,SLEW:0,TRACK_WAIT:1,PRE_REC:2,REC_ON:3,REC_WAIT:3,REC_OFF:4,DONE:4})[st]??-1; }
+function obsKind(s,cur){ if(!s||s.state!=="RUNNING") return ["ARMED","SETUP","REC_TEST","CROSS","BOOT","READY"].includes(s&&s.state)?"prep":"idle";
+  const g=cur&&cur.stage; return g==="REC_WAIT"||g==="REC_ON"?"rec":g==="SLEW"||g==="SELECT"?"slew":g==="TRACK_WAIT"||g==="PRE_REC"?"arm":"idle"; }
+const OBS_T={rec:["REC","기록 중"],slew:["SLEW","선회 중"],arm:["ARM","기록 대기"],prep:["PREP","준비"],idle:["STBY","대기"]};
+function cycleSvg(t,cur){                         // 기록 시간 막대(운용 화면 drawCycle 과 같은 결)
+  if(!cur||!cur.start||!cur.stop) return "";
+  const W=340,H=46,P=t.plan||[],ci=P.findIndex(r=>r[1]===cur.scan),prev=ci>0?P[ci-1]:null,now=Date.now()/1000;
+  const t0=prev&&prev[4]<cur.start?prev[4]:cur.start-(n2(cur.pred_slew)||30)-20,t1=cur.stop;
+  const x=tt=>10+Math.max(0,Math.min(1,(tt-t0)/Math.max(1,t1-t0)))*(W-20), y=9,h=14,r=7;
+  let g=`<defs><linearGradient id="mcRec" x1="0" x2="1"><stop offset="0" stop-color="#ff4d5e"/><stop offset="1" stop-color="#ff9a5c"/></linearGradient>
+    <linearGradient id="mcGl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient>
+    <filter id="mcGw" x="-20%" y="-80%" width="140%" height="260%"><feGaussianBlur stdDeviation="2.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <clipPath id="mcCl"><rect x="10" y="${y}" width="${W-20}" height="${h}" rx="${r}"/></clipPath></defs>
+    <rect x="10" y="${y}" width="${W-20}" height="${h}" rx="${r}" class="mc-track"/><g clip-path="url(#mcCl)">`;
+  const ps=n2(cur.pred_slew)||0;
+  if(ps>0) g+=`<rect x="${x(t0)}" y="${y}" width="${Math.max(2,x(t0+ps)-x(t0))}" height="${h}" fill="var(--navy)" opacity=".35"/>`;
+  const rf=n2(cur.rec_on)!=null?Math.max(n2(cur.rec_on),cur.start):null;
+  if(rf!=null&&now>rf){const wx=Math.max(1,x(Math.min(now,cur.stop))-x(rf));
+    g+=`<rect x="${x(rf)}" y="${y}" width="${wx}" height="${h}" fill="url(#mcRec)" filter="url(#mcGw)"/><rect x="${x(rf)}" y="${y}" width="${wx}" height="${h}" fill="url(#mcGl)"/>`;}
+  g+=`</g><rect x="${x(cur.start)}" y="${y-2}" width="${Math.max(2,x(cur.stop)-x(cur.start))}" height="${h+4}" rx="${r+2}" fill="none" stroke="#ff4d5e" stroke-width="1.5" filter="url(#mcGw)"/>`;
+  if(n2(cur.arrived)!=null) g+=`<circle cx="${x(cur.arrived)}" cy="${y+h/2}" r="4.5" fill="var(--ok)" filter="url(#mcGw)"/>`;
+  const xn=x(now); g+=`<path d="M${xn} ${y-5}v${h+10}" stroke="#fff" stroke-width="2" filter="url(#mcGw)"/><path d="M${xn-4} ${y-9}h8l-4 5z" fill="#fff"/>`;
+  g+=`<text x="10" y="${H-1}" class="mc-l">선회 ${kst(t0,16)}</text><text x="${W-10}" y="${H-1}" class="mc-l" text-anchor="end">끝 ${kst(cur.stop)}</text>`;
+  return `<svg class="mc-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" id="tsCyc">${g}</svg>`;
+}
+function tlSvg(t,cur){                            // 스캔 시간표 — 입체 막대 · 빛나는 지금 · KST 3시간 눈금
+  const P=t.plan||[], n=P.length; if(!n) return "";
+  const W=360,H=58,top=8,bh=30,cw=W/n,now=Date.now()/1000;
+  let g=`<defs><linearGradient id="tlG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".45"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".3"/></linearGradient>
+    <filter id="tlGw" x="-200%" y="-20%" width="500%" height="140%"><feGaussianBlur stdDeviation="2"/></filter></defs>`;
+  let lastH=null, xNow=null;
+  P.forEach((r,k)=>{const st=r[7]==="running"||r[1]===cur.scan?"running":(r[7]||"pending"), hf=st==="pending"?.34:st==="skipped"?.55:1, hh=Math.max(3,bh*hf), x=k*cw;
+    g+=`<rect x="${x.toFixed(2)}" y="${(top+bh-hh).toFixed(1)}" width="${Math.max(.6,cw-.4).toFixed(2)}" height="${hh.toFixed(1)}" fill="${TS_COL[st]||"var(--line)"}"/>`;
+    const hr=Math.floor((r[3]+9*3600)/3600)%24; if(hr!==lastH){ if(hr%3===0) g+=`<text x="${x.toFixed(1)}" y="${H-2}" class="mc-l">${String(hr).padStart(2,"0")}시</text>`; lastH=hr; }
+    if(r[1]===cur.scan) xNow=x+cw/2; });
+  g+=`<rect x="0" y="${top}" width="${W}" height="${bh}" fill="url(#tlG)" opacity=".6"/>`;
+  if(xNow==null){const k=P.findIndex(r=>r[3]>now); if(k>=0) xNow=k*cw;}
+  if(xNow!=null) g+=`<line x1="${xNow}" x2="${xNow}" y1="${top-5}" y2="${top+bh+5}" stroke="#fff" stroke-width="5" opacity=".55" filter="url(#tlGw)" class="tl-pulse"/><line x1="${xNow}" x2="${xNow}" y1="${top-5}" y2="${top+bh+5}" stroke="#fff" stroke-width="1.6"/>`;
+  return `<svg class="tl-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${g}</svg>`;
+}
+function profSvg(f,pts,hp,lbl){                   // 단면 — 측정 점 · 맞춘 곡선 · x0 · 잔차 띠(±3σ)
+  const W=330,H=150,L=30,R=6,T=6,resH=34,gap=5,B=14,ph=H-T-B-resH-gap,pw=W-L-R;
+  if(!f||f.amp==null||!f.fwhm) return `<div class="tsm-note">${esc(lbl)} 맞춤 없음</div>`;
+  const fy=x=>f.base+(f.slope||0)*x+f.amp*Math.exp(-K4*(x-f.x0)**2/(f.fwhm*f.fwhm));
+  let xlo=-3*hp,xhi=3*hp; if(pts.length){xlo=Math.min(xlo,pts[0][0]);xhi=Math.max(xhi,pts[pts.length-1][0]);}
+  let ylo=1e9,yhi=-1e9; const cv=[]; for(let k=0;k<=120;k++){const x=xlo+(xhi-xlo)*k/120,y=fy(x);cv.push([x,y]);ylo=Math.min(ylo,y);yhi=Math.max(yhi,y);}
+  for(const p of pts){ylo=Math.min(ylo,p[1]);yhi=Math.max(yhi,p[1]);} const pad=(yhi-ylo)*.08; ylo-=pad; yhi+=pad*2;
+  const X=x=>L+(x-xlo)/(xhi-xlo)*pw, Y=y=>T+(1-(y-ylo)/(yhi-ylo))*ph;
+  let g=`<rect x="${L}" y="${T}" width="${pw}" height="${ph}" class="pf-bg"/>`;
+  for(const v of [-hp*2,0,hp*2]) g+=`<line x1="${X(v)}" x2="${X(v)}" y1="${T}" y2="${T+ph+gap+resH}" class="pf-grid"/><text x="${X(v)}" y="${H-2}" text-anchor="middle" class="mc-l">${v?sgn(v):"0″"}</text>`;
+  g+=pts.map(p=>`<circle cx="${X(p[0]).toFixed(1)}" cy="${Y(p[1]).toFixed(1)}" r="1.7" class="pf-pt"/>`).join("");
+  g+=`<path d="${cv.map((p,k)=>(k?"L":"M")+X(p[0]).toFixed(1)+" "+Y(p[1]).toFixed(1)).join("")}" class="pf-fit"/>`;
+  g+=`<line x1="${X(f.x0)}" x2="${X(f.x0)}" y1="${T}" y2="${T+ph}" class="pf-x0"/><text x="${X(f.x0)+4}" y="${T+10}" class="pf-x0l">x0 ${sgn(f.x0)}</text>`;
+  const res=pts.map(p=>[p[0],p[1]-fy(p[0])]), sd=Math.sqrt(res.reduce((a,r)=>a+r[1]*r[1],0)/Math.max(1,res.length))||1e-6;
+  const lim=Math.max(3.5*sd,...res.map(r=>Math.abs(r[1])))*1.08, y0=T+ph+gap, RY=r=>y0+resH/2-r/lim*(resH/2);
+  g+=`<rect x="${L}" y="${y0}" width="${pw}" height="${resH}" class="pf-res"/><line x1="${L}" x2="${W-R}" y1="${RY(3*sd)}" y2="${RY(3*sd)}" class="pf-3s"/><line x1="${L}" x2="${W-R}" y1="${RY(-3*sd)}" y2="${RY(-3*sd)}" class="pf-3s"/>`+
+     `<text x="${L-3}" y="${y0+9}" text-anchor="end" class="mc-l">잔차</text>`+res.map(r=>`<circle cx="${X(r[0]).toFixed(1)}" cy="${RY(r[1]).toFixed(1)}" r="1.5" class="${Math.abs(r[1])>3*sd?"pf-out":"pf-rp"}"/>`).join("");
+  return `<div class="tsm-sub">${esc(lbl)} <span class="dim">오프셋 <b>${sgn(f.x0)}</b> · 빔폭 <b>${Math.round(f.fwhm)}″</b> · SNR <b>${f.snr!=null?(+f.snr).toFixed(1):"—"}</b></span></div><svg class="pf-svg" viewBox="0 0 ${W} ${H}">${g}</svg>`;
+}
+const kvBar=(v,max,cls)=>`<span class="tsm-bar ${cls}"><i style="width:${Math.max(2,Math.min(100,v/max*100)).toFixed(1)}%"></i></span>`;
+const q3=(v,a,b)=>v<=a?"good":v<=b?"warn":"bad";
 function vTSL(){
   if(TSL===null){ loadTSL().then(()=>render()); return `<div class="card"><div class="empty">ThreeStar 화면을 불러오는 중…</div></div>`; }
-  if(TSL.err||!TSL.session) return `<div class="card"><div class="ts-h">${TS_RANK}<b>Three<span>Star</span></b></div>
-    <div class="empty">지금 ThreeStar 가 돌리는 세션이 없습니다</div></div>`;
-  const t=TSL, s=t.session, cur=s.current||{}, nx=s.next||{}, now=Date.now()/1000;
-  const pct=Math.round((s.done||0)/Math.max(1,s.n_scans||1)*100), c=s.counts||{};
-  let h=`<div class="card hero"><div class="ts-h">${TS_RANK}<div><b>Three<span>Star</span> 자동 관측</b>
-      <div class="lbl">v${esc(t.version||"?")}</div></div>
-      <span class="chip ${s.state==="RUNNING"?"c-live":"c-idle"}" style="margin-left:auto">${s.state==="RUNNING"?'<i class="pulse"></i>':""}${esc(s.state_ko||s.state)}</span></div>
-    <div class="dial">${ring(pct,`${s.done||0}`,`/ ${s.n_scans||0} 스캔`)}
-      <div style="flex:1;min-width:0">
-        <div class="tile hot" style="margin-bottom:7px"><div class="lbl">세션</div><div class="val mono">${esc(s.code)}</div></div>
-        <div class="tile"><div class="lbl">KST</div><div class="tsl-clk mono" id="tsClk">${kst(now)}</div>
-          <div class="lbl mono">UTC <span id="tsUtc">${new Date(now*1000).toISOString().slice(11,19)}</span></div></div>
-      </div></div>
-    <div class="grid g2" style="margin-top:9px">
-      <div class="tile"><div class="lbl">시작 · 끝 (KST)</div><div class="val mono" style="font-size:13px">${kstd(s.first_start)} ${kst(s.first_start,16)} → ${kstd(s.last_stop)} ${kst(s.last_stop,16)}</div></div>
-      <div class="tile"><div class="lbl">끝까지</div><div class="val mono" id="tsRem">${hhmmss((s.last_stop||now)-now)}</div></div>
-    </div></div>`;
-  // 지금 · 다음
-  const cs=cur.start, ce=cur.stop, cp=cs&&ce?Math.max(0,Math.min(100,(now-cs)/(ce-cs)*100)):0;
-  h+=`<div class="card"><div class="tsl-sec">지금 스캔 ${cur.stage_ko?pill(cur.stage==="REC_WAIT"?"running":"pending",cur.stage_ko):""}</div>
-    <div style="display:flex;align-items:baseline;gap:9px"><span class="tsl-big mono">${esc(cur.scan||"—")}</span><span class="mono" style="font-weight:700">${esc(cur.source||"")}</span>
-      <span class="lbl mono" style="margin-left:auto">${kst(cs,19)} ~ ${kst(ce,19)}</span></div>
-    <div class="bar run" style="margin:8px 0 5px"><i id="tsCurBar" style="width:${cp.toFixed(1)}%"></i></div>
-    <div class="grid g3">
-      <div class="tile"><div class="lbl">기록 끝까지</div><div class="val mono" id="tsCur">${mmss((ce||now)-now)}</div></div>
-      <div class="tile"><div class="lbl">방위 · 고도</div><div class="val mono" style="font-size:13px">${n2(cur.az)?.toFixed(1)??"–"}° · ${n2(cur.el)?.toFixed(1)??"–"}°</div></div>
-      <div class="tile"><div class="lbl">늦음 예측</div><div class="val mono">${n2(cur.pred_late)!=null?n2(cur.pred_late).toFixed(0)+" s":"–"}</div></div>
-    </div>
-    <div class="tsl-sec" style="margin-top:11px">다음 스캔</div>
-    <div style="display:flex;align-items:baseline;gap:9px"><span class="val mono">${esc(nx.scan||"—")}</span><span class="mono">${esc(nx.source||"")}</span>
-      <span class="lbl mono" style="margin-left:auto">${kst(nx.start)} KST · 방위 ${n2(nx.az)?.toFixed(0)??"–"}° 고도 ${n2(nx.el)?.toFixed(0)??"–"}°</span></div>
-    <div class="lbl">시작까지 <b class="mono" id="tsNext">${mmss((nx.start||now)-now)}</b></div></div>`;
-  // 결과
-  const tot=Math.max(1,s.n_scans||1);
-  const stack=Object.keys(TS_COL).filter(k=>c[k]).map(k=>`<i style="width:${(c[k]/tot*100).toFixed(2)}%;background:${TS_COL[k]}"></i>`).join("");
-  const late=(t.plan||[]).reduce((a,r)=>a+(n2(r[9])||0),0);
-  h+=`<div class="card"><div class="tsl-sec">스캔 결과</div><div class="ts-stack">${stack}</div>
-    <div class="lbl">${Object.keys(TS_KO).filter(k=>c[k]).map(k=>`${TS_KO[k]} ${c[k]}`).join(" · ")}${late?` · 늦음 합계 ${late.toFixed(0)} s`:""}</div></div>`;
-  // 안테나
+  if(TSL.err||!TSL.session) return `<div class="card tsm"><div class="ts-h">${TS_RANK}<b>Three<span>Star</span></b></div><div class="empty">지금 ThreeStar 가 돌리는 세션이 없습니다</div></div>`;
+  const t=TSL, s=t.session, cur=s.current||{}, nx=s.next||{}, now=Date.now()/1000, c=s.counts||{};
+  const ok=k=>n2(c[k])||0, done=s.done||0, N=s.n_scans||0, pct=done/Math.max(1,N)*100;
+  const ob=obsKind(s,cur), al=t.alerts||[];
+  // A. 머리 HUD
+  let h=`<div class="card tsm tsm-hero"><div class="tsm-top">${TS_RANK}<div><b class="tsm-brand">Three<span>Star</span></b><div class="dim mono" style="font-size:11px">v${esc(t.version||"?")}</div></div>
+      <div class="tsm-sess"><span class="dim">세션</span><b class="mono">${esc((s.code||"").toUpperCase())}</b><span class="tsm-badge ${s.state==="RUNNING"?"run":""}"><i></i>${esc(s.state_ko||s.state)}</span></div></div>
+    <div class="tsm-hud"><span class="hud-o" data-k="${ob}"><i></i><b>${OBS_T[ob][0]}</b><span class="mono">${esc(ob==="rec"||ob==="slew"||ob==="arm"?`${cur.scan||""} · ${cur.source||""}`:OBS_T[ob][1])}</span></span>
+      ${al.length?`<span class="hud-a"><i></i><b>${al.length}</b> 경보</span>`:""}
+      <span class="tsm-clk"><span class="dim">KST</span> <b class="mono" id="tsClk">${kst(now)}</b><br><span class="dim mono" style="font-size:10.5px">UTC <span id="tsUtc">${new Date(now*1000).toISOString().slice(11,19)}</span></span></span></div></div>`;
+  // B. 스캔 끝 막대
+  const segs=Object.keys(TS_COL).filter(k=>k!=="running"&&c[k]).map(k=>`<i style="width:${(c[k]/Math.max(1,N)*100).toFixed(2)}%;background:${TS_COL[k]}"></i>`).join("");
+  h+=`<div class="card tsm"><div class="tsm-prog-h"><span><b class="mono">${done}</b> / ${N} 스캔 끝</span><span class="tsm-pct">${pct.toFixed(1)} %</span></div>
+    <div class="tsm-prog">${segs}</div><div class="tsm-leg">${["ok","late","suspect","failed","skipped"].map(k=>`<span class="${c[k]?"":"z"}"><i style="background:${TS_COL[k]}"></i>${TS_KO[k]} <b>${c[k]||0}</b></span>`).join("")}<span><i style="background:var(--line)"></i>예정 <b>${c.pending||0}</b></span></div>
+    <div class="dim" style="font-size:11px;margin-top:5px">${kstd(s.first_start)} ${kst(s.first_start,16)} → ${kstd(s.last_stop)} ${kst(s.last_stop,16)} KST · 끝까지 <b class="mono" id="tsRem">${hhmmss((s.last_stop||now)-now)}</b></div></div>`;
+  // C. 지금 스캔
+  const si=stageIdx(cur.stage), steps=["선회","도착 대기","기록 대기","기록 중","끄기"];
+  const before=cur.start&&now<cur.start;
+  h+=`<div class="card tsm ${ob==="rec"?"tsm-rec":""}"><div class="tsm-h">지금 스캔 <span class="dim">#${(s.done||0)+1} · 남은 ${Math.max(0,N-(s.done||0)-1)}개</span>${cur.stage_ko?`<span class="tsm-badge ${ob==="rec"?"rec":"run"}" style="margin-left:auto"><i></i>${esc(cur.stage_ko)}</span>`:""}</div>
+    <div class="tsm-scan"><span class="mono">${esc(cur.scan||"—")}</span><span class="tsm-tag">${esc(cur.sector||"")}</span></div><div class="dim">소스 <b class="mono" style="color:var(--tx)">${esc(cur.source||"—")}</b></div>
+    <ol class="tsm-step">${steps.map((n,k)=>`<li class="${k<si?"done":k===si?("cur"+(k===3?" rec":"")):""}"><i></i>${n}</li>`).join("")}</ol>
+    <div class="grid g2" style="margin-top:8px">
+      <div class="tile tsm-cd ${before?"on":""}"><div class="lbl">${before?"기록 시작까지":"기록 시작함"}</div><div class="tsm-big mono" id="tsCd1">${before?mmss(cur.start-now):kst(cur.start)}</div><div class="lbl mono">${kst(cur.start)} KST 시작</div></div>
+      <div class="tile tsm-cd ${!before?"on":""} ${!before&&ob==="rec"?"rec":""}"><div class="lbl">${before?"기록 길이":"기록 끝까지"}</div><div class="tsm-big mono" id="tsCd2">${before?mmss((cur.stop||0)-(cur.start||0)):mmss((cur.stop||now)-now)}</div><div class="lbl mono">${kst(cur.stop)} KST 끝</div></div></div>
+    <div id="tsCycWrap">${cycleSvg(t,cur)}</div>
+    <div class="grid g3 tsm-stats"><div><span>예측 선회</span><b>${n2(cur.pred_slew)!=null?(+cur.pred_slew).toFixed(1)+" s":"—"}</b></div><div><span>예측 늦음</span><b>${n2(cur.pred_late)!=null?(+cur.pred_late).toFixed(1)+" s":"—"}</b></div><div><span>방위·고도</span><b>${n2(cur.az)?.toFixed(1)??"–"}°·${n2(cur.el)?.toFixed(1)??"–"}°</b></div>
+      <div><span>도착</span><b style="color:var(--ok)">${cur.arrived?kst(cur.arrived):"—"}</b></div><div><span>기록 켬</span><b>${cur.rec_on?kst(cur.rec_on):"—"}</b></div><div><span>기록 길이</span><b>${cur.start&&cur.stop?Math.round(cur.stop-cur.start)+" s":"—"}</b></div></div>
+    <div class="tsm-next"><span class="tsm-tag">다음</span><b class="mono">${esc(nx.scan||"—")}</b> <span class="mono">${esc(nx.source||"")}</span><span class="dim mono" style="margin-left:auto">${kst(nx.start)} · T-<b id="tsNext">${mmss((nx.start||now)-now)}</b></span></div></div>`;
+  // D. 데이터 전송
+  const et=((D&&D.transfers)||[]).find(e=>(e.exp||"").toLowerCase()===(s.code||"").toLowerCase())||((D&&D.transfers)||[])[0];
+  if(et&&et.total_groups){const sent=n2(et.done_groups)||0,tot=n2(et.total_groups)||1,xp=Math.min(100,sent/tot*100),rf=Math.min(tot,(ok("ok")+ok("late")+ok("suspect"))*3),lag=Math.max(0,rf-sent);
+    h+=`<div class="card tsm tsm-xf"><div class="tsm-h">데이터 전송 <span class="dim">e-transfer → ${esc(et.target||"")}</span><span class="tsm-badge run" style="margin-left:auto"><i></i>보내는 중</span></div>
+      <div class="xf-row"><div class="xf-pc">${xp.toFixed(xp<10?1:0)}<small>%</small></div><div class="dim" style="font-size:12px"><b class="mono" style="font-size:15px;color:var(--tx)">${sent}</b> / ${tot} 파일<br>스캔 ${Math.floor(sent/3)} / ${Math.round(tot/3)}</div></div>
+      <div class="xf-bar"><i class="rec" style="width:${(rf/tot*100).toFixed(2)}%"></i><i class="sent" style="width:${xp.toFixed(2)}%"></i><b style="left:${(rf/tot*100).toFixed(2)}%"></b></div>
+      <div class="tsm-leg" style="margin-top:6px"><span><i style="background:#39c5cf"></i>보냄 <b>${sent}</b></span><span><i style="background:rgba(160,180,210,.5)"></i>기록됨 <b>${rf}</b></span><span>밀림 <b>${lag}</b> 파일</span></div>
+      <div class="grid g3 tsm-stats"><div><span>순간 속도</span><b>${n2(et.rate_mbs)!=null?(+et.rate_mbs).toFixed(0)+" MB/s":esc(et.rate_mbs||"—")}</b></div><div><span>나머지</span><b>${tot-sent} 파일</b></div><div><span>예상 끝</span><b style="font-size:11px">${esc(et.finish||"—")}</b></div></div></div>`;}
+  // E. 스캔 시간표
+  h+=`<div class="card tsm"><div class="tsm-h">스캔 시간표 <span class="dim">${N}개 · KST</span></div>${tlSvg(t,cur)}</div>`;
+  // F. 안테나
   const a=t.antenna||{};
-  h+=`<div class="card"><div class="tsl-sec">안테나</div><div style="display:flex;gap:12px;align-items:center">
-    ${sky(n2(a.az),n2(a.el),s.state==="RUNNING",false)}
-    <div style="flex:1" class="grid">
-      <div class="tile"><div class="lbl">방위 · 고도</div><div class="val mono">${n2(a.az)?.toFixed(2)??"–"}° · ${n2(a.el)?.toFixed(2)??"–"}°</div></div>
-      <div class="tile"><div class="lbl">지향 오차</div><div class="val mono" style="font-size:13px">방위 ${esc(a.err_az_arcsec??"–")}″ · 고도 ${esc(a.err_el_arcsec??"–")}″</div></div>
-      <div class="tile"><div class="lbl">ACU</div><div class="val mono" style="font-size:13px">${esc(a.acu_mode||"–")} · ${esc(a.point||"–")}${a.hold?" · Hold":""}</div></div>
-    </div></div></div>`;
-  // 경보
-  const al=t.alerts||[];
-  h+=`<div class="card"><div class="tsl-sec">경보 ${al.length?`<span class="tsl-pill" style="background:var(--bad)">${al.length}</span>`:""}</div>
-    ${al.length?al.map(x=>`<div class="ts-al">● ${esc(x.title)}${x.manual?` <span class="lbl">매뉴얼 ${esc(x.manual)}</span>`:""}</div>`).join(""):`<div class="lbl" style="color:var(--ok)">경보 없음</div>`}
-    ${(t.alert_hist||[]).length?`<div class="lbl" style="margin-top:6px">지난 경보: ${(t.alert_hist||[]).slice().reverse().map(x=>esc(x.title)).join(" · ")}</div>`:""}</div>`;
-  // 장비
-  const lk=(t.links||[]).map(l=>{const ok=!(l.errors>0&&l.stale>0)&&!(l.stale>0);
-    return `<div class="tsl-link" title="오류 ${l.errors} · 재접속 ${l.reconnects}"><i style="background:${ok?"var(--ok)":"var(--bad)"}"></i><span>${esc(l.name)}</span></div>`;}).join("");
-  // 기록은 스캔마다 켰다 끈다 — 스캔 사이 '꺼짐'은 정상이라 '대기'로, 기록해야 할 때(기록 중 단계) 꺼져 있을 때만 빨갛게(10-02)
+  h+=`<div class="card tsm"><div class="tsm-h">안테나 <span class="dim">위가 북쪽</span><span class="tsm-badge ${a.point==="Point"?"run":""}" style="margin-left:auto"><i></i>${esc(a.acu_mode||"–")} · ${esc(a.point||"–")}</span></div>
+    <div style="display:flex;gap:10px;align-items:center">${sky(n2(a.az),n2(a.el),s.state==="RUNNING",false)}
+    <div class="grid" style="flex:1"><div class="tile"><div class="lbl">방위 · 고도</div><div class="val mono">${n2(a.az)?.toFixed(2)??"–"}° · ${n2(a.el)?.toFixed(2)??"–"}°</div></div>
+      <div class="tile"><div class="lbl">지향 오차</div><div class="val mono" style="font-size:13px">${esc(a.err_az_arcsec??"–")}″ · ${esc(a.err_el_arcsec??"–")}″</div></div></div></div></div>`;
+  // G. 십자 스캔
+  const cf=t.cross_full; h+=`<div class="card tsm"><div class="tsm-h">십자 스캔 <span class="dim">신호·포인팅 점검</span>${cf?`<span class="tsm-badge run" style="margin-left:auto;background:rgba(47,217,130,.15);color:var(--ok)">${cf.ref?"최근 ":""}${esc(cf.verdict||"")}</span>`:""}</div>`;
+  if(cf&&cf.channels){
+    if(cf.ref) h+=`<div class="tsm-note">이번 세션 실측 없음(${esc((t.cross||{}).why||"건너뜀")}) · <b style="color:var(--navy)">최근 실측</b> ${(cf.info||[]).map(i=>`${esc(i.band)} ${esc(i.src)} ${esc(i.v)} ${kstd(i.t)} ${kst(i.t,16)}`).join(" · ")}</div>`;
+    const names=Object.keys(cf.channels); if(!names.includes(TSCH)) TSCH=names[0];
+    h+=`<div class="tsl-fil" style="margin-top:6px">${names.map(n=>`<div class="${TSCH===n?"on":""}" onclick="TSCH='${n}';TSSIG='';render()">${n}</div>`).join("")}<div onclick="if(TS3D)TS3D.reset()">시점 처음</div></div>
+      <div class="tsm-3d" id="tsBeamSlot"><div class="tsm-3dn" id="tsBeamNote">3D 준비 중…</div></div>`;
+    const ch=cf.channels[TSCH], fa=ch.fits.Az, fe=ch.fits.El, hp=n2(ch.hp)||(ch.band==="X"?400:1200);
+    h+=profSvg(fa,ch.pts.Az||[],hp,"방위 단면 Az")+profSvg(fe,ch.pts.El||[],hp,"고도 단면 El");
+    if(fa&&fe&&fa.fwhm&&fe.fwhm){const off=Math.hypot(fa.x0,fe.x0),ob2=off/((fa.fwhm+fe.fwhm)/2)*100,l0=(1-Math.exp(-K4*(fa.x0**2/fa.fwhm**2+fe.x0**2/fe.fwhm**2)))*100,
+      pc=s.pointing_corr||{},ca=(n2(pc.az_arcsec)||0),ce=(n2(pc.el_arcsec)||0),l1=(1-Math.exp(-K4*((fa.x0-ca)**2/fa.fwhm**2+(fe.x0-ce)**2/fe.fwhm**2)))*100,
+      ell=Math.max(fa.fwhm,fe.fwhm)/Math.min(fa.fwhm,fe.fwhm),snr=Math.min(n2(fa.snr)||0,n2(fe.snr)||0);
+      h+=`<div class="tsm-h" style="margin-top:8px">자세한 분석 <span class="dim">${esc(TSCH)} · ${esc(ch.band||"")} 대역 · 명목 빔 ${Math.round(hp)}″</span></div>
+        <div class="tsm-kv"><span>지향 오차</span><b>${off.toFixed(0)}″</b><em>빔폭의 ${ob2.toFixed(1)} %</em>${kvBar(ob2,50,q3(ob2,10,25))}</div>
+        <div class="tsm-kv"><span>진폭 손실</span><b>${l0.toFixed(1)} %</b><em>보정 없이</em>${kvBar(l0,20,q3(l0,2,5))}</div>
+        ${(ca||ce)?`<div class="tsm-kv"><span>보정 적용 뒤</span><b>${l1.toFixed(2)} %</b><em>방위 ${sgn(ca,1)} 고도 ${sgn(ce,1)}</em>${kvBar(l1,20,q3(l1,2,5))}</div>`:""}
+        <div class="tsm-kv"><span>빔폭 Az/El</span><b>${Math.round(fa.fwhm)}/${Math.round(fe.fwhm)}″</b><em>타원율 ${ell.toFixed(2)}</em>${kvBar(ell,1.8,q3(ell,1.15,1.4))}</div>
+        <div class="tsm-kv"><span>SNR</span><b>${(+fa.snr).toFixed(1)}/${(+fe.snr).toFixed(1)}</b><em>8 아래면 FAIL</em>${kvBar(snr,40,snr>=15?"good":snr>=8?"warn":"bad")}</div>`;}
+    h+=`<ul class="tsm-rs">${(cf.reasons||[]).map(r=>`<li>${esc(r)}</li>`).join("")}</ul>`;
+  } else h+=`<div class="tsm-note">십자 스캔 자료 없음</div>`;
+  h+=`</div>`;
+  // H. 장비 · I. 경보
+  const lk=(t.links||[]).map(l=>`<div class="tsl-link"><i style="background:${l.stale>0?"var(--bad)":"var(--ok)"}"></i><span>${esc(l.name)}</span></div>`).join("");
   const recNow=cur.stage==="REC_WAIT";
-  const rt=(t.recorder?.runtimes||[]).map(r=>{const [c,txt]=r.on?["var(--ok)","기록 중"]:recNow?["var(--bad)","안 켜짐"]:["var(--dim)","대기(스캔 사이)"];
-    return `<div class="tsl-link"><i style="background:${c}"></i><span>기록기 ${esc(r.rt)} ${txt}</span></div>`;}).join("");
-  h+=`<div class="card"><div class="tsl-sec">장비 연결</div><div class="tsl-links">${lk}${rt}
-    <div class="tsl-link"><i style="background:${t.mcast?.connected?"var(--ok)":"var(--bad)"}"></i><span>DBBC3 멀티캐스트</span></div></div>
-    <div class="lbl" style="margin-top:7px">기록기 응답 ${t.recorder?.ok?"정상":"<b style='color:var(--bad)'>이상</b>"} · 기록은 스캔마다 켜고 끈다 ·
-      단계 ${esc(t.phase||"–")} · KVGCS ${t.kvgcs_down?"내려감":"돌고 있음"} · Tsys ${esc(t.tsys||"–")}</div></div>`;
-  // 지향 보정 · 십자 스캔 · 기상 · 클럭
-  const pc=s.pointing_corr||{}, cr=t.cross||{}, w=t.weather||{}, ck=t.clock||{};
-  h+=`<div class="card"><div class="grid g2">
-    <div class="tile"><div class="lbl">지향 보정</div><div class="val mono" style="font-size:13px">방위 ${pc.az_arcsec>0?"+":""}${esc(pc.az_arcsec??0)}″ · 고도 ${pc.el_arcsec>0?"+":""}${esc(pc.el_arcsec??0)}″</div></div>
-    <div class="tile"><div class="lbl">십자 스캔</div><div class="val" style="font-size:12.5px">${cr.state==="done"?`${esc(cr.source)} ${esc(cr.verdict||"")}`:cr.state==="skipped"?`건너뜀 — ${esc(cr.why||"")}`:esc(cr.state||"–")}</div></div>
-    <div class="tile"><div class="lbl">기상</div><div class="val mono" style="font-size:13px">${esc(w.temp??"–")}°C · ${esc(w.humid??"–")}% · ${esc(w.press??"–")} hPa</div></div>
-    <div class="tile"><div class="lbl">클럭 fmout−GPS</div><div class="val mono" style="font-size:13px">${esc(ck.fmout_gps_us??"–")} µs</div></div>
-  </div></div>`;
-  // 스캔 표
-  const P=t.plan||[], ci=P.findIndex(r=>r[7]==="running"||r[1]===cur.scan);
-  const bad=["failed","skipped","late","suspect","late_skip","sun","aborted"];
-  let rows=TSF==="near"?P.slice(Math.max(0,ci-3),Math.max(0,ci)+9):TSF==="done"?P.filter(r=>["ok","late","suspect"].includes(r[7])).slice(-15).reverse()
-    :TSF==="issue"?P.filter(r=>bad.includes(r[7])):P;
-  h+=`<div class="card"><div class="tsl-sec">스캔 표</div><div class="tsl-fil">
-    ${[["near","지금 앞뒤"],["done","최근 기록"],["issue","문제"],["all",`전체 ${P.length}`]].map(([k,n])=>`<div class="${TSF===k?"on":""}" onclick="TSF='${k}';render()">${n}</div>`).join("")}</div>
-    ${rows.map(r=>`<div class="tsl-tr ${r[1]===cur.scan?"cur":""}"><span class="t mono">${kst(r[3],16)}</span>
-      <span class="mono"><b>${esc(r[1])}</b> ${esc(r[2])}</span>${pill(r[7]||"pending")}
-      <span class="sub mono">방위 ${n2(r[5])?.toFixed(0)??"–"}° 고도 ${n2(r[6])?.toFixed(0)??"–"}°${r[10]?` · 기록 ${n2(r[10]).toFixed(0)} s`:""}${n2(r[9])?` · 늦음 ${n2(r[9]).toFixed(0)} s`:""}${r[8]?` · ${esc(r[8])}`:""}</span></div>`).join("")||`<div class="empty">해당 스캔 없음</div>`}
-  </div>`;
-  h+=`<div class="lbl" style="text-align:center">ThreeStar 운용 화면을 그대로 옮긴 요약 · 조회 전용 · 자료 ${ago(Date.now()/1000-(t.gen_epoch||0))}</div>`;
+  const rt=(t.recorder?.runtimes||[]).map(r=>{const [cc,tx]=r.on?["var(--ok)","기록 중"]:recNow?["var(--bad)","안 켜짐"]:["var(--dim)","대기"];return `<div class="tsl-link"><i style="background:${cc}"></i><span>기록기 ${esc(r.rt)} ${tx}</span></div>`;}).join("");
+  h+=`<div class="card tsm"><div class="tsm-h">장비 상태</div><div class="tsl-links">${lk}${rt}<div class="tsl-link"><i style="background:${t.mcast?.connected?"var(--ok)":"var(--bad)"}"></i><span>DBBC3 멀티캐스트</span></div></div>
+    <div class="dim" style="font-size:11px;margin-top:6px">단계 ${esc(t.phase||"–")} · KVGCS ${t.kvgcs_down?"내려감":"돌고 있음"} · Tsys ${esc(t.tsys||"–")}</div></div>`;
+  h+=`<div class="card tsm ${al.length?"tsm-alarm":""}"><div class="tsm-h">경보 ${al.length?`<span class="tsl-pill" style="background:var(--bad)">${al.length}</span>`:""}</div>
+    ${al.length?al.map(x=>`<div class="ts-al">● ${esc(x.title)}${x.manual?` <span class="lbl">매뉴얼 ${esc(x.manual)}</span>`:""}</div>`).join(""):`<div style="color:var(--ok)">✓ 지금 경보 없음</div>`}</div>`;
+  // J. 보정 · 기상 · 클럭
+  const pc=s.pointing_corr||{}, w=t.weather||{}, ck=t.clock||{};
+  h+=`<div class="card tsm"><div class="grid g3 tsm-stats" style="margin:0"><div><span>지향 보정</span><b>${sgn(n2(pc.az_arcsec),1)} · ${sgn(n2(pc.el_arcsec),1)}</b></div><div><span>기상</span><b>${esc(w.temp??"–")}°C · ${esc(w.humid??"–")}%</b></div><div><span>fmout−GPS</span><b>${esc(ck.fmout_gps_us??"–")} µs</b></div></div></div>`;
+  // K. 스캔 표
+  const P=t.plan||[], ci=P.findIndex(r=>r[7]==="running"||r[1]===cur.scan), bad=["failed","skipped","late","suspect","late_skip","sun","aborted"];
+  const rows=TSF==="near"?P.slice(Math.max(0,ci-3),Math.max(0,ci)+9):TSF==="done"?P.filter(r=>["ok","late","suspect"].includes(r[7])).slice(-15).reverse():TSF==="issue"?P.filter(r=>bad.includes(r[7])):P;
+  h+=`<div class="card tsm"><div class="tsm-h">스캔 표</div><div class="tsl-fil">${[["near","지금 앞뒤"],["done","최근 기록"],["issue","문제"],["all",`전체 ${P.length}`]].map(([k,nm])=>`<div class="${TSF===k?"on":""}" onclick="TSF='${k}';render()">${nm}</div>`).join("")}</div>
+    ${rows.map(r=>`<div class="tsl-tr ${r[1]===cur.scan?"cur":""}"><span class="t mono">${kst(r[3],16)}</span><span class="mono"><b>${esc(r[1])}</b> ${esc(r[2])}</span>${pill(r[7]||"pending")}
+      <span class="sub mono">방위 ${n2(r[5])?.toFixed(0)??"–"}° 고도 ${n2(r[6])?.toFixed(0)??"–"}°${r[10]?` · 기록 ${n2(r[10]).toFixed(0)} s`:""}${n2(r[9])?` · 늦음 ${n2(r[9]).toFixed(0)} s`:""}</span></div>`).join("")||`<div class="empty">해당 스캔 없음</div>`}</div>`;
+  h+=`<div class="lbl" style="text-align:center">ThreeStar 운용 화면과 같은 구성 · 조회 전용 · 자료 ${ago(Date.now()/1000-(t.gen_epoch||0))}</div>`;
   return h;
+}
+// 3D 빔 — 캔버스 하나를 계속 쓴다(화면을 다시 그려도 WebGL 을 새로 만들지 않게)
+function mountTS3D(){
+  if(TAB!=="ts"||!TSL||!TSL.cross_full) return;
+  const slot=document.getElementById("tsBeamSlot"); if(!slot) return;
+  ensureThree().then(okk=>{
+    const note=document.getElementById("tsBeamNote");
+    if(!okk||!window.Beam3D){ if(note) note.textContent="3D 를 불러오지 못함 — 단면을 보세요"; return; }
+    const sl=document.getElementById("tsBeamSlot"); if(!sl) return;
+    if(!TSCV){ TSCV=document.createElement("canvas"); TSCV.className="tsm-cv"; try{ TS3D=window.Beam3D.create(TSCV); }catch(e){ if(note) note.textContent="이 기기에서 WebGL 을 쓸 수 없습니다"; TSCV=null; return; } }
+    if(note) note.remove(); sl.appendChild(TSCV);
+    const ch=TSL.cross_full.channels[TSCH]; if(!ch) return;
+    const fa=ch.fits.Az, fe=ch.fits.El, sig=TSCH+JSON.stringify([fa,fe]);
+    requestAnimationFrame(()=>{ TS3D.resize(); if(sig!==TSSIG){ TSSIG=sig;
+      TS3D.draw({az:{amp:+fa.amp,x0:+fa.x0,fwhm:+fa.fwhm,base:+fa.base,slope:+(fa.slope||0)},el:{amp:+fe.amp,x0:+fe.x0,fwhm:+fe.fwhm,base:+fe.base,slope:+(fe.slope||0)},
+        ptsAz:ch.pts.Az||[],ptsEl:ch.pts.El||[],hp:n2(ch.hp)||1200}); } });
+  });
 }
 function tickTSL(){
   if(TAB!=="ts"||!TSL||!TSL.session) return;
@@ -466,9 +638,11 @@ function tickTSL(){
   if(q("tsClk")) q("tsClk").textContent=kst(now);
   if(q("tsUtc")) q("tsUtc").textContent=new Date(now*1000).toISOString().slice(11,19);
   if(q("tsRem")) q("tsRem").textContent=hhmmss((s.last_stop||now)-now);
-  if(q("tsCur")) q("tsCur").textContent=mmss((cur.stop||now)-now);
+  const before=cur.start&&now<cur.start;
+  if(q("tsCd1")&&before) q("tsCd1").textContent=mmss(cur.start-now);
+  if(q("tsCd2")&&!before) q("tsCd2").textContent=mmss((cur.stop||now)-now);
   if(q("tsNext")) q("tsNext").textContent=mmss((nx.start||now)-now);
-  if(q("tsCurBar")&&cur.start&&cur.stop) q("tsCurBar").style.width=Math.max(0,Math.min(100,(now-cur.start)/(cur.stop-cur.start)*100)).toFixed(1)+"%";
+  if(q("tsCycWrap")) q("tsCycWrap").innerHTML=cycleSvg(TSL,cur);
 }
 
 function stepRow(s,d){
@@ -682,6 +856,7 @@ function render(full=true){
   const app=document.getElementById("app");
   app.innerHTML=`<div class="view">${v()}</div>`;
   mountFrames();
+  mountTS3D();
   document.getElementById("foot").innerHTML=
     `<span class="pulse" style="color:${stale?"var(--bad)":"var(--ok)"}"></span>
      ${ago(age)} 갱신 · 15초마다 자동 · 조회 전용`;
