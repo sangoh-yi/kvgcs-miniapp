@@ -267,8 +267,9 @@
     }
     return out;
   }
-  const SOURCES = { CASA: [23.39, 58.815, 0xe3b341], TAUA: [5.5755, 22.0145, 0xbc8cff], CYGA: [19.9912, 40.7339, 0x58a6ff] };
-  const NAME = { CASA: 'Cas A', TAUA: 'Tau A', CYGA: 'Cyg A' };
+  const SOURCES = { CASA: [23.39, 58.815, 0xe3b341], TAUA: [5.5755, 22.0145, 0xbc8cff], CYGA: [19.9912, 40.7339, 0x58a6ff],
+    ORIA: [5.5881, -5.3911, 0xf778ba], W51: [19.3955, 14.5094, 0x56d4dd] };            // 10-04 Orion A · W51 추가
+  const NAME = { CASA: 'Cas A', TAUA: 'Tau A', CYGA: 'Cyg A', ORIA: 'Ori A', W51: 'W51' };
   function tracks(names, t0, hours) {
     return (names || Object.keys(SOURCES)).filter((n) => SOURCES[n]).map((n) => {
       const [ra, dec, color] = SOURCES[n];
