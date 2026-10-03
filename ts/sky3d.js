@@ -6,7 +6,7 @@
  *   글 상자는 캔버스 위에 띄우지 않는다(10-03 '글자상자가 3d 그래프에 겹쳐') — 장면 안 글은 방위 글자·고도 눈금·소스 이름뿐.
  *   천천히 좌우로 흔들린다(끌면 멈추고 5 s 뒤 다시) · 휠 확대 · 두 번 누르면 처음 시점 · 화면에 보일 때만 그린다.
  * 쓰기: const s = Sky3D.create(canvas); s.set({points, ant, next, running, tracks, scale}); s.resize(); s.dispose();
- *   points: [{az, el, ok, refrac, dx, de}] (dx·de = X1 오프셋 ″) · ant: {az, el} · next: {az, el} ·
+ *   points: [{az, el, ok, refrac, dx, de}] (dx·de = X 대역 오프셋 ″, X1·X2) · ant: {az, el} · next: {az, el} ·
  *   tracks: Sky3D.tracks(['CASA','TAUA','CYGA'], t0, 24) · scale: ″ 하나당 길이(반구 반지름 1, 기본 0.005 = 40″ → 0.2)
  */
 'use strict';
@@ -172,7 +172,7 @@
           g.position.copy(dir(T, tr.now[0], tr.now[1], 1.004)); g.scale.set(0.09, 0.09, 1); data.add(g);
         }
       }
-      // 측정점(빛 구슬) + X1 오프셋 화살(크게 늘림)
+      // 측정점(빛 구슬) + X 대역 오프셋 화살(크게 늘림)
       const arrows = [];
       const pts = (model.points || []).filter((p) => p.az != null && p.el != null);
       pts.forEach((p, i) => {
