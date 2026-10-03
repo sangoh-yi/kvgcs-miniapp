@@ -2,7 +2,8 @@
  *   z = amp · exp(−4 ln2 ((x − x0_az)² / fwhm_az² + (y − x0_el)² / fwhm_el²)), 범위 ±1.8 × HPBW(명목).
  *   대시보드(pointing_check.make_plot) 그림을 따른다: plasma 곡면 + 바닥 투영, Az 단면 #61B4F0 · El 단면 #37E8CF,
  *   측정 점(단면 위), 봉우리 #FF8078 + 드롭선, 원점(조준) ×. 바탕은 투명 — 화면 테마를 따른다.
- * 쓰기: const b = Beam3D.create(canvas); b.draw(model); b.resize(); b.theme(); b.dispose();   (window.THREE 가 있어야 한다)
+ * 쓰기: const b = Beam3D.create(canvas[, {metaEl}]); b.draw(model); b.resize(); b.theme(); b.dispose();   (window.THREE 가 있어야 한다)
+ *   metaEl 을 주면 측정 정보·색 막대를 캔버스 위 덧판 대신 그 요소(그래프 위 띠)에 쓰고, 봉우리 이름표도 상자 없이 작게 단다.
  * 2026-10-02 업그레이드(센터장님 "3js 같은 걸로 입체적으로 · 회전 · 입체적 효과"): 광택 곡면 + 와이어 격자 + 등고 고리(10·25·50·75·90 %),
  *   빛나는 봉우리(맥동 빛·퍼지는 고리), 측정 점은 빛 구슬, 단면 위를 달리는 훑기 빛점(방위·고도), 처음부터 천천히 회전(끌면 멈추고 4 s 뒤 다시),
  *   두 번 누르면 처음 시점, 화면에 보일 때만 그린다.
@@ -63,7 +64,9 @@
     const t = new T.CanvasTexture(c); t.minFilter = T.LinearFilter; return t;
   }
 
-  function create(canvas) {
+  function create(canvas, opts) {
+    opts = opts || {};
+    const metaEl = opts.metaEl || null;              // 덧판을 그래프 밖(이 요소)에 쓴다 — 좁은 화면에서 글 상자가 곡면을 가리지 않게(10-03 미니앱)
     const T = window.THREE;
     if (!T) throw new Error('three.js 없음');
     const rn = new T.WebGLRenderer({ canvas, antialias: true, alpha: true });
@@ -280,7 +283,8 @@
       lbl('방위 단면', '#61b4f0', 0.62, H * 1.05, -0.99, 0.085);
       lbl('고도 단면', '#37e8cf', -0.99, H * 1.05, 0.62, 0.085);
       const sgn = (v) => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(0) + '″';
-      lbl(`봉우리 Az${sgn(A.x0)} El${sgn(E.x0)}`, '#ff8078', X(A.x0), H + 0.24, Z(E.x0), 0.13, { bg: cssv('--panel', '#161b22') });
+      if (metaEl) lbl(`Az${sgn(A.x0)} El${sgn(E.x0)}`, '#ff8078', X(A.x0), H + 0.2, Z(E.x0), 0.1);
+      else lbl(`봉우리 Az${sgn(A.x0)} El${sgn(E.x0)}`, '#ff8078', X(A.x0), H + 0.24, Z(E.x0), 0.13, { bg: cssv('--panel', '#161b22') });
     }
     // 움직임 — 봉우리 빛 맥동 · 바닥 고리 퍼짐 · 훑기 빛점 · 천천히 회전(손대면 멈추고 4 s 뒤 다시). 보일 때만 30 fps
     function frame(t) {
@@ -303,6 +307,7 @@
     raf = requestAnimationFrame(frame);
     // 겉글 덧판 — model.meta = {when, src, band, verdict, note, off}. 캔버스 부모(상대 위치)에 붙는다(10-02 '측정 날짜도 잘 보이게')
     function overlay() {
+      if (metaEl) return strip();
       const host = canvas.parentElement;
       if (!host) return;
       let o = host.querySelector(':scope > .b3-meta'), cb = host.querySelector(':scope > .b3-cbar');
@@ -330,6 +335,21 @@
         `<div>${m.src || ''}${m.band ? ' · ' + m.band : ''}${m.verdict ? ` · <b style="color:${vcol}">${m.verdict}</b>` : ''}</div>` +
         (m.off ? `<div style="color:#ffb0a8;font:600 11.5px monospace">${m.off}</div>` : '') +
         (m.note ? `<div style="color:#9fb0c6;font-size:10.5px;margin-top:2px">${m.note}</div>` : '');
+    }
+    // 그래프 위 띠(metaEl) — 한두 줄: 측정 시각·소스·판정 / 오프셋·빔폭 + 가로 색 막대
+    function strip() {
+      const m = (model && model.meta) || {};
+      const vcol = m.verdict === 'PASS' ? '#3fdc8a' : m.verdict === 'FAIL' ? '#ff6b6b' : '#f5b041';
+      metaEl.style.display = model ? '' : 'none';
+      metaEl.innerHTML =
+        `<div style="display:flex;align-items:center;gap:8px">` +
+          `<b style="font:800 13px monospace;color:#fff">${m.when || '—'}</b>` +
+          (m.verdict ? `<b style="color:${vcol};font-size:11.5px">${m.verdict}</b>` : '') +
+          `<span style="margin-left:auto;display:flex;align-items:center;gap:4px;font:600 9.5px monospace;color:#9fb0c6;flex:none">0%` +
+            `<i style="display:block;width:48px;height:7px;border-radius:4px;background:linear-gradient(90deg,#0d0887,#5402a3,#8b0aa5,#b93289,#db5c68,#f48849,#febc2a,#f0f921)"></i>100%</span></div>` +
+        `<div style="color:#b9c8dc;font-size:11px;margin-top:2px">${m.src || ''}${m.band ? ' · ' + m.band : ''}</div>` +
+        (m.off ? `<div style="color:#ffb0a8;font:600 10.5px monospace;margin-top:1px">${m.off}</div>` : '') +
+        (m.note ? `<div style="color:#8fa3bb;font-size:10px;margin-top:2px">${m.note}</div>` : '');
     }
     function render() { upd(); rn.render(scene, cam); }
     function resize() {

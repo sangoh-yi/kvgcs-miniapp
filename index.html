@@ -169,10 +169,12 @@
   .xf-bar b{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;background:#fff;box-shadow:0 0 7px #fff}
   .tl-svg{width:100%;height:62px;display:block}.tl-pulse{animation:tsmP 1.6s ease-in-out infinite}
   .tsm-note{font-size:11.5px;color:var(--dim);margin:2px 0 4px}
-  .tsm-3d{position:relative;height:340px;border-radius:10px;overflow:hidden;margin:6px 0 4px;border:1px solid color-mix(in srgb,var(--navy) 35%,var(--line));
+  .tsm-3d{position:relative;min-height:340px;border-radius:10px;overflow:hidden;margin:6px 0 4px;border:1px solid color-mix(in srgb,var(--navy) 35%,var(--line));
     background:radial-gradient(ellipse at 50% 30%,rgba(88,166,255,.18),transparent 62%),linear-gradient(180deg,#0a1222,#060a14);box-shadow:inset 0 0 36px rgba(0,0,0,.55)}
   .tsm-3dn{position:absolute;inset:0;display:grid;place-items:center;font-size:12px;color:#8ba0b8}
   .tsm-cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+  .tsm-3dm{padding:7px 10px 6px;font:600 11px "Malgun Gothic",sans-serif;color:#dbe7f5;border-bottom:1px solid rgba(120,190,255,.18);background:rgba(6,12,24,.45)}
+  .tsm-3dc{position:relative;height:290px}
   .tsm-ant3d{height:250px;border-radius:10px;margin:6px 0 8px;border:1px solid color-mix(in srgb,var(--navy) 35%,var(--line));
     background:radial-gradient(130% 95% at 50% 14%,#1b2a45 0%,#0d1728 52%,#0a1220 100%)}
   .tsm-antf{position:absolute;border:0;border-radius:10px;z-index:2;background:transparent;display:none}
@@ -273,7 +275,7 @@
 <script>
 const TG=window.Telegram?.WebApp; TG?.ready(); TG?.expand();
 const GIST_ID=(new URLSearchParams(location.search).get("g")||"5404bef7f8d5b9f4e8d2824515fc8728");
-const REV="p10032018";
+const REV="p10032151";
 let GLOBECODE="";      // 지구본 세션 선택(선택기 → postMessage)
 const BODY={};
 async function loadBody(name){
@@ -656,9 +658,11 @@ function mountTS3D(){
     const note=document.getElementById("tsBeamNote");
     if(!okk||!window.Beam3D){ if(note) note.textContent="3D 를 불러오지 못함 — 단면을 보세요"; return; }
     const sl=document.getElementById("tsBeamSlot"); if(!sl) return;
-    if(!TSCV){ TSBW=document.createElement("div"); TSBW.style.cssText="position:absolute;inset:0";
-      TSCV=document.createElement("canvas"); TSCV.className="tsm-cv"; TSBW.appendChild(TSCV);
-      try{ TS3D=window.Beam3D.create(TSCV); }catch(e){ if(note) note.textContent="이 기기에서 WebGL 을 쓸 수 없습니다"; TSCV=null; return; } }
+    // 글(측정 시각·소스·오프셋·색 막대)은 그래프 위 띠에, 그래프는 그 아래 칸에 — 좁은 화면에서 글 상자가 곡면을 가리지 않게(10-03)
+    if(!TSCV){ TSBW=document.createElement("div"); const mt=document.createElement("div"); mt.className="tsm-3dm";
+      const bx=document.createElement("div"); bx.className="tsm-3dc"; TSCV=document.createElement("canvas"); TSCV.className="tsm-cv";
+      bx.appendChild(TSCV); TSBW.append(mt,bx);
+      try{ TS3D=window.Beam3D.create(TSCV,{metaEl:mt}); }catch(e){ if(note) note.textContent="이 기기에서 WebGL 을 쓸 수 없습니다"; TSCV=null; return; } }
     if(note) note.remove(); sl.appendChild(TSBW);
     const ch=TSL.cross_full.channels[TSCH]; if(!ch) return;
     const fa=ch.fits.Az, fe=ch.fits.El, sig=TSCH+JSON.stringify([fa,fe]);
