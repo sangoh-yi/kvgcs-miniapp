@@ -1,0 +1,279 @@
+/* sky3d.js — 지향 측정 3D 하늘 반구(2026-10-03 센터장님 "지금 스캔 박스 — 3js 로 시각적으로 잘 보이게, 첨단스럽게").
+ *   남쪽 조금 높은 데서 북쪽을 비스듬히 본다 — 뒤쪽 하늘(북)이 벽처럼 서고, 앞쪽 격자는 옅게 비친다.
+ *   가운데 안테나 접시가 지금 방위·고도를 실제로 가리키고 빔 빛줄기가 하늘에 닿는다(훑는 중이면 파랗게 맥동).
+ *   측정점은 빛 구슬(초록 = 굴절 보정 뒤 · 회색 = 보정 전 · 빨강 = 실패, 마지막 점은 고리가 퍼진다),
+ *   전파원 하루 길(고도 20° 위만 진하게)과 지금 자리 이름, 다음 목표(호박색 마름모 맥동).
+ *   글 상자는 캔버스 위에 띄우지 않는다(10-03 '글자상자가 3d 그래프에 겹쳐') — 장면 안 글은 방위 글자·고도 눈금·소스 이름뿐.
+ *   천천히 좌우로 흔들린다(끌면 멈추고 5 s 뒤 다시) · 휠 확대 · 두 번 누르면 처음 시점 · 화면에 보일 때만 그린다.
+ * 쓰기: const s = Sky3D.create(canvas); s.set({points, ant, next, running, tracks, scale}); s.resize(); s.dispose();
+ *   points: [{az, el, ok, refrac, dx, de}] (dx·de = X1 오프셋 ″) · ant: {az, el} · next: {az, el} ·
+ *   tracks: Sky3D.tracks(['CASA','TAUA','CYGA'], t0, 24) · scale: ″ 하나당 길이(반구 반지름 1, 기본 0.005 = 40″ → 0.2)
+ */
+'use strict';
+(function () {
+  const D2R = Math.PI / 180;
+  const dir = (T, az, el, r) => {                         // 방위(북→동)·고도 → 북 = −z · 동 = +x · 위 = +y
+    const a = az * D2R, e = el * D2R, R = r || 1;
+    return new T.Vector3(R * Math.sin(a) * Math.cos(e), R * Math.sin(e), -R * Math.cos(a) * Math.cos(e));
+  };
+  function textSprite(T, txt, color, h, weight) {
+    const fs = 56, cv = document.createElement('canvas');
+    let g = cv.getContext('2d');
+    const font = `${weight || 700} ${fs}px "Malgun Gothic", "Segoe UI", sans-serif`;
+    g.font = font;
+    cv.width = Math.ceil(g.measureText(txt).width) + 24; cv.height = Math.ceil(fs * 1.35);
+    g = cv.getContext('2d'); g.font = font; g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.shadowColor = 'rgba(0,0,0,.9)'; g.shadowBlur = 10;                 // 어두운 테두리 — 격자 위에서도 읽힌다
+    g.fillStyle = color; g.fillText(txt, cv.width / 2, cv.height / 2 + 2);
+    const tex = new T.CanvasTexture(cv); tex.minFilter = T.LinearFilter;
+    const sp = new T.Sprite(new T.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false }));
+    sp.scale.set((h * cv.width) / cv.height, h, 1);
+    sp.renderOrder = 10;
+    return sp;
+  }
+  function glowTex(T, inner, outer) {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const g = c.getContext('2d'), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, inner); gr.addColorStop(0.3, outer); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+    const t = new T.CanvasTexture(c); t.minFilter = T.LinearFilter; return t;
+  }
+  // 반구 선 — 카메라 쪽(앞) 방위의 선은 옅게, 건너편(뒤)은 진하게. 수평 성분만 본다(천정은 중간)
+  function fadeLineMat(T, color, op) {
+    return new T.ShaderMaterial({
+      transparent: true, depthWrite: false,
+      uniforms: { uColor: { value: new T.Color(color) }, uOp: { value: op }, uCam: { value: new T.Vector3(0, 0, 1) } },
+      vertexShader: 'uniform vec3 uCam; varying float vF;' +
+        'void main(){ vec2 c = normalize(uCam.xz + vec2(1e-6)); float f = dot(position.xz, c);' +
+        ' vF = 1.0 - 0.72 * smoothstep(0.0, 0.75, f);' +
+        ' gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'uniform vec3 uColor; uniform float uOp; varying float vF; void main(){ gl_FragColor = vec4(uColor, uOp * vF); }',
+    });
+  }
+
+  function create(canvas, opts) {
+    opts = opts || {};
+    const T = window.THREE;
+    if (!T) throw new Error('three.js 없음');
+    const rn = new T.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    rn.setClearColor(0x000000, 0);
+    rn.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    const scene = new T.Scene(), cam = new T.PerspectiveCamera(30, 2, 0.05, 60);
+    scene.add(new T.HemisphereLight(0xdfe8ff, 0x101828, 0.9));
+    const key = new T.DirectionalLight(0xffffff, 0.8); key.position.set(-1.5, 3, 2.5); scene.add(key);
+    const base = new T.Group(), data = new T.Group(), fx = new T.Group();
+    scene.add(base, data, fx);
+    // 시점 — 안테나(없으면 다음 목표·마지막 점) 방위에서 50° 비켜선 바깥, 고도 약 27° 에서 본다.
+    //   그쪽 하늘이 앞으로 와서 측정점·오프셋 화살이 고도 따라 펼쳐지고, 접시와 빔은 옆모습으로 보인다(10-03 시점 비교).
+    //   방위가 바뀌면 천천히 따라 돈다. 끌어 돌리면 30 s 동안은 그 시점을 지킨다
+    const TH0 = opts.th || 1.1, RAD0 = opts.rad || 3.7, SIDE = 50;
+    let kfit = 1, lw = 0, lh = 0;                         // 상자가 좁으면 멀리서 본다(반구 가로 ≈ 세로 × 1.5)
+    let th = TH0, ph = opts.ph || 0, rad = RAD0, phBase = ph, sway = 0, focusPh = null;
+    const tgt = new T.Vector3(0, opts.ty != null ? opts.ty : 0.28, 0);
+    const fades = [];
+    const upd = () => {
+      const r = rad * kfit;
+      cam.position.set(tgt.x + r * Math.sin(th) * Math.sin(ph), tgt.y + r * Math.cos(th), tgt.z + r * Math.sin(th) * Math.cos(ph));
+      cam.lookAt(tgt);
+      for (const m of fades) m.uniforms.uCam.value.copy(cam.position);
+    };
+    const fline = (pts, color, op) => { const m = fadeLineMat(T, color, op); fades.push(m); return new T.Line(new T.BufferGeometry().setFromPoints(pts), m); };
+    const line = (pts, color, op) => new T.Line(new T.BufferGeometry().setFromPoints(pts), new T.LineBasicMaterial({ color, transparent: true, opacity: op, depthWrite: false }));
+
+    // ── 바닥: 어두운 원판 + 빛나는 지평선 고리 + 방위 눈금(10° 잔 · 30° 긴) + 방위 글자 ──
+    const disk = new T.Mesh(new T.CircleGeometry(1.0, 120), new T.MeshBasicMaterial({ color: 0x07142a, transparent: true, opacity: 0.92, depthWrite: false }));
+    disk.rotation.x = -Math.PI / 2; disk.position.y = -0.002; base.add(disk);
+    const glowRing = new T.Mesh(new T.RingGeometry(0.985, 1.03, 160), new T.MeshBasicMaterial({ color: 0x3d7fd1, transparent: true, opacity: 0.55, side: T.DoubleSide, depthWrite: false, blending: T.AdditiveBlending }));
+    glowRing.rotation.x = -Math.PI / 2; base.add(glowRing);
+    const tick = [];
+    for (let a = 0; a < 360; a += 10) { const L = a % 30 ? 0.035 : 0.075; tick.push(dir(T, a, 0, 1.0), dir(T, a, 0, 1.0 - L)); }
+    base.add(new T.LineSegments(new T.BufferGeometry().setFromPoints(tick), new T.LineBasicMaterial({ color: 0x7fb2ee, transparent: true, opacity: 0.7 })));
+    for (const r of [0.33, 0.66]) { const p = []; for (let a = 0; a <= 360; a += 4) p.push(dir(T, a, 0, r)); base.add(line(p, 0x1d3a60, 0.6)); }
+    for (const [az, t, c] of [[0, 'N', '#ff8a80'], [90, 'E', '#b8c7da'], [180, 'S', '#b8c7da'], [270, 'W', '#b8c7da']]) {
+      const sp = textSprite(T, t, c, 0.12, 800); sp.position.copy(dir(T, az, 0, 1.15)); base.add(sp);
+    }
+    // ── 반구: 고도 고리(30·60) · 방위 경선(30° 마다) · 측정 하한 20° — 앞쪽은 옅게 ──
+    for (const el of [30, 60]) { const p = []; for (let a = 0; a <= 360; a += 2) p.push(dir(T, a, el)); base.add(fline(p, 0x4f7fb8, 0.75)); }
+    for (let az = 0; az < 360; az += 30) { const p = []; for (let e = 0; e <= 90; e += 2) p.push(dir(T, az, e)); base.add(fline(p, 0x3a6597, az % 90 ? 0.4 : 0.75)); }
+    const lim = []; for (let a = 0; a <= 360; a += 2) lim.push(dir(T, a, 20));
+    base.add(fline(lim, 0x36c2b0, 0.55));
+    for (const el of [30, 60]) { const sp = textSprite(T, el + '°', '#8fb0d6', 0.075, 600); sp.position.copy(dir(T, 300, el, 1.06)); base.add(sp); }
+    const dome = new T.Mesh(new T.SphereGeometry(0.997, 72, 24, 0, Math.PI * 2, 0, Math.PI / 2),
+      new T.MeshBasicMaterial({ color: 0x2a5da0, transparent: true, opacity: 0.07, side: T.BackSide, depthWrite: false }));
+    base.add(dome);
+
+    // ── 안테나: 받침 + 접시(포물면) + 부반사경 — 접시 축이 (방위, 고도)를 가리킨다 ──
+    const metal = new T.MeshStandardMaterial({ color: 0xc9d6e6, metalness: 0.35, roughness: 0.45, side: T.DoubleSide });
+    const ped = new T.Mesh(new T.CylinderGeometry(0.035, 0.05, 0.12, 20), metal); ped.position.y = 0.06; base.add(ped);
+    const yoke = new T.Group(); yoke.position.y = 0.13; scene.add(yoke);       // 방위로 돈다
+    const tilt = new T.Group(); yoke.add(tilt);                                // 고도로 든다(접시 축 = −z)
+    const prof = []; for (let i = 0; i <= 12; i++) { const r = (i / 12) * 0.13; prof.push(new T.Vector2(r, (r * r) / (4 * 0.07))); }
+    const dish = new T.Mesh(new T.LatheGeometry(prof, 40), metal); dish.rotation.x = -Math.PI / 2; dish.position.z = 0.02; tilt.add(dish);
+    const strut = new T.Mesh(new T.CylinderGeometry(0.004, 0.004, 0.09, 6), metal); strut.rotation.x = Math.PI / 2; strut.position.z = -0.045; tilt.add(strut);
+    const sub = new T.Mesh(new T.SphereGeometry(0.012, 12, 8), metal); sub.position.z = -0.09; tilt.add(sub);
+    // 빔 — 접시에서 하늘까지 빛줄기(가산 혼합 원뿔) + 하늘에 닿은 자리 빛
+    const beamMat = new T.MeshBasicMaterial({ color: 0x58a6ff, transparent: true, opacity: 0.2, side: T.DoubleSide, depthWrite: false, blending: T.AdditiveBlending });
+    const beamG = new T.ConeGeometry(0.055, 1, 28, 1, true); beamG.translate(0, -0.5, 0); beamG.rotateX(-Math.PI / 2);   // 꼭지 = 원점, 넓은 쪽 = +z 1
+    const beam = new T.Mesh(beamG, beamMat); scene.add(beam);
+    const core = new T.Line(new T.BufferGeometry().setFromPoints([new T.Vector3(), new T.Vector3(0, 1, 0)]), new T.LineBasicMaterial({ color: 0xa8d4ff, transparent: true, opacity: 0.9 }));
+    scene.add(core);
+    const hit = new T.Sprite(new T.SpriteMaterial({ map: glowTex(T, 'rgba(220,240,255,1)', 'rgba(88,166,255,.55)'), transparent: true, depthWrite: false, depthTest: false, blending: T.AdditiveBlending }));
+    hit.scale.set(0.2, 0.2, 1); scene.add(hit);
+    // 다음 목표 — 호박색 마름모(하늘 면에 붙인 고리)
+    const nextM = new T.Mesh(new T.RingGeometry(0.045, 0.06, 4), new T.MeshBasicMaterial({ color: 0xe3b341, side: T.DoubleSide, transparent: true, depthTest: false }));
+    nextM.renderOrder = 5; scene.add(nextM);
+
+    let model = null, raf = 0, dirty = true, visible = true, drag = false, px = 0, py = 0, lastUser = -1e9, lastT = 0, latest = null;
+    const touch = () => { lastUser = performance.now(); };
+    canvas.addEventListener('pointerdown', (e) => { drag = true; px = e.clientX; py = e.clientY; touch(); canvas.setPointerCapture(e.pointerId); });
+    canvas.addEventListener('pointerup', () => { drag = false; touch(); });
+    canvas.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      ph -= (e.clientX - px) * 0.008; th = Math.max(0.12, Math.min(1.42, th - (e.clientY - py) * 0.008));
+      phBase = ph; sway = 0; px = e.clientX; py = e.clientY; touch(); dirty = true;
+    });
+    canvas.addEventListener('wheel', (e) => { rad = Math.max(2.4, Math.min(7, rad + e.deltaY * 0.004)); touch(); dirty = true; e.preventDefault(); }, { passive: false });
+    canvas.addEventListener('dblclick', () => { th = TH0; rad = RAD0; sway = 0; if (focusPh != null) ph = phBase = focusPh; lastUser = -1e9; dirty = true; });
+    if ('IntersectionObserver' in window) new IntersectionObserver((es) => { visible = es[0].isIntersecting; if (visible) dirty = true; }).observe(canvas);
+
+    function clearData() {
+      for (const g of [data, fx]) while (g.children.length) {
+        const o = g.children.pop();
+        o.traverse((c) => { if (c.geometry) c.geometry.dispose(); if (c.material) { if (c.material.map && !c.material.map.keep) c.material.map.dispose(); c.material.dispose(); } });
+      }
+      latest = null;
+    }
+    const TEX = {
+      ok: glowTex(T, 'rgba(225,255,230,1)', 'rgba(63,185,80,.75)'),
+      old: glowTex(T, 'rgba(235,240,245,1)', 'rgba(139,148,158,.6)'),
+      bad: glowTex(T, 'rgba(255,215,210,1)', 'rgba(248,81,73,.7)'),
+    };
+    for (const t of Object.values(TEX)) t.keep = true;        // 다시 그릴 때 버리지 않는다(같이 쓰는 무늬)
+    function build() {
+      clearData();
+      if (!model) return;
+      const k = model.scale || 0.005;
+      // 전파원 하루 길 — 고도 20° 위는 진하게, 지금 자리에 빛점과 이름
+      for (const tr of model.tracks || []) {
+        let seg = [], hi = null;
+        const flush = () => { if (seg.length > 1) data.add(line(seg, tr.color, hi ? 0.8 : 0.22)); seg = []; };
+        for (const [az, el] of tr.pts) {
+          if (el < 0) { flush(); hi = null; continue; }
+          const h = el >= 20;
+          if (hi !== null && h !== hi) { const last = seg[seg.length - 1]; flush(); if (last) seg.push(last); }
+          hi = h; seg.push(dir(T, az, el, 1.003));
+        }
+        flush();
+        if (tr.now && tr.now[1] > 0) {
+          const c = '#' + tr.color.toString(16).padStart(6, '0');
+          const sp = textSprite(T, tr.src, c, 0.085, 700);
+          sp.position.copy(dir(T, tr.now[0], tr.now[1] + 9, 1.06)); data.add(sp);
+          const g = new T.Sprite(new T.SpriteMaterial({ map: glowTex(T, 'rgba(255,255,255,1)', c + 'aa'), transparent: true, depthWrite: false, blending: T.AdditiveBlending }));
+          g.position.copy(dir(T, tr.now[0], tr.now[1], 1.004)); g.scale.set(0.09, 0.09, 1); data.add(g);
+        }
+      }
+      // 측정점(빛 구슬) + X1 오프셋 화살(크게 늘림)
+      const arrows = [];
+      const pts = (model.points || []).filter((p) => p.az != null && p.el != null);
+      pts.forEach((p, i) => {
+        const d = dir(T, p.az, p.el, 1.0);
+        const sp = new T.Sprite(new T.SpriteMaterial({ map: p.ok ? (p.refrac ? TEX.ok : TEX.old) : TEX.bad, transparent: true, depthWrite: false, blending: T.AdditiveBlending }));
+        const s = p.ok ? 0.11 : 0.085; sp.scale.set(s, s, 1); sp.position.copy(d); data.add(sp);
+        if (p.ok && p.dx != null && p.de != null) {
+          const a = p.az * D2R, e = p.el * D2R;
+          const eA = new T.Vector3(Math.cos(a), 0, Math.sin(a)), eE = new T.Vector3(-Math.sin(a) * Math.sin(e), Math.cos(e), Math.cos(a) * Math.sin(e));
+          arrows.push(d, d.clone().add(eA.multiplyScalar(p.dx * k)).add(eE.multiplyScalar(p.de * k)));
+        }
+        if (i === pts.length - 1) latest = { d, color: p.ok ? (p.refrac ? 0x3fb950 : 0x8b949e) : 0xf85149 };
+      });
+      if (arrows.length) data.add(new T.LineSegments(new T.BufferGeometry().setFromPoints(arrows), new T.LineBasicMaterial({ color: 0xffe6a8, transparent: true, opacity: 0.95, depthWrite: false })));
+      if (latest) {                                   // 마지막 점 — 하늘 면에 붙어 퍼지는 고리
+        const r = new T.Mesh(new T.RingGeometry(0.03, 0.038, 40), new T.MeshBasicMaterial({ color: latest.color, transparent: true, side: T.DoubleSide, depthWrite: false, depthTest: false }));
+        r.position.copy(latest.d); r.lookAt(latest.d.clone().multiplyScalar(2)); fx.add(r); latest.ring = r;
+      }
+      dirty = true;
+    }
+    function placeAnt() {
+      const a = model && model.ant, ok = !!(a && a.az != null && a.el != null);
+      yoke.visible = beam.visible = core.visible = hit.visible = ok;
+      if (ok) {
+        yoke.rotation.set(0, -a.az * D2R, 0);                 // 북(−z)에서 동(+x)으로
+        tilt.rotation.set(a.el * D2R, 0, 0);                  // −z 축을 위로 들어 올린다
+        const o = new T.Vector3(0, 0.13, 0), d = dir(T, a.az, a.el, 1.0);
+        beam.position.copy(o); beam.lookAt(d); beam.scale.set(1, 1, d.distanceTo(o));   // lookAt 은 +z 를 d 로 돌린다
+        core.geometry.setFromPoints([o, d]);
+        hit.position.copy(d);
+        beamMat.color.setHex(model.running ? 0x58a6ff : 0x7d8ea3); core.material.color.setHex(model.running ? 0xa8d4ff : 0x9aa8b8);
+      }
+      const n = model && model.next, pts = (model && model.points) || [], lp = pts[pts.length - 1];
+      const f = ok && a.el > 3 ? a.az : n && n.az != null && n.el > 0 ? n.az : lp && lp.az != null ? lp.az : null;
+      if (f != null && opts.ph == null) {
+        const want = Math.PI - (((f + SIDE) % 360) * D2R);            // 카메라 방위 = f + 50° (ph = π − 방위)
+        if (focusPh == null) ph = phBase = want;
+        focusPh = want;
+      }
+      nextM.visible = !!(n && n.az != null && n.el != null && n.el > 0);
+      if (nextM.visible) { const d = dir(T, n.az, n.el, 1.004); nextM.position.copy(d); nextM.lookAt(d.clone().multiplyScalar(2)); }
+      dirty = true;
+    }
+    function frame(t) {
+      raf = requestAnimationFrame(frame);
+      if (document.hidden || !visible || !canvas.clientWidth || !model) return;
+      if (t - lastT < 40 && !dirty) return;                  // 움직임은 25 fps 면 넉넉하다
+      const dt = Math.min(3, (t - lastT) / 40); lastT = t;
+      if (!drag && focusPh != null && t - lastUser > 30000) {      // 안테나 방위를 천천히 따라 돈다(짧은 쪽으로)
+        const d = ((((focusPh - phBase + Math.PI) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)) - Math.PI;
+        phBase += d * Math.min(1, 0.02 * dt);
+      }
+      if (!drag && t - lastUser > 5000) { sway += 0.004 * dt; ph = phBase + 0.3 * Math.sin(sway); }
+      const pulse = 0.5 + 0.5 * Math.sin(t / 300);
+      beamMat.opacity = model.running ? 0.16 + 0.18 * pulse : 0.12;
+      hit.scale.setScalar(model.running ? 0.16 + 0.1 * pulse : 0.13);
+      if (nextM.visible) { const s = 1 + 0.25 * pulse; nextM.scale.set(s, s, 1); }
+      if (latest && latest.ring) { const f = (t % 2200) / 2200; latest.ring.scale.setScalar(1 + 2.6 * f); latest.ring.material.opacity = 0.9 * (1 - f); }
+      dirty = false; upd(); rn.render(scene, cam);
+    }
+    raf = requestAnimationFrame(frame);
+    let sig = '';
+    return {
+      set(m) {
+        const s = JSON.stringify([m.points, m.tracks && m.tracks.map((t) => [t.src, t.pts.length, t.now && t.now.map((v) => Math.round(v))]), m.scale]);
+        model = m;
+        if (s !== sig) { sig = s; build(); }
+        placeAnt();
+      },
+      resize() {
+        const w = canvas.clientWidth, h = canvas.clientHeight;
+        if (!w || !h) return false;
+        if (w === lw && h === lh) return true;                // 같은 크기면 건드리지 않는다(캔버스 크기를 다시 넣으면 지워져 깜박인다)
+        lw = w; lh = h;
+        rn.setSize(w, h, false); cam.aspect = w / h; kfit = Math.max(1, 1.35 / cam.aspect);
+        cam.updateProjectionMatrix(); dirty = true; return true;
+      },
+      dispose() { cancelAnimationFrame(raf); clearData(); rn.dispose(); },
+    };
+  }
+
+  // 전파원 하루 길(방위·고도) — 세종 좌표, 지금부터 hours 시간을 step 분마다(화면이 스스로 계산, 서버에 묻지 않음)
+  function track(raH, decD, t0, hours, stepMin) {
+    const lat = 36.5219 * D2R, lon = 127.3025, out = [];
+    for (let m = 0; m <= hours * 60; m += stepMin || 10) {
+      const t = t0 + m * 60, jd = t / 86400 + 2440587.5;
+      const gmst = (18.697374558 + 24.06570982441908 * (jd - 2451545.0)) % 24;
+      const ha = ((((gmst + lon / 15 - raH) % 24) + 24) % 24) * 15 * D2R, de = decD * D2R;
+      const el = Math.asin(Math.sin(lat) * Math.sin(de) + Math.cos(lat) * Math.cos(de) * Math.cos(ha));
+      const az = Math.atan2(-Math.cos(de) * Math.sin(ha), Math.sin(de) * Math.cos(lat) - Math.cos(de) * Math.sin(lat) * Math.cos(ha));
+      out.push([((az / D2R) % 360 + 360) % 360, el / D2R]);
+    }
+    return out;
+  }
+  const SOURCES = { CASA: [23.39, 58.815, 0xe3b341], TAUA: [5.5755, 22.0145, 0xbc8cff], CYGA: [19.9912, 40.7339, 0x58a6ff] };
+  const NAME = { CASA: 'Cas A', TAUA: 'Tau A', CYGA: 'Cyg A' };
+  function tracks(names, t0, hours) {
+    return (names || Object.keys(SOURCES)).filter((n) => SOURCES[n]).map((n) => {
+      const [ra, dec, color] = SOURCES[n];
+      return { key: n, src: NAME[n], color, pts: track(ra, dec, t0, hours || 24, 10), now: track(ra, dec, t0, 0, 10)[0] };
+    });
+  }
+  window.Sky3D = { create, tracks, NAME };
+})();

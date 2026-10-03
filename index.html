@@ -173,6 +173,14 @@
     background:radial-gradient(ellipse at 50% 30%,rgba(88,166,255,.18),transparent 62%),linear-gradient(180deg,#0a1222,#060a14);box-shadow:inset 0 0 36px rgba(0,0,0,.55)}
   .tsm-3dn{position:absolute;inset:0;display:grid;place-items:center;font-size:12px;color:#8ba0b8}
   .tsm-cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+  .tsm-sky3d{position:relative;height:250px;border-radius:10px;overflow:hidden;margin:6px 0 4px;border:1px solid rgba(88,166,255,.28);
+    background:radial-gradient(120% 90% at 50% 18%,#132a4a,#081223 58%,#050b16);box-shadow:inset 0 0 36px rgba(0,0,0,.55)}
+  .tsm-pcleg{display:flex;flex-wrap:wrap;align-items:center;gap:4px 5px;font-size:10.5px;color:var(--dim)}
+  .tsm-pcleg i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-left:5px}.tsm-pcleg i.ln{border-radius:0;width:12px;height:2px}
+  .tsm-pcleg i.dm{border-radius:0;width:6px;height:6px;border:1.5px solid #e3b341;transform:rotate(45deg)}
+  .tsm-pcst{display:flex;flex-wrap:wrap;gap:3px 12px;font-size:11px;color:var(--dim);margin-top:6px;padding-top:5px;border-top:1px solid var(--line)}
+  .tsm-pcst b{color:var(--text);font-size:13px;margin-left:2px}
+  .tsm-pcrows{margin-top:4px}.tsm-pcr{display:flex;gap:7px;align-items:baseline;font-size:11px;padding:3px 0;border-bottom:1px solid var(--line)}
   .tsm-3dm{padding:7px 10px 6px;font:600 11px "Malgun Gothic",sans-serif;color:#dbe7f5;border-bottom:1px solid rgba(120,190,255,.18);background:rgba(6,12,24,.45)}
   .tsm-3dc{position:relative;height:290px}
   .tsm-ant3d{height:250px;border-radius:10px;margin:6px 0 8px;border:1px solid color-mix(in srgb,var(--navy) 35%,var(--line));
@@ -275,7 +283,7 @@
 <script>
 const TG=window.Telegram?.WebApp; TG?.ready(); TG?.expand();
 const GIST_ID=(new URLSearchParams(location.search).get("g")||"5404bef7f8d5b9f4e8d2824515fc8728");
-const REV="p10032151";
+const REV="p10032218";
 let GLOBECODE="";      // 지구본 세션 선택(선택기 → postMessage)
 const BODY={};
 async function loadBody(name){
@@ -469,9 +477,9 @@ const sgn=(v,d=0)=>v==null||!isFinite(v)?"—":(v>0?"+":v<0?"−":"")+Math.abs(v
 const K4=4*Math.LN2;
 // 같은 오리진 ts/ 의 three.js·beam3d.js 를 처음 볼 때만 불러온다
 let TS3P=null;
-function ensureThree(){ if(window.Beam3D) return Promise.resolve(true); if(TS3P) return TS3P;
+function ensureThree(){ if(window.Beam3D&&window.Sky3D) return Promise.resolve(true); if(TS3P) return TS3P;
   const ld=src=>new Promise((ok,no)=>{const e=document.createElement("script"); e.src=src+"?v="+REV; e.onload=ok; e.onerror=no; document.head.appendChild(e);});
-  TS3P=ld("./ts/three.min.js").then(()=>ld("./ts/beam3d.js")).then(()=>true).catch(()=>false); return TS3P; }
+  TS3P=ld("./ts/three.min.js").then(()=>ld("./ts/beam3d.js")).then(()=>ld("./ts/sky3d.js")).then(()=>true).catch(()=>false); return TS3P; }
 function stageIdx(st){ return ({SELECT:0,SLEW:0,TRACK_WAIT:1,PRE_REC:2,REC_ON:3,REC_WAIT:3,REC_OFF:4,DONE:4})[st]??-1; }
 function obsKind(s,cur){ if(!s||s.state!=="RUNNING") return ["ARMED","SETUP","REC_TEST","CROSS","BOOT","READY"].includes(s&&s.state)?"prep":"idle";
   const g=cur&&cur.stage; return g==="REC_WAIT"||g==="REC_ON"?"rec":g==="SLEW"||g==="SELECT"?"slew":g==="TRACK_WAIT"||g==="PRE_REC"?"arm":"idle"; }
@@ -542,21 +550,35 @@ const q3=(v,a,b)=>v<=a?"good":v<=b?"warn":"bad";
 function tsPcamp(t){
   const pc=t.pcamp; if(!pc) return "";
   const now=Date.now()/1000, run=pc.now&&pc.now.running, a=t.antenna||{}, P=pc.points||[];
-  const R=62, xy=(az,el)=>{const r=Math.max(0,Math.min(1.05,(90-el)/90))*R, q=az*Math.PI/180; return [r*Math.sin(q),-r*Math.cos(q)];};
-  let g=`<circle r="${R}" fill="var(--card2)" stroke="var(--line)"/>`+[30,60].map(e=>`<circle r="${(90-e)/90*R}" fill="none" stroke="var(--line)" stroke-width=".6"/>`).join("");
-  for(const [az,tx] of [[0,"북"],[90,"동"],[180,"남"],[270,"서"]]){const [x,y]=xy(az,-12); g+=`<text x="${x.toFixed(1)}" y="${(y+3).toFixed(1)}" font-size="8" text-anchor="middle" fill="var(--dim)">${tx}</text>`;}
-  for(const p of P){ if(p[2]==null||p[3]==null) continue; const [x,y]=xy(p[3],p[2]);
-    g+=p[4]?`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.2" fill="${p[5]?"var(--ok)":"var(--dim)"}"/>`:`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.2" fill="none" stroke="#e5534b" stroke-width="1.2"/>`; }
-  if(n2(a.az)!=null&&n2(a.el)!=null){const [x,y]=xy(+a.az,+a.el); g+=`<path d="M${(x-5).toFixed(1)} ${y.toFixed(1)}h10M${x.toFixed(1)} ${(y-5).toFixed(1)}v10" stroke="#4493f8" stroke-width="1.6"/>`;}
   const o=v=>v==null?"—":(v>0?"+":v<0?"−":"")+Math.abs(v).toFixed(0)+"″";
-  const rows=P.slice(-5).reverse().map(p=>`<tr style="${p[4]?"":"color:var(--dim)"}"><td class="mono">${kst(p[0],16)}</td><td class="mono">${esc(p[1]||"")}</td><td class="mono">${p[2]==null?"—":p[2].toFixed(0)+"°"}</td><td class="mono">${p[3]==null?"—":p[3].toFixed(0)+"°"}</td><td class="mono">${o(p[6])}</td><td class="mono">${o(p[7])}</td><td>${p[4]?'<span style="color:var(--ok)">✓</span>':'<span style="color:#e5534b">✗</span>'}</td></tr>`).join("");
+  const okP=P.filter(p=>p[4]&&p[3]!=null), quads=new Set(okP.map(p=>Math.floor((((p[3]%360)+45)%360)/90))).size, els=okP.map(p=>p[2]);
+  const rows=P.slice(-3).reverse().map(p=>`<div class="tsm-pcr" style="${p[4]?"":"color:var(--dim)"}"><span class="mono">${kst(p[0],16)}</span><b class="mono">${esc(p[1]||"")}</b><span class="mono">고도 ${p[2]==null?"—":p[2].toFixed(0)+"°"} 방위 ${p[3]==null?"—":p[3].toFixed(0)+"°"}</span><span style="flex:1"></span><span class="mono">${p[4]?`${o(p[6])} / ${o(p[7])}`:"맞춤 없음"}</span>${p[4]?'<span style="color:var(--ok)">✓</span>':'<span style="color:#e5534b">✗</span>'}</div>`).join("");
   return `<div class="card tsm"><div class="tsm-h">지향 모형 측정 <span class="dim">${esc(pc.band||"X")} 대역 · ${esc(String(pc.interval_min||10))}분마다</span><span class="tsm-badge ${run?"run":""}" style="margin-left:auto"><i></i>${run?esc(pc.now.source||"")+" 훑는 중":"대기"}</span></div>
     <div class="dim" style="font-size:11.5px">${(pc.sources||[]).map(esc).join("·")} · ~${kstd(pc.end)} ${kst(pc.end,16)} KST 까지</div>
     <div class="tsm-note" style="margin-top:6px">${run?`<b>${esc(pc.now.source||"")}</b> 십자 스캔 중 · 안테나 방위 ${n2(a.az)?.toFixed(1)??"–"}° 고도 ${n2(a.el)?.toFixed(1)??"–"}°`:`다음 측정 <b class="mono">${pc.next_t?kst(pc.next_t):"—"}</b> · T-<b class="mono" id="tsPcCd">${pc.next_t?mmss(pc.next_t-now):"—"}</b> · 안테나 고도 ${n2(a.el)?.toFixed(1)??"–"}° 대기`}</div>
-    <div style="display:flex;gap:10px;align-items:center;margin-top:6px"><svg viewBox="-74 -74 148 148" style="width:140px;height:140px;flex:none">${g}</svg>
-      <div class="grid" style="flex:1"><div class="tile"><div class="lbl">잰 점</div><div class="val mono">${pc.n}</div></div><div class="tile"><div class="lbl">쓸 수 있음(X1) · 굴절 보정 뒤</div><div class="val mono">${pc.n_ok} · ${pc.n_refrac}</div></div>
-      <div class="dim" style="font-size:10.5px">● 초록 보정 뒤 · 회색 보정 전 · ○ 빨강 실패 · 파랑 + 안테나</div></div></div>
-    <table class="tsm-tab" style="width:100%;font-size:11.5px;margin-top:6px;border-collapse:collapse"><thead><tr style="color:var(--dim);text-align:left"><th>KST</th><th>소스</th><th>고도</th><th>방위</th><th>X1 방위</th><th>X1 고도</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    <div class="tsm-sky3d" id="tsSkySlot"><div class="tsm-3dn" id="tsSkyNote">3D 준비 중…</div></div>
+    <div class="tsm-pcleg"><i style="background:#3fb950;box-shadow:0 0 6px #3fb950"></i>보정 뒤 <i style="background:#8b949e"></i>보정 전 <i style="background:#f85149;box-shadow:0 0 6px #f85149"></i>실패 <i class="ln" style="background:#ffe6a8"></i>X1 오프셋 <i class="dm"></i>목표 <i class="ln" style="background:linear-gradient(90deg,#a8d4ff,#58a6ff);height:3px"></i>빔</div>
+    <div class="tsm-pcst"><span>점 <b class="mono">${pc.n}</b></span><span>X1 쓸 수 있음 <b class="mono">${pc.n_ok}</b></span><span>보정 뒤 <b class="mono">${pc.n_refrac}</b></span><span>사분면 <b class="mono" style="${quads>=4?"color:var(--ok)":""}">${quads}/4</b></span><span>고도 <b class="mono">${els.length?`${Math.min(...els).toFixed(0)}~${Math.max(...els).toFixed(0)}°`:"—"}</b></span></div>
+    <div class="tsm-pcrows">${rows}</div></div>`;
+}
+// 지향 측정 3D 하늘(ts/sky3d.js) — 캔버스 하나를 계속 쓰고 다시 그릴 때마다 자리(tsSkySlot)로 옮긴다(10-03)
+let TSKY=null, TSKW=null, TSKT=null;
+function mountTSSky(){
+  if(TAB!=="ts"||!TSL||!TSL.pcamp) return;
+  if(!document.getElementById("tsSkySlot")) return;
+  ensureThree().then(okk=>{
+    const sl=document.getElementById("tsSkySlot"), note=document.getElementById("tsSkyNote"); if(!sl) return;
+    if(!okk||!window.Sky3D){ if(note) note.textContent="3D 를 불러오지 못함"; return; }
+    if(!TSKW){ TSKW=document.createElement("canvas"); TSKW.className="tsm-cv";
+      try{ TSKY=window.Sky3D.create(TSKW); }catch(e){ if(note) note.textContent="이 기기에서 WebGL 을 쓸 수 없습니다"; TSKW=null; return; } }
+    if(note) note.remove(); if(TSKW.parentElement!==sl) sl.appendChild(TSKW);
+    const pc=TSL.pcamp, a=TSL.antenna||{}, run=!!(pc.now&&pc.now.running), tk=Math.floor(Date.now()/600000)*600;
+    if(!TSKT||TSKT.t!==tk) TSKT={t:tk, v:window.Sky3D.tracks(pc.sources, tk, 24)};
+    const tr=run?TSKT.v.find(x=>x.key===pc.now.source):null;
+    requestAnimationFrame(()=>{ TSKY.resize(); TSKY.set({
+      points:(pc.points||[]).map(p=>({az:p[3], el:p[2], ok:!!p[4], refrac:!!p[5], dx:p[6], de:p[7]})),
+      ant:n2(a.az)!=null&&n2(a.el)!=null?{az:+a.az, el:+a.el}:null, next:tr&&tr.now?{az:tr.now[0], el:tr.now[1]}:null, running:run, tracks:TSKT.v}); });
+  });
 }
 function vTSL(){
   if(TSL===null){ loadTSL().then(()=>render()); return `<div class="card"><div class="empty">ThreeStar 화면을 불러오는 중…</div></div>`; }
@@ -919,7 +941,7 @@ function render(full=true){
   const app=document.getElementById("app");
   app.innerHTML=`<div class="view">${v()}</div>`;
   mountFrames();
-  mountTS3D(); mountTSAnt();
+  mountTS3D(); mountTSAnt(); mountTSSky();
   document.getElementById("foot").innerHTML=
     `<span class="pulse" style="color:${stale?"var(--bad)":"var(--ok)"}"></span>
      ${ago(age)} 갱신 · 15초마다 자동 · 조회 전용`;
