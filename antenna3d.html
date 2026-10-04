@@ -159,11 +159,13 @@ addEventListener("DOMContentLoaded", function(){
 <div id="lbls">
  <span data-p="feed">피드</span><span data-p="sub">부반사기</span><span data-p="dish">주반사판 22m</span>
  <span data-p="quad">Quadripod</span><span data-p="bus">BUS(백업구조)</span><span data-p="rx">Receiver Room</span>
- <span data-p="elax">고각축(Elevation)</span><span data-p="cw">Counter Weight</span><span data-p="yoke">Yoke</span>
- <span data-p="cone">Cone(받침대)</span><span data-p="found">Foundation</span>
+ <span data-p="elax">고각축(Elevation)</span><span data-p="alid">Alidade(방위 받침)</span><span data-p="yoke">Yoke</span>
+ <span data-p="cone">Cone(받침대)</span><span data-p="found">기단 건물</span>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="./ts/GLTFLoader.js"></script>
+<script src="./ts/sejong22m.js"></script>
 <script>
 const T=THREE, D2R=Math.PI/180, R2D=180/Math.PI;
 const LAT=36.5219, LON=127.3025;   // 세종 KVGSJ 측지좌표
@@ -182,6 +184,8 @@ rn.setClearColor(0x000000,0);
 rn.shadowMap.enabled=true; rn.shadowMap.type=T.PCFSoftShadowMap;
 if('outputEncoding' in rn)rn.outputEncoding=T.sRGBEncoding;
 if('physicallyCorrectLights' in rn)rn.physicallyCorrectLights=false;
+// 10-04 실물 모형: 흰 칠이 하얗게 뜨지 않게 ACES 톤 매핑(ThreeStar 안테나 카드와 같다) — 격자·방위 글자는 빛 그대로
+rn.toneMapping=T.ACESFilmicToneMapping; rn.toneMappingExposure=.9;
 
 // 조명: 하늘/지면 반구광 + 주광(그림자) + 냉색 보조광 + 림광
 scene.add(new T.HemisphereLight(0xcadcf2,0x1a2431,0.62));
@@ -208,143 +212,28 @@ pad.position.y=-0.35; pad.receiveShadow=true; scene.add(pad);
 const ground=new T.Mesh(new T.CircleGeometry(240,72),
   new T.MeshStandardMaterial({color:0x0c121b,roughness:1}));
 ground.rotation.x=-Math.PI/2; ground.position.y=-0.72; ground.receiveShadow=true; scene.add(ground);
-const grid=new T.GridHelper(240,60,0x22344a,0x16202e); grid.position.y=-0.68; scene.add(grid);
+const grid=new T.GridHelper(240,60,0x22344a,0x16202e); grid.position.y=-0.68; grid.material.toneMapped=false; scene.add(grid);
 // 나침반 (N=-Z, E=+X, S=+Z, W=-X : Az=0→North, Az=90→East)
 (function(){function tag(txt,col,x,z){const s=256,cv=document.createElement('canvas');cv.width=cv.height=s;
   const g=cv.getContext('2d');g.clearRect(0,0,s,s);g.fillStyle=col;g.font='bold 150px sans-serif';
   g.textAlign='center';g.textBaseline='middle';g.fillText(txt,s/2,s/2+8);
-  const m=new T.MeshBasicMaterial({map:new T.CanvasTexture(cv),transparent:true,depthWrite:false});
+  const m=new T.MeshBasicMaterial({map:new T.CanvasTexture(cv),transparent:true,depthWrite:false,toneMapped:false});
   const p=new T.Mesh(new T.PlaneGeometry(2.4,2.4),m);p.rotation.x=-Math.PI/2;p.position.set(x,-0.64,z);scene.add(p);}
  tag('N','#5fb8ff',0,-17);tag('E','#8fa3ba',17,0);tag('S','#8fa3ba',0,17);tag('W','#8fa3ba',-17,0);})();
 
-// ===================== 재질 =====================
-const dishTex=(function(){  // 패널 게이지(방사 게이트 + 동심 링) — 매끈 유지, 조립 패널감
-  const s=1024,cv=document.createElement('canvas');cv.width=cv.height=s;const g=cv.getContext('2d');
-  g.fillStyle='#eaf0f7';g.fillRect(0,0,s,s);
-  g.strokeStyle='rgba(120,140,168,.5)';g.lineWidth=1.4;
-  for(let i=1;i<8;i++){const y=s*i/8;g.beginPath();g.moveTo(0,y);g.lineTo(s,y);g.stroke();}  // 링(반경)
-  for(let i=0;i<56;i++){const x=s*i/56;g.beginPath();g.moveTo(x,0);g.lineTo(x,s);g.stroke();}  // 게이트(방위)
-  const t=new T.CanvasTexture(cv);t.anisotropy=8;return t;})();
-const panel =new T.MeshStandardMaterial({color:0xffffff,map:dishTex,metalness:.16,roughness:.34,side:T.DoubleSide});
-const panelBk=new T.MeshStandardMaterial({color:0xdbe4ee,metalness:.2,roughness:.5,side:T.DoubleSide});
-const structL=new T.MeshStandardMaterial({color:0xb2bcc7,metalness:.35,roughness:.5});
-const structM=new T.MeshStandardMaterial({color:0x7c8a99,metalness:.5,roughness:.45});
-const structD=new T.MeshStandardMaterial({color:0x515e6c,metalness:.5,roughness:.5});
-const steel  =new T.MeshStandardMaterial({color:0x8b98a6,metalness:.82,roughness:.3});
-const steelD =new T.MeshStandardMaterial({color:0x596471,metalness:.7,roughness:.4});
-const metalW =new T.MeshStandardMaterial({color:0xd9e2ea,metalness:.72,roughness:.24,side:T.DoubleSide});
-const concrete=new T.MeshStandardMaterial({color:0x323c48,metalness:.05,roughness:.96});
-const warn   =new T.MeshStandardMaterial({color:0xd8a53a,metalness:.55,roughness:.4});
-
-function mesh(g,m,par){const o=new T.Mesh(g,m);o.castShadow=true;o.receiveShadow=true;(par||scene).add(o);return o;}
-const YUP=new T.Vector3(0,1,0);
-function strut(a,b,rad,mat,par){const dir=new T.Vector3().subVectors(b,a),len=dir.length();
-  const m=mesh(new T.CylinderGeometry(rad,rad,len,10),mat||steel,par);
-  m.position.copy(a).add(b).multiplyScalar(0.5); m.quaternion.setFromUnitVectors(YUP,dir.clone().normalize()); return m;}
-function box(w,h,d,mat,par,x,y,z){const m=mesh(new T.BoxGeometry(w,h,d),mat,par);m.position.set(x||0,y||0,z||0);return m;}
-
-// ===================== 도면 기반 구조 (m). 디시 22m =====================
-// 주반사경을 마운트 대비 확대(직경 22m 실척감) — R/F 동반 확대로 f/D 유지, 부속 광학 자동 스케일
-const R=28.0, F=20.4, rimY=R*R/(4*F);       // 주반사경 확대(마운트 대비 크되 과하지 않게), f/D=F/R≈0.73 유지
-const parts={};
-
-// Foundation(기초 건물) + Cone(콘크리트 받침대)
-parts.found=mesh(new T.CylinderGeometry(6.6,7.2,4.4,48), concrete); parts.found.position.y=1.9;
-// 건물 창/디테일 링
-mesh(new T.TorusGeometry(6.85,0.12,8,48), structD).position.y=3.4;
-parts.cone=mesh(new T.CylinderGeometry(3.7,5.6,8.6,48), structL); parts.cone.position.y=8.4;
-for(let k=0;k<8;k++){const a=k/8*Math.PI*2;                       // 받침대 수직 리브
-  const rb=mesh(new T.BoxGeometry(0.35,8.6,0.7),structM);rb.position.set(Math.cos(a)*4.6,8.4,Math.sin(a)*4.6);rb.lookAt(0,8.4,0);}
-mesh(new T.CylinderGeometry(3.9,3.9,1.1,48), steelD).position.y=13.0;   // AZ 하부 링
-
-// ===== AZ 회전 그룹 =====
-const azG=new T.Group(); azG.position.y=13.5; scene.add(azG);
-mesh(new T.CylinderGeometry(3.6,3.9,1.3,48), steel, azG).position.y=0.65;   // 턴헤드/AZ 베어링
-mesh(new T.TorusGeometry(3.75,0.16,10,48), warn, azG).position.y=1.25;      // 베어링 상단 링(악센트)
-// Yoke(요크) 하부 플랫폼
-box(12.4,1.9,6.2, structL, azG, 0,2.1,0);
-box(11.0,0.5,5.4, structM, azG, 0,3.15,0);
-// 요크 두 팔(고각 베어링까지 상승, 살짝 안쪽 기움)
-const elPivotY=8.6;                       // azG 로컬 기준 고각축 높이
-for(const sx of[-1,1]){
-  const arm=mesh(new T.BoxGeometry(2.5,elPivotY-2.4,4.6), structL, azG);
-  arm.position.set(sx*5.15,(elPivotY+2.9)/2+0.15,0);
-  parts.yoke=arm;
-  mesh(new T.CylinderGeometry(1.75,1.75,1.3,28), steel, azG)  // 고각 베어링 하우징
-    .position.set(sx*5.15,elPivotY,0);
-  mesh(new T.CylinderGeometry(1.75,1.75,1.3,28), steel, azG).rotation.z=Math.PI/2;
-  const bh=azG.children[azG.children.length-1]; bh.position.set(sx*5.15,elPivotY,0);
-}
-
-// ===== EL 회전 그룹 (고각축) =====
-const elG=new T.Group(); elG.position.set(0,elPivotY,0); azG.add(elG);
-parts.elax=mesh(new T.CylinderGeometry(0.85,0.85,11.6,24), steel, elG); parts.elax.rotation.z=Math.PI/2;
-// 고각 섹터 기어(양측 큰 부채꼴)
-for(const sx of[-1,1]){const sec=mesh(new T.TorusGeometry(4.2,0.32,10,40,Math.PI*0.9), structD, elG);
-  sec.position.x=sx*4.9; sec.rotation.y=Math.PI/2; sec.rotation.z=-Math.PI*0.2;}
-
-// ----- 디시 조립(elG 자식). El=90 → 개방면 +Y(천정) -----
-// 반사경을 고각축 앞으로 오프셋 → El축·섹터기어 등 구동부가 반사면 뒤로 숨음(앞면 매끈)
-const dishA=new T.Group(); dishA.position.y=2.2; elG.add(dishA);
-
-// 주반사판(포물면) — 매끈한 반사경, 고해상도 + 부드러운 노멀 + 패널 게이지
-const prof=[]; for(let i=0;i<=220;i++){const r=R*i/220; prof.push(new T.Vector2(r, r*r/(4*F)));}
-const dishGeo=new T.LatheGeometry(prof,220); dishGeo.computeVertexNormals();
-parts.dish=mesh(dishGeo, panel, dishA);
-// 얇은 외곽 림
-const rimR=mesh(new T.TorusGeometry(R,0.11,14,220), structL, dishA); rimR.rotation.x=Math.PI/2; rimR.position.y=rimY;
-
-// BUS(백업 구조): 방사형 리브 + 동심 후프링 (뒤 = -Y)
-const busHub=new T.Vector3(0,-3.0,0);
-for(let k=0;k<28;k++){const a=k/28*Math.PI*2;
-  const ro=R*0.965, yo=ro*ro/(4*F);
-  const p=new T.Vector3(Math.cos(a)*ro,yo,Math.sin(a)*ro);
-  strut(p,busHub,0.055,structD,dishA);
-  const mid=new T.Vector3(Math.cos(a)*ro*0.55,(ro*0.55)**2/(4*F),Math.sin(a)*ro*0.55);
-  strut(p,new T.Vector3(Math.cos((k+1)/28*Math.PI*2)*ro,yo,Math.sin((k+1)/28*Math.PI*2)*ro),0.03,structM,dishA);}
-for(const rr of[R*0.42,R*0.72,R*0.94]){const ring=mesh(new T.TorusGeometry(rr,0.05,8,80),structM,dishA);
-  ring.rotation.x=Math.PI/2; ring.position.y=rr*rr/(4*F)-0.35;}
-parts.bus=mesh(new T.CylinderGeometry(1.4,1.9,1.2,20),structD,dishA); parts.bus.position.y=-2.9;
-
-// Receiver Room(정점 뒤 수신기실) — 정점보다 확실히 뒤(-Y)로 배치해 반사면에 안 비치게
-parts.rx=box(4.2,3.0,4.2, structL, dishA, 0,-3.2,0);
-box(4.5,0.4,4.5, structM, dishA, 0,-4.7,0);
-mesh(new T.BoxGeometry(1.3,1.7,0.15),steelD,dishA).position.set(0,-3.2,2.15);  // 도어
-
-// Quadripod(4각) — 뿌리 넓고 정점 좁은 테이퍼 트러스
-const apex=new T.Vector3(0,F+0.2,0);
-const legFoot=[];
-for(let k=0;k<4;k++){const a=k/4*Math.PI*2+Math.PI/4;
-  const ro=R*0.80, yo=ro*ro/(4*F);
-  const foot=new T.Vector3(Math.cos(a)*ro,yo,Math.sin(a)*ro); legFoot.push(foot);
-  strut(foot,apex,0.17,steel,dishA);
-  // 각 다리 보조 현재
-  const kn=new T.Vector3().lerpVectors(foot,apex,0.5);
-  strut(new T.Vector3(Math.cos(a)*ro*0.9,yo*0.9+0.3,Math.sin(a)*ro*0.9),kn,0.06,steelD,dishA);}
-parts.quad=dishA.children[dishA.children.length-1];
-// 다리 사이 링 브레이싱(중간 높이)
-for(let k=0;k<4;k++){const m1=new T.Vector3().lerpVectors(legFoot[k],apex,0.5);
-  const m2=new T.Vector3().lerpVectors(legFoot[(k+1)%4],apex,0.5); strut(m1,m2,0.05,steelD,dishA);}
-// 정점 허브
-mesh(new T.CylinderGeometry(1.05,1.25,0.9,24), steel, dishA).position.y=F+0.2;
-
-// Subreflector(카세그레인 볼록 쌍곡면, 아래=디시쪽 향함) + 지지 링
-const subP=[]; for(let i=0;i<=24;i++){const r=1.85*i/24; subP.push(new T.Vector2(r, 0.42*r*r/1.85));}
-parts.sub=mesh(new T.LatheGeometry(subP,48), metalW, dishA);
-parts.sub.position.y=F+0.5; parts.sub.rotation.x=Math.PI;   // 볼록면이 디시(-Y)쪽
-mesh(new T.TorusGeometry(1.85,0.09,10,48), steel, dishA).position.y=F+0.5;
-// Hexapod(부반사경 6각 조정 지지대)
-for(let k=0;k<6;k++){const a=k/6*Math.PI*2;
-  strut(new T.Vector3(Math.cos(a)*1.05,F-0.5,Math.sin(a)*1.05),
-        new T.Vector3(Math.cos(a+0.5)*1.6,F+0.35,Math.sin(a+0.5)*1.6),0.05,warn,dishA);}
-
-// Feed(피드 혼: 정점 홀에서 부반사경 향해 위로)
-parts.feed=mesh(new T.CylinderGeometry(0.42,0.72,1.6,28), warn, dishA); parts.feed.position.y=F-2.2;
-mesh(new T.CylinderGeometry(0.72,0.72,0.3,28), steel, dishA).position.y=F-1.35;
+// ===================== 세종 22m 실물 모형 — Blender 로 만든 sejong22m.glb(10-04 센터장님 "기존 안테나 구동 모형을 실물 모형으로 전면 대체") =====================
+// 손으로 쌓던 모형(접시를 마운트보다 키운 것)을 걷고 ThreeStar 안테나 카드·명령 칸과 같은 실물 모형을 쓴다(원본 threestar/web/models/build_sejong22m.py).
+//   모형은 m 실척(높이 28 m · 울타리 반지름 9 m) — 마당(19)·방위 글자(17) 안에 들게 1.7 배.
+//   불러오기·돌리기·부품 이름표 자리는 공용 lib/sejong22m.js — AZ.rotation.y=(180−방위)° · EL.rotation.x=(90−고도)°
+//   모형 경로: 미니앱 배포본(사이트 뿌리 antenna3d.html)에서 ts/models/ — miniapp_deploy.py 가 복사
+const ANT=window.Sejong22m?Sejong22m.add(scene,{url:'ts/models/sejong22m.glb',scale:1.7,onload:()=>{dirty=true;},
+  onerror:()=>{const d=document.getElementById('nogl');if(d){d.hidden=false;}}}):null;
+const parts=ANT?ANT.parts:{};
 
 // ===================== 카메라(간이 오빗) =====================
 // 북쪽(-Z)을 화면 왼쪽에 고정: camPh=π. 자동회전 없음(드래그로만 회전)
-let camR=EMBED?142:156, camTh=EMBED?0.45*Math.PI:0.40*Math.PI, camPh=Math.PI;
+let camR=EMBED?124:150,   // 10-04 실물 모형(높이 28 m × 1.7 ≈ 48)
+    camTh=EMBED?0.45*Math.PI:0.40*Math.PI, camPh=Math.PI;
 const tgt=new T.Vector3(0,EMBED?22:23,0);
 function updCam(){cam.position.set(tgt.x+camR*Math.sin(camTh)*Math.cos(camPh),
   tgt.y+camR*Math.cos(camTh), tgt.z+camR*Math.sin(camTh)*Math.sin(camPh)); cam.lookAt(tgt);}
@@ -465,7 +354,7 @@ function loop(ts){requestAnimationFrame(loop);
  }
  // 슬루(수동=설정 속도로 직접 구동, 그 외 부드럽게)
  if(MODE==='man'){cAz=tAz;cEl=tEl;} else {cAz+=shortest(cAz,tAz)*0.06; cEl+=(tEl-cEl)*0.06;}
- azG.rotation.y=D2R*(-cAz); elG.rotation.x=D2R*(cEl-90);
+ if(ANT)ANT.place(cAz,cEl);
  // 표시각: 실제 안테나 추종 시 KVGCS 실측 원값(360° 초과도 그대로) → 대시보드=KVGCS 동일 표기
  const liveAz=(MODE==='live'&&Number.isFinite(LIVE.az)), liveEl=(MODE==='live'&&Number.isFinite(LIVE.el));
  const azTxt=(liveAz?LIVE.az:cAz).toFixed(1), elTxt=(liveEl?LIVE.el:cEl).toFixed(1);

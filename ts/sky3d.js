@@ -5,6 +5,7 @@
  *   전파원 하루 길(고도 20° 위만 진하게)과 지금 자리 이름, 다음 목표(호박색 마름모 맥동).
  *   글 상자는 캔버스 위에 띄우지 않는다(10-03 '글자상자가 3d 그래프에 겹쳐') — 장면 안 글은 방위 글자·고도 눈금·소스 이름뿐.
  *   천천히 좌우로 흔들린다(끌면 멈추고 5 s 뒤 다시) · 휠 확대 · 두 번 누르면 처음 시점 · 화면에 보일 때만 그린다.
+ *   가운데 안테나는 세종 22m 실물 모형(lib/sejong22m.js · models/sejong22m.glb, 10-04) — 그 스크립트가 먼저 있어야 한다.
  * 쓰기: const s = Sky3D.create(canvas); s.set({points, ant, next, running, tracks, scale}); s.resize(); s.dispose();
  *   points: [{az, el, ok, refrac, dx, de}] (dx·de = X 대역 오프셋 ″, X1·X2) · ant: {az, el} · next: {az, el} ·
  *   tracks: Sky3D.tracks(['CASA','TAUA','CYGA'], t0, 24) · scale: ″ 하나당 길이(반구 반지름 1, 기본 0.005 = 40″ → 0.2)
@@ -12,6 +13,8 @@
 'use strict';
 (function () {
   const D2R = Math.PI / 180;
+  // 실물 모형 경로 — 이 파일 옆 models/(운용 화면 /web/models/ · 미니앱 ts/models/). 불러올 때 한 번 정한다
+  const GLB = (document.currentScript && document.currentScript.src) ? new URL('models/sejong22m.glb', document.currentScript.src).href : 'models/sejong22m.glb';
   const dir = (T, az, el, r) => {                         // 방위(북→동)·고도 → 북 = −z · 동 = +x · 위 = +y
     const a = az * D2R, e = el * D2R, R = r || 1;
     return new T.Vector3(R * Math.sin(a) * Math.cos(e), R * Math.sin(e), -R * Math.cos(a) * Math.cos(e));
@@ -102,15 +105,10 @@
       new T.MeshBasicMaterial({ color: 0x2a5da0, transparent: true, opacity: 0.07, side: T.BackSide, depthWrite: false }));
     base.add(dome);
 
-    // ── 안테나: 받침 + 접시(포물면) + 부반사경 — 접시 축이 (방위, 고도)를 가리킨다 ──
-    const metal = new T.MeshStandardMaterial({ color: 0xc9d6e6, metalness: 0.35, roughness: 0.45, side: T.DoubleSide });
-    const ped = new T.Mesh(new T.CylinderGeometry(0.035, 0.05, 0.12, 20), metal); ped.position.y = 0.06; base.add(ped);
-    const yoke = new T.Group(); yoke.position.y = 0.13; scene.add(yoke);       // 방위로 돈다
-    const tilt = new T.Group(); yoke.add(tilt);                                // 고도로 든다(접시 축 = −z)
-    const prof = []; for (let i = 0; i <= 12; i++) { const r = (i / 12) * 0.13; prof.push(new T.Vector2(r, (r * r) / (4 * 0.07))); }
-    const dish = new T.Mesh(new T.LatheGeometry(prof, 40), metal); dish.rotation.x = -Math.PI / 2; dish.position.z = 0.02; tilt.add(dish);
-    const strut = new T.Mesh(new T.CylinderGeometry(0.004, 0.004, 0.09, 6), metal); strut.rotation.x = Math.PI / 2; strut.position.z = -0.045; tilt.add(strut);
-    const sub = new T.Mesh(new T.SphereGeometry(0.012, 12, 8), metal); sub.position.z = -0.09; tilt.add(sub);
+    // ── 안테나: 세종 22m 실물 모형(공용 lib/sejong22m.js — 10-04 센터장님 "기존 안테나 구동 모형을 실물 모형으로 전면 대체") ──
+    //   반구 반지름 1 에 높이 약 0.29(m 실척 × AS). 빔은 고도축(16.2 m)에서 나간다. 이 장면은 sRGB 출력이 아니라 무늬는 선형으로(linear)
+    const AS = 0.0105, AO = new T.Vector3(0, 16.2 * AS, 0);
+    const ANT = window.Sejong22m ? Sejong22m.add(scene, { url: opts.glb || GLB, scale: AS, shadow: false, linear: true, onload: () => { dirty = true; } }) : null;
     // 빔 — 접시에서 하늘까지 빛줄기(가산 혼합 원뿔) + 하늘에 닿은 자리 빛
     const beamMat = new T.MeshBasicMaterial({ color: 0x58a6ff, transparent: true, opacity: 0.2, side: T.DoubleSide, depthWrite: false, blending: T.AdditiveBlending });
     const beamG = new T.ConeGeometry(0.055, 1, 28, 1, true); beamG.translate(0, -0.5, 0); beamG.rotateX(-Math.PI / 2);   // 꼭지 = 원점, 넓은 쪽 = +z 1
@@ -195,11 +193,10 @@
     }
     function placeAnt() {
       const a = model && model.ant, ok = !!(a && a.az != null && a.el != null);
-      yoke.visible = beam.visible = core.visible = hit.visible = ok;
+      beam.visible = core.visible = hit.visible = ok;         // 모형은 늘 보인다(자료가 없으면 마지막 자세 · 처음은 고도 90°)
       if (ok) {
-        yoke.rotation.set(0, -a.az * D2R, 0);                 // 북(−z)에서 동(+x)으로
-        tilt.rotation.set(a.el * D2R, 0, 0);                  // −z 축을 위로 들어 올린다
-        const o = new T.Vector3(0, 0.13, 0), d = dir(T, a.az, a.el, 1.0);
+        if (ANT) ANT.place(a.az, a.el);
+        const o = AO.clone(), d = dir(T, a.az, a.el, 1.0);
         beam.position.copy(o); beam.lookAt(d); beam.scale.set(1, 1, d.distanceTo(o));   // lookAt 은 +z 를 d 로 돌린다
         core.geometry.setFromPoints([o, d]);
         hit.position.copy(d);
