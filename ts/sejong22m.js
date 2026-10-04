@@ -40,7 +40,10 @@
       AZN.rotation.y = (180 - az) * D2R; ELN.rotation.x = (90 - el) * D2R;
     }
     if (!T || !T.GLTFLoader) { if (o.onerror) o.onerror(new Error('three.js · GLTFLoader 없음')); return { place, parts, ready: () => false }; }
-    new T.GLTFLoader().load(o.url || 'models/sejong22m.glb', (g) => {
+    // 미니앱 잠금판(miniapp_lock.py)이면 window.TSX 가 암호문을 받아 풀어 준다 — 아니면 지금처럼 주소로
+    const L = new T.GLTFLoader(), url = o.url || 'models/sejong22m.glb';
+    const fail = (e) => { if (o.onerror) o.onerror(e); };
+    const done = (g) => {
       const m = g.scene;
       m.scale.setScalar(o.scale || 1);
       m.traverse((x) => {
@@ -59,7 +62,9 @@
       (o.parent || scene).add(m);
       ok = true; place();
       if (o.onload) o.onload(m);
-    }, undefined, (e) => { if (o.onerror) o.onerror(e); });
+    };
+    if (window.TSX && window.TSX.glb) window.TSX.glb(url).then((buf) => L.parse(buf, '', done, fail), fail);
+    else L.load(url, done, undefined, fail);
     return { place, parts, ready: () => ok };
   }
   window.Sejong22m = { add, EL_Z: 16.2, HEIGHT: 28 };

@@ -82,7 +82,7 @@
     glow.scale.set(9, 9, 1); scene.add(glow);
 
     let AZ = null, EL = null, model = null, ready = false, loadErr = null;
-    new T.GLTFLoader().load(opts.url || '/web/models/sejong22m.glb', (g) => {
+    const onGLB = (g) => {
       model = g.scene; scene.add(model);
       model.traverse((o) => {
         if (o.isMesh) {
@@ -93,7 +93,11 @@
       });
       AZ = model.getObjectByName('AZ'); EL = model.getObjectByName('EL'); ready = !!(AZ && EL);
       dirty = true;
-    }, undefined, (e) => { loadErr = e; });
+    };
+    // 미니앱 잠금판(miniapp_lock.py)이면 window.TSX 가 암호문을 받아 풀어 준다 — 아니면 지금처럼 주소로
+    const glbL = new T.GLTFLoader(), glbURL = opts.url || '/web/models/sejong22m.glb', onErr = (e) => { loadErr = e; };
+    if (window.TSX && window.TSX.glb) window.TSX.glb(glbURL).then((buf) => glbL.parse(buf, '', onGLB, onErr), onErr);
+    else glbL.load(glbURL, onGLB, undefined, onErr);
 
     // 시점 — 남서쪽 조금 높은 데서(정문 사진처럼). 끌면 둘러보기
     const TH0 = 1.22, PH0 = -0.62, RAD0 = 72;
