@@ -1,10 +1,15 @@
 /* antmodel.js — 세종 22m VLBI 안테나 실시간 모형(three.js r128 + GLTFLoader, 2026-10-04 센터장님 "블렌더로 실제 우리 세종 VLBI 안테나 모델링 ·
  *   실제 구동하는 모델 · 첨단스럽고 실제랑 똑같이"). 모형 models/sejong22m.glb 는 Blender 로 만든 것(models/build_sejong22m.py —
- *   사진·IVS 2012 제원: 지름 22 m · 성형 카세그레인 · 높이 28 m). 노드 'AZ'(방위) · 'EL'(고도)을 실제 방위·고도로 돌린다.
+ *   사진·IVS 2012 제원: 지름 22 m · 성형 카세그레인 · 높이 28 m). 불러오기·돌리기·부품 빛은 공용 lib/sejong22m.js.
  *   연출: 어두운 바닥 · 방위 눈금 고리(10°/30°)와 북 표시 · 안테나 방위 바늘 · 관측 중이면 접시 축을 따라 빔(맥동) · 상태 색 고리 ·
- *   사실적 재질(PBR, 하늘 반사 · 해 그림자). 끌면 둘러보고 · 휠 확대 · 두 번 누르면 처음 시점. 글은 캔버스에 쓰지 않는다.
- * 쓰기: const m = AntModel.create(canvas, { url: '/web/models/sejong22m.glb' }); m.set({ az, el, state }); m.resize();
+ *   사실적 재질(PBR, 하늘 반사) · **실제 해 쪽 그림자**(밤이면 옅은 달빛) · 바닥을 흐르는 **바람 결** · 받침을 감는 **케이블 나선** ·
+ *   기단에서 나가는 **데이터 줄기**(기록·전송 중이면 빛이 흐른다) · 장애 난 부품이 **붉게 빛나고** 풀리면 초록으로 사그라진다(10-04).
+ *   끌면 둘러보고 · 휠 확대 · 두 번 누르면 처음 시점. 글은 캔버스에 쓰지 않는다.
+ * 쓰기: const m = AntModel.create(canvas, { url: '/web/models/sejong22m.glb' });
+ *       m.set({ az, el, state, faults: {mount, hub, data}, hexapod, flow, wrapAz, wind: {wdir, wsp} }); m.resize();
  *   state: idle 파랑 · run 초록 · busy 호박 · halt 빨강 · off 회색
+ *   faults: Sejong22m.faults(...) 결과 — 받침·구동부(ACU) · 허브(수신기·DBBC3) · 데이터 줄기(기록·전송)
+ *   hexapod: 부반사경 자리 잡는 중(ACU Dio Out 0x40) · flow: 'flow' | 'idle' | 'bad' · wrapAz: ACU 방위 원값(−90~450)
  */
 'use strict';
 (function () {
@@ -46,8 +51,8 @@
 
   function create(canvas, opts) {
     opts = opts || {};
-    const T = window.THREE;
-    if (!T || !T.GLTFLoader) throw new Error('three.js · GLTFLoader 없음');
+    const T = window.THREE, SJ = window.Sejong22m;
+    if (!T || !T.GLTFLoader || !SJ) throw new Error('three.js · GLTFLoader · sejong22m.js 없음');
     const rn = new T.WebGLRenderer({ canvas, antialias: true, alpha: true });
     rn.setClearColor(0x000000, 0); rn.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     rn.outputEncoding = T.sRGBEncoding; rn.toneMapping = T.ACESFilmicToneMapping; rn.toneMappingExposure = 0.8;
@@ -55,12 +60,19 @@
     const scene = new T.Scene();
     scene.environment = envMap(T, rn);
     const cam = new T.PerspectiveCamera(30, 1.4, 0.5, 600);
-    // 빛 — 하늘·땅 · 해(그림자) · 뒤쪽 파란 테두리 빛(첨단 느낌)
-    scene.add(new T.HemisphereLight(0xcfe3ff, 0x101828, 0.32));
-    const sun = new T.DirectionalLight(0xfff4e6, 2.8); sun.position.set(-30, 48, 26); sun.castShadow = true;
-    sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -26, right: 26, top: 34, bottom: -6, near: 1, far: 140 });
-    sun.shadow.bias = -0.0006; scene.add(sun);
+    // 빛 — 하늘·땅 · 해(그림자, 실제 해 쪽 — 1분마다) · 뒤쪽 파란 테두리 빛(첨단 느낌)
+    const hemi = new T.HemisphereLight(0xcfe3ff, 0x101828, 0.32); scene.add(hemi);
+    const sun = new T.DirectionalLight(0xfff4e6, 2.8); sun.castShadow = true;
+    sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -32, right: 32, top: 32, bottom: -32, near: 1, far: 180 });
+    sun.shadow.bias = -0.0006; scene.add(sun); scene.add(sun.target);
     const rim = new T.DirectionalLight(0x6fb0ff, 0.9); rim.position.set(30, 20, -40); scene.add(rim);
+    let sunT = -1e9, sunNow = null;
+    function sunUpdate(t) {
+      if (t - sunT < 60000) return;
+      sunT = t; sunNow = SJ.sunLight(sun, { R: 80, center: { x: 0, y: 10, z: 0 }, base: 2.8 });
+      sun.shadow.camera.updateProjectionMatrix();
+      hemi.intensity = sunNow.el > 0 ? 0.32 : 0.2;
+    }
     // 바닥 — 어두운 원판 · 방위 눈금 고리 · 그림자 받기
     // 바닥은 빛을 받지 않는 어두운 면 + 그림자만 얹는 면(해를 받아 밝게 뜨지 않게)
     const floor = new T.Mesh(new T.CircleGeometry(30, 96), new T.MeshBasicMaterial({ color: 0x060d1a }));
@@ -80,24 +92,12 @@
     const beam = new T.Mesh(beamG, beamM); scene.add(beam);
     const glow = new T.Sprite(new T.SpriteMaterial({ map: glowTex(T), color: COL.idle, transparent: true, opacity: 0, depthWrite: false, blending: T.AdditiveBlending }));
     glow.scale.set(9, 9, 1); scene.add(glow);
+    // 바람 결(바닥) — 풍향·풍속을 받으면 보인다
+    const W = SJ.wind(scene, { radius: 27, y: 0.22 });
 
-    let AZ = null, EL = null, model = null, ready = false, loadErr = null;
-    const onGLB = (g) => {
-      model = g.scene; scene.add(model);
-      model.traverse((o) => {
-        if (o.isMesh) {
-          o.castShadow = true; o.receiveShadow = true;
-          const m = o.material; if (m && m.map) m.map.encoding = T.sRGBEncoding;
-          if (m) m.envMapIntensity = 0.55;
-        }
-      });
-      AZ = model.getObjectByName('AZ'); EL = model.getObjectByName('EL'); ready = !!(AZ && EL);
-      dirty = true;
-    };
-    // 미니앱 잠금판(miniapp_lock.py)이면 window.TSX 가 암호문을 받아 풀어 준다 — 아니면 지금처럼 주소로
-    const glbL = new T.GLTFLoader(), glbURL = opts.url || '/web/models/sejong22m.glb', onErr = (e) => { loadErr = e; };
-    if (window.TSX && window.TSX.glb) window.TSX.glb(glbURL).then((buf) => glbL.parse(buf, '', onGLB, onErr), onErr);
-    else glbL.load(glbURL, onGLB, undefined, onErr);
+    let loadErr = null;
+    const A = SJ.add(scene, { url: opts.url || '/web/models/sejong22m.glb', trunk: { az: 150, len: 17 }, wrap: true,
+                              onload: () => { dirty = true; }, onerror: (e) => { loadErr = e; } });
 
     // 시점 — 남서쪽 조금 높은 데서(정문 사진처럼). 끌면 둘러보기
     const TH0 = 1.22, PH0 = -0.62, RAD0 = 72;
@@ -117,10 +117,8 @@
 
     let az = 0, el = 90, azN = 0, elN = 90, st = 'idle', col = new T.Color(COL.idle), dirty = true, last = 0, raf = 0, lw = 0, lh = 0;
     function place() {
-      if (!ready) return;
       // 모형 기본: 고도 90°(위) · 방위 0 에서 접시 축이 남(+Z). three: 북 = −Z · 동 = +X → AZ 회전 = 180° − 방위
-      AZ.rotation.y = (180 - azN) * D2R;
-      EL.rotation.x = (90 - Math.max(0, Math.min(90, elN))) * D2R;
+      A.place(azN, Math.max(0, Math.min(90, elN)));
       needleG.rotation.y = -azN * D2R;
       // 빔 — 부반사경 근처에서 접시가 보는 쪽으로
       const ax = Math.sin(azN * D2R) * Math.cos(elN * D2R), ay = Math.sin(elN * D2R), az2 = -Math.cos(azN * D2R) * Math.cos(elN * D2R);
@@ -135,7 +133,7 @@
       const dt = Math.min(4, (t - last) / 33); last = t; dirty = false;
       const da = ((((az - azN) % 360) + 540) % 360) - 180;
       azN += da * Math.min(1, 0.08 * dt); elN += (el - elN) * Math.min(1, 0.08 * dt);
-      place();
+      place(); sunUpdate(t); A.tick(t); W.tick(t);
       if (!drag && t - lastUser > 6000) { sway += 0.003 * dt; ph = PH0 + 0.35 * Math.sin(sway); }
       cam.position.set(tgt.x + rad * Math.sin(th) * Math.sin(ph), tgt.y + rad * Math.cos(th) * 0.9, tgt.z + rad * Math.sin(th) * Math.cos(ph));
       cam.lookAt(tgt);
@@ -154,6 +152,13 @@
           st = o.state; col = new T.Color(COL[st] || COL.idle);
           [ring.material, glowM, beamM, glow.material].forEach((m) => m.color.copy(col));
         }
+        const s = {};
+        if (o.faults) { s.mount = !!o.faults.mount; s.hub = !!o.faults.hub; s.data = !!o.faults.data; }
+        if ('hexapod' in o) s.hexapod = !!o.hexapod;
+        if (o.flow) s.flow = o.flow;
+        if ('wrapAz' in o) s.wrapAz = o.wrapAz;
+        A.status(s);
+        if (o.wind) W.set(o.wind.wdir, o.wind.wsp);
         dirty = true;
       },
       resize() {
@@ -162,7 +167,7 @@
         lw = w; lh = h; rn.setSize(w, h, false); cam.aspect = w / h;
         cam.fov = w / h < 1.1 ? 36 : 30; cam.updateProjectionMatrix(); dirty = true; return true;
       },
-      get ready() { return ready; }, get error() { return loadErr; },
+      get ready() { return A.ready(); }, get error() { return loadErr; }, get sun() { return sunNow; },
       dispose() { cancelAnimationFrame(raf); rn.dispose(); },
     };
   }

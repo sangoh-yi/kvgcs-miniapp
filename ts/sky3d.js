@@ -4,6 +4,7 @@
  *   측정점은 빛 구슬(초록 = 굴절 보정 뒤 · 회색 = 보정 전 · 빨강 = 실패, 마지막 점은 고리가 퍼진다),
  *   전파원 하루 길(고도 20° 위만 진하게)과 지금 자리 이름, 다음 목표(호박색 마름모 맥동).
  *   글 상자는 캔버스 위에 띄우지 않는다(10-03 '글자상자가 3d 그래프에 겹쳐') — 장면 안 글은 방위 글자·고도 눈금·소스 이름뿐.
+ *   레이더 쪽 하늘(방위 236.35° 에서 각거리 110° 안 — X 는 BBC 방식) 경계 점선 · 태양 회피 고리(4° · 15°) · 해 자리(10-04).
  *   천천히 좌우로 흔들린다(끌면 멈추고 5 s 뒤 다시) · 휠 확대 · 두 번 누르면 처음 시점 · 화면에 보일 때만 그린다.
  *   가운데 안테나는 세종 22m 실물 모형(lib/sejong22m.js · models/sejong22m.glb, 10-04) — 그 스크립트가 먼저 있어야 한다.
  * 쓰기: const s = Sky3D.create(canvas); s.set({points, ant, next, running, tracks, scale}); s.resize(); s.dispose();
@@ -104,6 +105,61 @@
     const dome = new T.Mesh(new T.SphereGeometry(0.997, 72, 24, 0, Math.PI * 2, 0, Math.PI / 2),
       new T.MeshBasicMaterial({ color: 0x2a5da0, transparent: true, opacity: 0.07, side: T.BackSide, depthWrite: false }));
     base.add(dome);
+
+    // ── 레이더 쪽 하늘(10-04) — 드론 레이더(방위 236.35°, 지평선)에서 각거리 110° 안은 X 대역 십자 스캔을 BBC 방식으로 한다.
+    //    그 경계(작은 원)를 점선으로, 안쪽 하늘을 아주 옅은 붉은 기로, 지평선에 레이더 자리를 둔다. 은은하게(측정점이 주인공)
+    const RAD = { az: 236.35, el: 0.3, sep: 110 }, RD = dir(T, RAD.az, RAD.el, 1).normalize();
+    {
+      const U = new T.Vector3().crossVectors(RD, new T.Vector3(0, 1, 0)).normalize(), Wv = new T.Vector3().crossVectors(RD, U).normalize();
+      const cs = Math.cos(RAD.sep * D2R), sn = Math.sin(RAD.sep * D2R), runs = [];
+      let cur = [];
+      for (let k = 0; k <= 360; k += 2) {
+        const f = k * D2R, p = RD.clone().multiplyScalar(cs).add(U.clone().multiplyScalar(sn * Math.cos(f))).add(Wv.clone().multiplyScalar(sn * Math.sin(f)));
+        if (p.y >= 0) cur.push(p.multiplyScalar(0.992)); else if (cur.length) { runs.push(cur); cur = []; }
+      }
+      if (cur.length) runs.push(cur);
+      for (const r of runs) {
+        if (r.length < 2) continue;
+        const ln = new T.Line(new T.BufferGeometry().setFromPoints(r), new T.LineDashedMaterial({ color: 0xff8a65, dashSize: 0.035, gapSize: 0.025, transparent: true, opacity: 0.5, depthWrite: false }));
+        ln.computeLineDistances(); base.add(ln);
+      }
+      const tint = new T.Mesh(new T.SphereGeometry(0.994, 72, 24, 0, Math.PI * 2, 0, Math.PI / 2), new T.ShaderMaterial({
+        uniforms: { uD: { value: RD }, uC: { value: Math.cos(RAD.sep * D2R) } }, transparent: true, depthWrite: false, side: T.BackSide,
+        vertexShader: 'varying vec3 vP; void main(){ vP = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+        fragmentShader: 'uniform vec3 uD; uniform float uC; varying vec3 vP; void main(){ float c = dot(vP, uD); float k = smoothstep(uC - 0.02, uC + 0.25, c); gl_FragColor = vec4(1.0, 0.36, 0.24, 0.045 * k); }',
+      }));
+      base.add(tint);
+      const rm = new T.Sprite(new T.SpriteMaterial({ map: glowTex(T, 'rgba(255,160,130,1)', 'rgba(255,90,60,.45)'), transparent: true, depthWrite: false, blending: T.AdditiveBlending }));
+      rm.scale.set(0.11, 0.11, 1); rm.position.copy(dir(T, RAD.az, 1.2, 1.0)); base.add(rm);
+      const rl = textSprite(T, '레이더', '#ff9f85', 0.06, 700); rl.position.copy(dir(T, RAD.az, 7, 1.08)); base.add(rl);
+    }
+    // ── 태양 회피(10-04) — 해 둘레 4°(빨강, 경고 기준) · 15°(호박) 고리와 해 자리. 1분마다 옮긴다(세종 위경도·지금 시각) ──
+    const sunG = new T.Group(); base.add(sunG);
+    const ringPts = (c, rdeg) => {
+      const U = new T.Vector3().crossVectors(c, new T.Vector3(0, 1, 0)); if (U.lengthSq() < 1e-6) U.set(1, 0, 0); U.normalize();
+      const Wv = new T.Vector3().crossVectors(c, U).normalize(), cs = Math.cos(rdeg * D2R), sn = Math.sin(rdeg * D2R), pts = [];
+      for (let k = 0; k <= 360; k += 4) { const f = k * D2R; pts.push(c.clone().multiplyScalar(cs).add(U.clone().multiplyScalar(sn * Math.cos(f))).add(Wv.clone().multiplyScalar(sn * Math.sin(f))).multiplyScalar(0.99)); }
+      return pts;
+    };
+    const sunR4 = new T.Line(new T.BufferGeometry(), new T.LineBasicMaterial({ color: 0xff6b5a, transparent: true, opacity: 0.85, depthWrite: false }));
+    const sunR15 = new T.Line(new T.BufferGeometry(), new T.LineDashedMaterial({ color: 0xf0b43c, dashSize: 0.03, gapSize: 0.02, transparent: true, opacity: 0.6, depthWrite: false }));
+    const sunM = new T.Sprite(new T.SpriteMaterial({ map: glowTex(T, 'rgba(255,240,200,1)', 'rgba(255,190,80,.55)'), transparent: true, depthWrite: false, blending: T.AdditiveBlending }));
+    sunM.scale.set(0.12, 0.12, 1);
+    const sunL = textSprite(T, '태양', '#ffd27a', 0.06, 700);
+    sunG.add(sunR4, sunR15, sunM, sunL);
+    let sunT = -1e9;
+    function sunUpd(t) {
+      if (t - sunT < 60000) return;
+      sunT = t;
+      const s = window.Sejong22m ? Sejong22m.sun(opts.now ? opts.now() : Date.now()) : null;
+      sunG.visible = !!(s && s.el > -4);
+      if (!sunG.visible) return;
+      const c = dir(T, s.az, s.el, 1).normalize();
+      const keep = (pts) => pts.filter((p) => p.y >= -0.005);
+      sunR4.geometry.setFromPoints(keep(ringPts(c, 4))); sunR15.geometry.setFromPoints(keep(ringPts(c, 15))); sunR15.computeLineDistances();
+      sunM.position.copy(dir(T, s.az, Math.max(s.el, 0.5), 1.0)); sunL.position.copy(dir(T, s.az, Math.max(s.el, 0.5) + 7, 1.06));
+      dirty = true;
+    }
 
     // ── 안테나: 세종 22m 실물 모형(공용 lib/sejong22m.js — 10-04 센터장님 "기존 안테나 구동 모형을 실물 모형으로 전면 대체") ──
     //   반구 반지름 1 에 높이 약 0.29(m 실척 × AS). 빔은 고도축(16.2 m)에서 나간다. 이 장면은 sRGB 출력이 아니라 무늬는 선형으로(linear)
@@ -228,7 +284,7 @@
       hit.scale.setScalar(model.running ? 0.16 + 0.1 * pulse : 0.13);
       if (nextM.visible) { const s = 1 + 0.25 * pulse; nextM.scale.set(s, s, 1); }
       if (latest && latest.ring) { const f = (t % 2200) / 2200; latest.ring.scale.setScalar(1 + 2.6 * f); latest.ring.material.opacity = 0.9 * (1 - f); }
-      dirty = false; upd(); rn.render(scene, cam);
+      sunUpd(t); dirty = false; upd(); rn.render(scene, cam);
     }
     raf = requestAnimationFrame(frame);
     let sig = '';

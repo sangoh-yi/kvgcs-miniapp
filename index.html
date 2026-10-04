@@ -198,6 +198,18 @@
   .tsm-pcrows{margin-top:4px}.tsm-pcr{display:flex;gap:7px;align-items:baseline;font-size:11px;padding:3px 0;border-bottom:1px solid var(--line)}
   .tsm-3dm{padding:7px 10px 6px;font:600 11px "Malgun Gothic",sans-serif;color:#dbe7f5;border-bottom:1px solid rgba(120,190,255,.18);background:rgba(6,12,24,.45)}
   .tsm-3dc{position:relative;height:290px}
+  .tsm-flow{position:relative;height:200px;border-radius:10px;overflow:hidden;margin-top:6px;border:1px solid rgba(88,166,255,.32);box-shadow:inset 0 0 22px rgba(88,166,255,.12)}
+  .tsf-w{position:absolute;inset:0;display:flex;flex-direction:column}.tsf-cv{flex:1 1 auto;width:100%;min-height:0;display:block;touch-action:pan-y}
+  .tsm-flow .fl-labels{position:relative;height:30px;flex:none}.tsm-flow .fl-labels.narrow{height:42px}
+  .tsm-flow .fl-labels.narrow .fl-lab:nth-child(even){top:15px}
+  .tsm-flow .fl-lab{position:absolute;top:1px;transform:translateX(-50%);text-align:center;white-space:nowrap;line-height:1.2;pointer-events:none}
+  .tsm-flow .fl-lab b{display:block;font:700 10px "Malgun Gothic",sans-serif;color:#b9cbe0}
+  .tsm-flow .fl-lab b::before{content:'';display:inline-block;width:5px;height:5px;border-radius:50%;margin:0 3px 1px 0;background:#56657a;vertical-align:middle}
+  .tsm-flow .fl-lab span{display:none;font:9.5px var(--mono,monospace);color:#8ea2ba}
+  .tsm-flow .fl-lab[data-k="bonn"] span,.tsm-flow .fl-lab[data-k="waco"] span,.tsm-flow .fl-lab.st-bad span{display:block}
+  .tsm-flow .fl-lab.st-ok b::before{background:#3fdcb4;box-shadow:0 0 5px #3fdcb4}.tsm-flow .fl-lab.st-idle b::before{background:#6c86a8}
+  .tsm-flow .fl-lab.st-off b{color:#5d6d82}.tsm-flow .fl-lab.st-bad b{color:#ff7b72}.tsm-flow .fl-lab.st-bad b::before{background:#f85149;box-shadow:0 0 6px #f85149}
+  .tsm-badge.bad{background:rgba(248,81,73,.16);color:#ff7b72}
   .tsm-ant3d{height:250px;border-radius:10px;margin:6px 0 8px;border:1px solid color-mix(in srgb,var(--navy) 35%,var(--line));
     background:radial-gradient(130% 95% at 50% 14%,#1b2a45 0%,#0d1728 52%,#0a1220 100%)}
   .tsm-antf{position:absolute;border:0;border-radius:10px;z-index:2;background:transparent;display:none}
@@ -301,7 +313,7 @@
 <script>
 const TG=window.Telegram?.WebApp; TG?.ready(); TG?.expand();
 const GIST_ID=(new URLSearchParams(location.search).get("g")||"5404bef7f8d5b9f4e8d2824515fc8728");
-const REV="p10041701";
+const REV="p10041904";
 let GLOBECODE="";      // 지구본 세션 선택(선택기 → postMessage)
 const BODY={};
 async function loadBody(name){
@@ -498,7 +510,7 @@ let TS3P=null;
 function ensureThree(){ if(window.Beam3D&&window.Sky3D&&window.CmdFx&&window.PageFx&&window.AntModel) return Promise.resolve(true); if(TS3P) return TS3P;
   // 잠금판(miniapp_lock.py)이면 우리 스크립트는 window.TSX 가 암호문을 받아 풀어 넣는다 — 공개 라이브러리는 그대로(10-04)
   const ld=src=>(window.TSX&&TSX.has(src))?TSX.js(src):new Promise((ok,no)=>{const e=document.createElement("script"); e.src=src+"?v="+REV; e.onload=ok; e.onerror=no; document.head.appendChild(e);});
-  TS3P=ld("./ts/three.min.js").then(()=>ld("./ts/GLTFLoader.js")).then(()=>ld("./ts/sejong22m.js")).then(()=>ld("./ts/beam3d.js")).then(()=>ld("./ts/sky3d.js")).then(()=>ld("./ts/cmd3d.js")).then(()=>ld("./ts/fx3d.js")).then(()=>ld("./ts/antmodel.js")).then(()=>true).catch(()=>false); return TS3P; }
+  TS3P=ld("./ts/three.min.js").then(()=>ld("./ts/GLTFLoader.js")).then(()=>ld("./ts/sejong22m.js")).then(()=>ld("./ts/beam3d.js")).then(()=>ld("./ts/sky3d.js")).then(()=>ld("./ts/cmd3d.js")).then(()=>ld("./ts/fx3d.js")).then(()=>ld("./ts/antmodel.js")).then(()=>ld("./ts/flow3d.js")).then(()=>true).catch(()=>false); return TS3P; }
 function stageIdx(st){ return ({SELECT:0,SLEW:0,TRACK_WAIT:1,PRE_REC:2,REC_ON:3,REC_WAIT:3,REC_OFF:4,DONE:4})[st]??-1; }
 function obsKind(s,cur){ if(!s||s.state!=="RUNNING") return ["ARMED","SETUP","REC_TEST","CROSS","BOOT","READY"].includes(s&&s.state)?"prep":"idle";
   const g=cur&&cur.stage; return g==="REC_WAIT"||g==="REC_ON"?"rec":g==="SLEW"||g==="SELECT"?"slew":g==="TRACK_WAIT"||g==="PRE_REC"?"arm":"idle"; }
@@ -583,6 +595,18 @@ function tsCore(t){
         <div class="tsc-k"><span>KVGCS</span><b>${t.kvgcs_down?"내려감":"돌고 있음"}</b></div></div></div>
     <div class="tsc-led">${led.map(([n,o],i)=>`<span class="${o?"on":""}" style="--d:${(i*0.23).toFixed(2)}s"><i></i>${n}</span>`).join("")}</div></div>`;
 }
+// 실물 모형 위 상태(10-04, 대시보드와 같게) — 경보 제목으로 부품을 가르고(Sejong22m.faults) · 기록·전송 중이면 데이터 줄기가 흐르고 ·
+//   케이블 나선은 ACU 방위 원값 · 부반사경(dio_out)·바람(풍향)은 자료에 있을 때만
+function tsAntEx(t){
+  const SJ=window.Sejong22m; if(!SJ) return {};
+  const f=SJ.faults(t.alerts||[], t.phase&&t.phase!=="off"?{net:!!t.tunnel}:null);
+  const rec=((t.recorder&&t.recorder.runtimes)||[]).some(r=>r&&r.on), xf=((D&&D.transfers)||[]).some(x=>x&&n2(x.pct)!=null&&n2(x.pct)<100);
+  const a=t.antenna||{}, w=t.weather||{}, dio=n2(a.dio_out);
+  const o={faults:f, flow:f.data?"bad":(rec||xf)?"flow":"idle", wrapAz:n2(a.az)};
+  if(dio!=null) o.hexapod=(dio&0x40)!==0;
+  if(n2(w.wsp)!=null&&n2(w.wdir)!=null) o.wind={wdir:n2(w.wdir), wsp:n2(w.wsp)};
+  return o;
+}
 let TSCF=null, TSCW=null;
 function mountTSCore(){
   if(TAB!=="ts"||!TSL||TSL.err) return;
@@ -596,7 +620,26 @@ function mountTSCore(){
       try{ TSCF=window.AntModel.create(cv,{url:"./ts/models/sejong22m.glb"}); }catch(e){ TSCW=null; return; } }
     if(TSCW.parentElement!==sl) sl.appendChild(TSCW);
     const a=TSL.antenna||{};
-    TSCF.resize(); TSCF.set({state:tsState(TSL), az:n2(a.az), el:n2(a.el)});
+    TSCF.resize(); TSCF.set(Object.assign({state:tsState(TSL), az:n2(a.az), el:n2(a.el)}, tsAntEx(TSL)));
+  });
+}
+// 신호 흐름 3D(ts/flow3d.js, 10-04) — 캔버스·이름 띠를 한 번 만들고 다시 그릴 때마다 자리(tsFlowSlot)로 옮긴다
+let TSFL=null, TSFW=null;
+function mountTSFlow(){
+  if(TAB!=="ts"||!TSL||TSL.err||!document.getElementById("tsFlowSlot")) return;
+  ensureThree().then(okk=>{
+    const sl=document.getElementById("tsFlowSlot"); if(!sl||!okk||!window.Flow3D) return;
+    if(!TSFW){ TSFW=document.createElement("div"); TSFW.className="tsf-w";
+      const cv=document.createElement("canvas"); cv.className="tsf-cv"; const lb=document.createElement("div"); lb.className="fl-labels";
+      TSFW.append(cv,lb); sl.appendChild(TSFW);
+      try{ TSFL=window.Flow3D.create(cv,lb,{glb:"./ts/models/sejong22m.glb"}); }catch(e){ TSFW=null; return; } }
+    if(TSFW.parentElement!==sl) sl.appendChild(TSFW);
+    const f=window.Flow3D.fromMini(TSL,(D&&D.transfers)||[]);
+    requestAnimationFrame(()=>{ TSFL.resize(); TSFL.set(f); });
+    const NAME={ant:"안테나",rx:"수신기",dbbc3:"DBBC3",core3h:"Core3H",fb:"FlexBuff",net:"망"};
+    const bad=Object.keys(NAME).filter(k=>f.nodes[k]&&f.nodes[k].st==="bad"), b=document.getElementById("tsFlowBadge");
+    if(b){ b.className="tsm-badge"+(bad.length?" bad":(f.xfer.to||f.rec)?" run":"");
+      b.innerHTML="<i></i>"+esc(bad.length?"장애 · "+bad.map(k=>NAME[k]).join(" · "):f.xfer.to?"전송 → "+f.xfer.to:f.rec?"기록 중":f.chain==="flow"?"신호 받는 중":"대기"); }
   });
 }
 // 지향 측정 3D 하늘(ts/sky3d.js) — 캔버스 하나를 계속 쓰고 다시 그릴 때마다 자리(tsSkySlot)로 옮긴다(10-03)
@@ -618,9 +661,35 @@ function mountTSSky(){
       ant:n2(a.az)!=null&&n2(a.el)!=null?{az:+a.az, el:+a.el}:null, next:tr&&tr.now?{az:tr.now[0], el:tr.now[1]}:null, running:run, tracks:TSKT.v}); });
   });
 }
+// 자동화 카드(10-04 — 대시보드 왼쪽 바 '자동화' 칸과 같은 내용, 조회 전용): 지향 모형 확인 · 다음 세션 · ACU tick D-day · 자동 조치
+function tsOps(t){
+  const o=t.ops; if(!o) return "";
+  const pm=o.pm||{}, PMT={none:["모형 없음","dim"],pending:["확인 전","dim"],ok:["정상","ok"],warn:["기준 넘음","warn"],rebuild:["재구축 필요","bad"]}[pm.state||"none"]||["—","dim"];
+  const col=c=>c==="ok"?"var(--ok)":c==="warn"?"var(--warn)":c==="bad"?"var(--bad)":"var(--dim)";
+  const lim=n2(pm.limit)||40, r=n2(pm.resid);
+  const dots=(pm.recent||[]).map(x=>`<i style="display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:3px;background:${x[1]==null?"var(--line)":x[2]?"var(--bad)":"var(--ok)"}"></i>`).join("");
+  let h=`<div class="card tsm"><div class="tsm-h">자동화 <span class="dim">문제 → 스스로 처리 → 정상 · C 등급은 안내만</span></div>
+    <div class="tsm-kv"><span>지향 모형</span><b style="color:${col(PMT[1])}">${PMT[0]}</b><em>${r!=null?`남는 오차 ${r.toFixed(0)}″ (기준 ${lim}″ · 연속 ${pm.streak||0})`:"관측 전 X 확인 십자 스캔"}</em>${r!=null?kvBar(r,lim*2,r>lim?"bad":r>lim*.75?"warn":"good"):""}</div>
+    ${dots?`<div style="margin:2px 0 6px">${dots}</div>`:""}`;
+  const nx=o.next;
+  if(nx){const left=(nx.start||0)-Date.now()/1000, ck=nx.check;
+    h+=`<div class="tsm-kv"><span>다음 세션</span><b class="mono">${esc((nx.code||"").toUpperCase())}</b><em>${kstd(nx.start)} ${kst(nx.start,16)} KST · ${left>0?hhmmss(left)+" 남음":"시작됨"}${nx.have_vex===false?" · VEX 없음":""}</em></div>`;
+    if(ck) h+=`<div style="font-size:11.5px;margin:2px 0 6px">${(ck.items||[]).map(i=>`<div style="color:${i[1]?"var(--ok)":"var(--warn)"}">${i[1]?"✓":"✗"} ${esc(i[0])} <span class="dim">${esc(i[2])}</span></div>`).join("")}<div class="dim">시작은 운용 화면 '전체 실행'(사람)</div></div>`;}
+  const tk=o.tick;
+  if(tk){const dl=n2(tk.days_left)||0, c=tk.passed||dl<=2?"bad":dl<=5?"warn":"good", w=tk.window;
+    h+=`<div class="tsm-kv"><span>ACU tick</span><b>${tk.passed?"넘침 지남":"D-"+Math.max(0,Math.ceil(dl))}</b><em>켜진 지 ${(n2(tk.days)||0).toFixed(1)}일 · 넘침 ${kstd(tk.overflow)} ${kst(tk.overflow,16)}</em>${kvBar(n2(tk.days)||0,24.86,c)}</div>
+      ${w?`<div class="dim" style="font-size:11px;margin:-2px 0 6px">권하는 재부팅 창 ${kstd(w[0])} ${kst(w[0],16)}~${kst(w[1],16)} KST${w[2]?"(낮)":""} · 사람이 한다</div>`:""}`;}
+  if(o.cap) h+=`<div class="tsm-kv"><span>기록 용량</span><b>${esc(o.cap.min_left_h)} h</b><em>앞으로 세션 ${esc(o.cap.need_h)} h${o.cap.short_at?` · ${esc(o.cap.short_at)} 에서 모자람`:""}</em></div>`;
+  if(o.loss&&o.loss.n) h+=`<div class="tsm-kv"><span>패킷 손실</span><b>${(+o.loss.max).toFixed(2)} %</b><em>잰 ${o.loss.n}스캔 · 0.1 % 넘음 ${o.loss.over}</em></div>`;
+  const RS={recovered:["자동 복구","var(--ok)"],handoff:["사람에게","var(--bad)"],guide:["안내","var(--warn)"],running:["진행 중","var(--warn)"]};
+  if((o.inc||[]).length) h+=`<div class="tsm-h" style="margin-top:6px">자동 조치</div>${o.inc.slice().reverse().map(i=>{const r=RS[i[3]]||[i[3],"var(--dim)"];
+    return `<div style="font-size:12px;padding:2px 0"><b style="color:${r[1]}">${esc(r[0])}</b> ${esc(i[1])} <span class="dim mono">${kst(i[0],16)} · ${esc(i[2]||"")}</span></div>`;}).join("")}`;
+  if(o.resume) h+=`<div class="tsm-note" style="margin-top:6px">엔진이 다시 떴다 — 세션 <b>${esc(o.resume.exp)}</b> 이어 가기 제안(운용 화면에서 사람이 누른다)</div>`;
+  return h+`</div>`;
+}
 function vTSL(){
   if(TSL===null){ loadTSL().then(()=>render()); return `<div class="card"><div class="empty">ThreeStar 화면을 불러오는 중…</div></div>`; }
-  if(TSL.err||(!TSL.session&&!TSL.pcamp)) return `<div class="card tsm"><div class="ts-h">${TS_RANK}<b>Three<span>Star</span></b></div><div class="empty">지금 ThreeStar 가 돌리는 세션이 없습니다</div></div>`;
+  if(TSL.err||(!TSL.session&&!TSL.pcamp&&!TSL.ops)) return `<div class="card tsm"><div class="ts-h">${TS_RANK}<b>Three<span>Star</span></b></div><div class="empty">지금 ThreeStar 가 돌리는 세션이 없습니다</div></div>`;
   const t=TSL, noS=!t.session, s=t.session||{state:"IDLE",state_ko:"세션 없음",counts:{}}, cur=s.current||{}, nx=s.next||{}, now=Date.now()/1000, c=s.counts||{};
   const ok=k=>n2(c[k])||0, done=s.done||0, N=s.n_scans||0, pct=done/Math.max(1,N)*100;
   const ob=obsKind(s,cur), al=t.alerts||[];
@@ -664,12 +733,16 @@ function vTSL(){
   late+=`<div class="card tsm"><div class="tsm-h">스캔 시간표 <span class="dim">${N}개 · KST</span></div>${tlSvg(t,cur)}</div>`;
   if(t.pcamp) late+=tsPcamp(t);
   }
+  h+=tsOps(t);                                     // 자동화(10-04)
   // F. 안테나
   const a=t.antenna||{};
   h+=`<div class="card tsm"><div class="tsm-h">안테나 <span class="dim">3D · 위가 북쪽</span><span class="tsm-badge ${a.point==="Point"?"run":""}" style="margin-left:auto"><i></i>${esc(a.acu_mode||"–")} · ${esc(a.point||"–")}</span></div>
     <div class="tsm-ant3d" id="tsAntSlot"></div>
     <div class="grid g2"><div class="tile"><div class="lbl">방위 · 고도</div><div class="val mono">${n2(a.az)?.toFixed(2)??"–"}° · ${n2(a.el)?.toFixed(2)??"–"}°</div></div>
       <div class="tile"><div class="lbl">지향 오차</div><div class="val mono" style="font-size:13px">${esc(a.err_az_arcsec??"–")}″ · ${esc(a.err_el_arcsec??"–")}″</div></div></div></div>`;
+  // F2. 신호 흐름 3D(10-04 — 대시보드 '신호 흐름' 카드와 같은 ts/flow3d.js · 마디 이름은 캔버스 아래 띠)
+  h+=`<div class="card tsm tsm-core"><div class="tsm-h">신호 흐름 <span class="dim">안테나 → 상관센터</span><span class="tsm-badge" id="tsFlowBadge" style="margin-left:auto"><i></i>—</span></div>
+    <div class="tsm-flow" id="tsFlowSlot"></div></div>`;
   // G. 십자 스캔
   const cf=t.cross_full; h+=`<div class="card tsm"><div class="tsm-h">십자 스캔 <span class="dim">신호·포인팅 점검</span>${cf?`<span class="tsm-badge run" style="margin-left:auto;background:rgba(47,217,130,.15);color:var(--ok)">${cf.ref?"최근 ":""}${esc(cf.verdict||"")}</span>`:""}</div>`;
   if(cf&&cf.channels){
@@ -747,7 +820,7 @@ function mountTSAnt(){
   if(TAB!=="ts"||!slot){ if(TSAF) TSAF.style.display="none"; return; }
   if(!TSAF){ TSAF=document.createElement("iframe"); TSAF.className="tsm-antf"; TSAF.title="세종 22m 안테나 3D";
     TSAF.setAttribute("referrerpolicy","no-referrer");
-    TSAF.src="./ts/antenna3d.html?embed=1&v="+REV+"&feed="+encodeURIComponent(new URL(RAW+"threestar_live.json",location.href).href);
+    TSAF.src="./ts/antenna3d.html?embed=1&v="+REV+(window.TSX?"&terrain=1":"")+"&feed="+encodeURIComponent(new URL(RAW+"threestar_live.json",location.href).href);   // 잠금판이면 관측소 지형 쌍둥이도(10-04)
     document.body.appendChild(TSAF); }
   const r=slot.getBoundingClientRect();
   Object.assign(TSAF.style,{display:"block",left:(r.left+scrollX)+"px",top:(r.top+scrollY)+"px",width:r.width+"px",height:r.height+"px"});
@@ -981,7 +1054,7 @@ function render(full=true){
   const app=document.getElementById("app");
   app.innerHTML=`<div class="view">${v()}</div>`;
   mountFrames();
-  mountTS3D(); mountTSAnt(); mountTSSky(); mountTSCore();
+  mountTS3D(); mountTSAnt(); mountTSSky(); mountTSCore(); mountTSFlow();
   document.getElementById("foot").innerHTML=
     `<span class="pulse" style="color:${stale?"var(--bad)":"var(--ok)"}"></span>
      ${ago(age)} 갱신 · 15초마다 자동 · 조회 전용`;

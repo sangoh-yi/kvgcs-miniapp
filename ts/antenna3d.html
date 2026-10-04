@@ -24,6 +24,7 @@ body.embed{background:radial-gradient(130% 95% at 50% 14%,#1b2a45 0%,#0d1728 52%
 .b-idle{background:rgba(124,141,166,.2);color:#9fb0c4}
 .note{font-size:10.5px;color:#54677a;margin-top:7px;line-height:1.4}
 #ctl{top:14px;right:14px;display:flex;gap:8px;background:none;border:0;padding:0}
+.btn.on{border-color:#37e8cf;color:#37e8cf;box-shadow:0 0 12px rgba(55,232,207,.25)}
 .btn{background:rgba(19,29,42,.85);color:#e6eef6;border:2px solid #22313f;border-radius:10px;padding:8px 13px;
  font-weight:700;font-size:12.5px;text-decoration:none;cursor:pointer}
 #src{bottom:14px;left:14px;min-width:250px}
@@ -48,6 +49,8 @@ body.embed{background:radial-gradient(130% 95% at 50% 14%,#1b2a45 0%,#0d1728 52%
 body.embed #hud,body.embed #src,body.embed #ctl,body.embed #lbls{display:none!important}
 #mini{display:none;position:fixed;top:10px;left:11px;color:#e6eef6}
 body.embed #mini{display:block}
+body.bare #mini,body.bare #foot,body.bare #cmp{display:none!important}
+body.bare{background:transparent}
 #mini .ms{font-family:var(--mono);font-weight:850;font-size:13px;color:#37e8cf}
 #mini .mg{display:flex;gap:12px;margin-top:3px}
 #mini .mg b{font-family:var(--mono);font-weight:850;font-size:15px}
@@ -144,7 +147,7 @@ body.embed #foot{display:block}
  </div>
  <div class="note" id="src-note">가상 추종: 가상 관측소 ACU 실측(/api/state, 1 s). 실제 추종: 운영 콘솔 캐시의 실측(/api/live, 5 s — 콘솔이 읽은 값만, 장비에 묻지 않는다). 적경적위: RA/Dec→LST→HA→Az/El 항성시 추적. 수동: 화면 안에서만 움직인다(장비 명령 없음).</div>
 </div>
-<div id="ctl" class="pnl"><button class="btn" onclick="toggleLbl()">부품명</button><a class="btn" href="/">← 운용 화면</a></div>
+<div id="ctl" class="pnl"><button class="btn" id="b-ter" onclick="toggleTer()" title="국토지리정보원 정사영상(2025)과 지형 높이로 관측소 둘레 590 m 를 깐다">지형</button><button class="btn" onclick="toggleLbl()">부품명</button><a class="btn" href="/">← 운용 화면</a></div>
 <div id="lbls">
  <span data-p="feed">피드</span><span data-p="sub">부반사기</span><span data-p="dish">주반사판 22m</span>
  <span data-p="quad">Quadripod</span><span data-p="bus">BUS(백업구조)</span><span data-p="rx">Receiver Room</span>
@@ -164,6 +167,9 @@ const EMBED=QS.has('embed');
 const SRC0=QS.get('src')==='live'?'live':'virt';       // 가상(기본) · 실제
 const FEEDURL=QS.get('feed')||'';                       // 미니앱(10-02): 엔진 대신 gist 의 threestar_live.json 을 15 s 마다(실장비 ThreeStar 세션)
 if(EMBED)document.body.classList.add('embed');
+// ?bare=1 — 글 띠·나침반 없이 3D 만(상황실 화면 wall.html 이 지형 쌍둥이를 띄울 때) · ?orbit=1 — 천천히 둘레를 돈다(10-04)
+const BARE=QS.has('bare'), ORBIT=QS.has('orbit');
+if(BARE)document.body.classList.add('embed','bare');
 const $=id=>document.getElementById(id);
 var dirty=true;                                         // 다시 그릴 때(3D 모형 쪽 이벤트도 쓴다)
 if($('h-site'))$('h-site').textContent=LAT.toFixed(3)+'N '+LON.toFixed(3)+'E';
@@ -189,8 +195,11 @@ if(T&&hasGL()){try{A3D=(function(){
   scene.add(new T.HemisphereLight(0xcadcf2,0x1a2431,0.62));
   const sun=new T.DirectionalLight(0xfff4e0,1.35); sun.position.set(46,72,34); sun.castShadow=true;
   sun.shadow.mapSize.set(2048,2048); sun.shadow.bias=-0.0004;
-  Object.assign(sun.shadow.camera,{left:-60,right:60,top:70,bottom:-30,near:1,far:240}); sun.shadow.camera.updateProjectionMatrix();
-  scene.add(sun);
+  Object.assign(sun.shadow.camera,{left:-70,right:70,top:70,bottom:-70,near:1,far:320}); sun.shadow.camera.updateProjectionMatrix();
+  scene.add(sun); scene.add(sun.target);
+  // 10-04 그림자를 실제 해 쪽으로(세종 위경도·지금 시각, 1분마다) — 밤에는 옅은 달빛 쪽
+  let _sunT=-1e9; function sunUpd(ts){if(!window.Sejong22m||ts-_sunT<60000)return; _sunT=ts;
+    Sejong22m.sunLight(sun,{R:150,center:{x:0,y:20,z:0},base:1.35}); sun.shadow.camera.updateProjectionMatrix(); dirty=true;}
   const fill=new T.DirectionalLight(0x88aaff,0.35); fill.position.set(-52,34,-30); scene.add(fill);
   const rim=new T.DirectionalLight(0xbfd0ff,0.30); rim.position.set(-10,26,-60); scene.add(rim);
 
@@ -205,17 +214,19 @@ if(T&&hasGL()){try{A3D=(function(){
 
   // 지면(콘크리트 패드) + 그리드 + 나침반
   // 10-02 관제 화면 결: 지면을 어둡게 가라앉히고(sRGB 출력이라 옛 색은 회청색으로 떠 보였다) 네온 격자·패드 빛 테·방위 눈금 고리
+  // 바닥 장식은 한 묶음(GND) — 지형 쌍둥이를 켜면 숨긴다(10-04)
+  const GND=new T.Group(); scene.add(GND);
   const pad=new T.Mesh(new T.CylinderGeometry(19,19,0.7,72),
     new T.MeshStandardMaterial({color:0x01030a,roughness:.92,metalness:.1,envMapIntensity:.15}));
-  pad.position.y=-0.35; pad.receiveShadow=true; scene.add(pad);
+  pad.position.y=-0.35; pad.receiveShadow=true; GND.add(pad);
   const ground=new T.Mesh(new T.CircleGeometry(240,72),
     new T.MeshStandardMaterial({color:0x000104,roughness:1,envMapIntensity:0}));   // 색은 선형값이라(sRGB 출력에서 밝게 뜬다) 아주 어둡게
-  ground.rotation.x=-Math.PI/2; ground.position.y=-0.72; ground.receiveShadow=true; scene.add(ground);
+  ground.rotation.x=-Math.PI/2; ground.position.y=-0.72; ground.receiveShadow=true; GND.add(ground);
   const grid=new T.GridHelper(240,60,0x1d5a92,0x0c2238); grid.position.y=-0.68;
-  grid.material.transparent=true; grid.material.opacity=.75; grid.material.toneMapped=false; scene.add(grid);
+  grid.material.transparent=true; grid.material.opacity=.75; grid.material.toneMapped=false; GND.add(grid);
   (function(){
     const ADDM=(c,o)=>new T.MeshBasicMaterial({color:c,transparent:true,opacity:o,depthWrite:false,blending:T.AdditiveBlending,side:T.DoubleSide,toneMapped:false});
-    const flat=(g,m,y)=>{const o=new T.Mesh(g,m);o.rotation.x=-Math.PI/2;o.position.y=y;scene.add(o);return o;};
+    const flat=(g,m,y)=>{const o=new T.Mesh(g,m);o.rotation.x=-Math.PI/2;o.position.y=y;GND.add(o);return o;};
     flat(new T.RingGeometry(18.7,19.25,128),ADDM(0x37e8cf,.65),0.02);              // 패드 가장자리 빛 테
     flat(new T.RingGeometry(19.25,20.6,128),ADDM(0x1a7fc8,.16),0.02);              // 번짐
     flat(new T.RingGeometry(25.6,25.85,160),ADDM(0x5fb8ff,.35),-0.6);              // 바깥 고리
@@ -223,14 +234,14 @@ if(T&&hasGL()){try{A3D=(function(){
     for(let a=0;a<360;a+=5){const r0=20.9,r1=a%30?21.9:23.4,t=a*Math.PI/180;
       tk.push(new T.Vector3(r0*Math.sin(t),-0.6,-r0*Math.cos(t)),new T.Vector3(r1*Math.sin(t),-0.6,-r1*Math.cos(t)));}
     const lm=new T.LineBasicMaterial({color:0x6cc4ff,transparent:true,opacity:.7,depthWrite:false,toneMapped:false});
-    scene.add(new T.LineSegments(new T.BufferGeometry().setFromPoints(tk),lm));
+    GND.add(new T.LineSegments(new T.BufferGeometry().setFromPoints(tk),lm));
   })();
   // 나침반 (N=-Z, E=+X, S=+Z, W=-X : Az=0→North, Az=90→East)
   (function(){function tag(txt,col,x,z){const s=256,cv=document.createElement('canvas');cv.width=cv.height=s;
     const g=cv.getContext('2d');g.clearRect(0,0,s,s);g.fillStyle=col;g.font='bold 150px sans-serif';
     g.textAlign='center';g.textBaseline='middle';g.fillText(txt,s/2,s/2+8);
     const m=new T.MeshBasicMaterial({map:new T.CanvasTexture(cv),transparent:true,depthWrite:false,toneMapped:false});
-    const p=new T.Mesh(new T.PlaneGeometry(2.4,2.4),m);p.rotation.x=-Math.PI/2;p.position.set(x,-0.64,z);scene.add(p);}
+    const p=new T.Mesh(new T.PlaneGeometry(2.4,2.4),m);p.rotation.x=-Math.PI/2;p.position.set(x,-0.64,z);GND.add(p);}
    tag('N','#5fb8ff',0,-17);tag('E','#8fa3ba',17,0);tag('S','#8fa3ba',0,17);tag('W','#8fa3ba',-17,0);})();
 
   // ===================== 세종 22m 실물 모형 — Blender 로 만든 sejong22m.glb(10-04 센터장님 "지금 만든 안테나를 기존 안테나로 교체") =====================
@@ -239,9 +250,53 @@ if(T&&hasGL()){try{A3D=(function(){
   //   돌리기는 antmodel.js 와 같다: AZ.rotation.y=(180−방위)° · EL.rotation.x=(90−고도)°(쉼 자세가 고도 90°)
   //   경로는 상대(models/…) — 엔진 /web/antenna3d.html → /web/models/, 미니앱 ts/antenna3d.html → ts/models/ 둘 다 맞는다
   //   부품 이름표 자리·돌리기는 공용 lib/sejong22m.js(운영 콘솔·미니앱 3D 탭·지금 스캔도 같은 것)
-  const ANT=window.Sejong22m?Sejong22m.add(scene,{url:'models/sejong22m.glb',scale:1.7,onload:()=>{dirty=true;},
+  //   10-04: 장애 난 부품 빛 · 부반사경 자리 잡기 · 받침을 감는 케이블 나선 · 기단에서 나가는 데이터 줄기 · 바닥 바람 결
+  const ANT=window.Sejong22m?Sejong22m.add(scene,{url:'models/sejong22m.glb',scale:1.7,trunk:{az:150,len:12},wrap:true,onload:()=>{dirty=true;},
     onerror:()=>{const d=$('nogl');d.querySelector('div').innerHTML='<b>안테나 모형을 불러오지 못했습니다</b><br>방위·고도 글은 그대로 갱신됩니다';d.hidden=false;}}):null;
   const parts=ANT?ANT.parts:{}, place=(az,el)=>{if(ANT)ANT.place(az,el);};
+  const WIND=window.Sejong22m?Sejong22m.wind(scene,{radius:34,y:0.3,scale:1.7}):null;   // 패드 윗면(0) 위
+  // ===================== 관측소 지형 쌍둥이(10-04) — 국토지리정보원 정사영상(2025, 도엽 36706093, 590 m 네모) + 지형 높이(AWS Terrarium) + 지평선 =====================
+  //   models/terrain/: site_ortho.jpg(2048) · site_ortho_1k.jpg · site_dem.json(121×121, 안테나 받침 = 0 m) · horizon.json(방위 1° 최대 앙각·거리)
+  //   켜면 바닥 장식(GND)을 숨기고 사진 지형을 깐다 — 안테나 둘레 14 m 는 마당(평평), 30 m 까지 지형으로 잇는다. 지평선은 먼 산 실루엣(실제 앙각)
+  const TER={on:false,mesh:null,ring:null,busy:false};
+  async function setTerrain(on){
+    TER.on=!!on; GND.visible=!TER.on; if(WIND)WIND.group.visible=!TER.on;
+    if(TER.mesh)TER.mesh.visible=TER.on; if(TER.ring)TER.ring.visible=TER.on;
+    // 지형일 때는 안개를 화면 바탕색(#0a1120, sRGB → 선형)으로 — 사진 끝이 바탕에 녹아든다
+    scene.fog=TER.on?new T.Fog(new T.Color(0x0a1120).convertSRGBToLinear(),330,980):(EMBED?null:new T.Fog(0x0a1120,240,560));
+    dirty=true;
+    if(!TER.on||TER.mesh||TER.busy)return;
+    TER.busy=true;
+    try{
+      // 미니앱 잠금판이면 TSX 가 암호문(x/<사이트 기준 경로>.bin)을 풀어 준다
+      const base='models/terrain/', get=async(u,t)=>{ if(window.TSX&&TSX.fetch&&TSX.has&&TSX.has(u)){const rel=new URL(u,location.href).href.split('?')[0].slice(TSX.base.length);
+          const b=await TSX.fetch(rel);return t==='json'?JSON.parse(new TextDecoder().decode(b)):new Blob([b],{type:'image/jpeg'});}
+        const r=await fetch(u,{cache:'force-cache'}); if(!r.ok)throw new Error(u+' '+r.status); return t==='json'?r.json():r.blob(); };
+      const [dem,hz,img]=await Promise.all([get(base+'site_dem.json','json'),get(base+'horizon.json','json'),get(base+((EMBED&&!BARE)||innerWidth<900?'site_ortho_1k.jpg':'site_ortho.jpg'),'blob')]);
+      const K=1.7, S=dem.side_m*K, N=dem.n, geo=new T.PlaneGeometry(S,S,N-1,N-1); geo.rotateX(-Math.PI/2);
+      const pos=geo.attributes.position;
+      for(let k=0;k<pos.count;k++){const i=Math.floor(k/N), j=k%N, x=pos.getX(k), z=pos.getZ(k), r=Math.hypot(x,z)/K;
+        const w=r<14?0:r>30?1:(r-14)/16; pos.setY(k,(dem.h[i*N+j]||0)*K*w*w*(3-2*w)-0.05);}
+      geo.computeVertexNormals();
+      const tex=new T.Texture(); tex.image=await createImageBitmap(img,{imageOrientation:'flipY'}).catch(()=>null);
+      if(!tex.image){const im=new Image(); im.src=URL.createObjectURL(img); await im.decode(); tex.image=im; tex.flipY=true;} else tex.flipY=false;
+      tex.encoding=T.sRGBEncoding; tex.anisotropy=Math.min(8,rn.capabilities.getMaxAnisotropy()); tex.needsUpdate=true;
+      TER.mesh=new T.Mesh(geo,new T.MeshStandardMaterial({map:tex,roughness:1,metalness:0,envMapIntensity:.25}));
+      TER.mesh.receiveShadow=true; scene.add(TER.mesh);
+      // 지평선 — 반지름 RH 의 띠: 아래(땅 밖) → 실제 앙각 높이. 윗 가장자리에 옅은 청록 선
+      const RH=760, M=360, vs=[], ix=[], ln=[];
+      for(let a=0;a<=M;a++){const az=(a%360)*Math.PI/180, el=(hz.el[a%360]||0), y=Math.tan(Math.max(-0.4,el)*Math.PI/180)*RH;
+        const x=RH*Math.sin(az), z=-RH*Math.cos(az); vs.push(x,-160,z, x,y,z); ln.push(new T.Vector3(x,y,z));
+        if(a<M){const b=a*2; ix.push(b,b+1,b+2, b+1,b+3,b+2);}}
+      const hg=new T.BufferGeometry(); hg.setAttribute('position',new T.Float32BufferAttribute(vs,3)); hg.setIndex(ix); hg.computeVertexNormals();
+      TER.ring=new T.Group();
+      TER.ring.add(new T.Mesh(hg,new T.MeshBasicMaterial({color:new T.Color(0x081120).convertSRGBToLinear(),side:T.DoubleSide,fog:false,toneMapped:false})));
+      TER.ring.add(new T.Line(new T.BufferGeometry().setFromPoints(ln),new T.LineBasicMaterial({color:0x5fd0e6,transparent:true,opacity:.55,fog:false,toneMapped:false})));
+      scene.add(TER.ring);
+      TER.mesh.visible=TER.ring.visible=TER.on; dirty=true;
+    }catch(e){ console.warn('지형 쌍둥이를 불러오지 못함', e); TER.on=false; GND.visible=true; }
+    TER.busy=false;
+  }
 
   // ===================== 카메라(간이 오빗) =====================
   // 화면 위(먼 쪽)가 북쪽 0° · 오른쪽이 동쪽 90°(10-02 센터장님) — 카메라를 남쪽(+Z)에 두고 북쪽(-Z)을 바라본다: camPh=π/2.
@@ -263,7 +318,7 @@ if(T&&hasGL()){try{A3D=(function(){
   addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();rn.setSize(innerWidth,innerHeight);dirty=true;});
   addEventListener('pointermove',()=>{if(drag)dirty=true;});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)dirty=true;});
-  return {scene,cam,rn,place,parts,updCam,isDrag:()=>drag};
+  return {scene,cam,rn,place,parts,updCam,isDrag:()=>drag,ant:ANT,wind:WIND,sunUpd,setTerrain,terrainOn:()=>TER.on,orbit:(d)=>{camPh+=d;}};
 })();}catch(e){A3D=null;}}
 if(!A3D){$('nogl').hidden=false;$('c').style.display='none';}
 
@@ -299,6 +354,25 @@ async function getJSON(url,ms){const c=new AbortController(),to=setTimeout(()=>c
   try{const r=await fetch(url,{cache:'no-store',signal:c.signal});const tx=await r.text();let d=null;
     try{d=JSON.parse(tx);}catch(e){try{d=JSON.parse(tx.replace(/([:\[,]\s*)(-?Infinity|NaN)(?=\s*[,\]}])/g,'$1"$2"'));}catch(e2){d=null;}}
     return {status:r.status,ok:r.ok,d};}finally{clearTimeout(to);}}
+// 10-04 실물 모형 위 상태 — 엔진 /api/state(경보 키) 또는 미니앱 threestar_live(경보 제목)에서
+//   장애 부품(Sejong22m.faults) · 부반사경(Dio Out 0x40) · 데이터 줄기(기록 중이면 흐름) · 바람(미니앱은 연결 파일 기상)
+function antEx(d,a){
+  const SJ=window.Sejong22m; if(!SJ)return null;
+  const al=Array.isArray(d.alerts)?d.alerts:((d.alerts&&d.alerts.active)||[]);
+  const r=d.real||{}, ph=r.phase||d.phase, tun=r.tunnel?!!r.tunnel.alive:(typeof d.tunnel==='boolean'?d.tunnel:null);
+  const real=(r.mode==='real')||(!!FEEDURL&&ph!=null);
+  const f=SJ.faults(al,real&&ph&&ph!=='off'&&tun!=null?{net:tun}:null);
+  const rts=(d.recorder&&d.recorder.runtimes)||[], rec=rts.some(x=>x&&x.on);
+  const dio=a?num(a.dio_out):null, w=d.weather||null;
+  return {faults:f,hexapod:dio!=null&&(dio&0x40)!==0,flow:f.data?'bad':rec?'flow':'idle',
+    wind:w&&num(w.wsp)!=null&&num(w.wdir)!=null?{wdir:num(w.wdir),wsp:num(w.wsp)}:null};}
+// 엔진 화면이면 기상(/api/perf 가상)을 30 s 마다 — 바람 결용
+let WX=null;
+async function pollWx(){ if(FEEDURL)return;
+  try{const {ok,d}=await getJSON('/api/perf?src=virt',8000); const w=ok&&d&&d.weather&&d.weather.latest;
+    WX=w&&num(w.wsp)!=null&&num(w.wdir)!=null?{wdir:num(w.wdir),wsp:num(w.wsp)}:null;}catch(e){}
+  setTimeout(pollWx,30000);}
+setTimeout(pollWx,1500);
 async function pollVirt(){
   try{const {ok,status,d}=await getJSON(FEEDURL?FEEDURL+(FEEDURL.includes('?')?'&':'?')+'t='+Date.now():'/api/state',FEEDURL?9000:4000);
     if(!ok||!d)throw new Error('HTTP '+status);
@@ -310,6 +384,7 @@ async function pollVirt(){
     const crossing=s&&s.state==='CROSS'&&cr&&cr.state==='running'&&cr.source;   // 십자 스캔 단계에서만 그 소스
     V.source=crossing?cr.source+' · 십자 스캔':(s&&s.current?s.current.source:'');
     V.ok=!!a&&V.az!=null&&V.el!=null;V.err=V.ok?'':(s?'감지기가 아직 ACU 를 읽지 못함':'가상 세션 없음');V.t=Date.now();
+    V.ex=antEx(d,a);
     // 적경·적위는 하늘 지령(보정 전)으로 — 엔코더 목표(보정 뒤)로 거꾸로 풀면 포인팅 보정만큼 전파원 좌표와 어긋난다(09-30)
     const qaz=V.az_req!=null?V.az_req:V.az_des, qel=V.el_req!=null?V.el_req:V.el_des;
     if(V.ok&&qaz!=null&&qel!=null&&qel>0){const c=azElToRaDec(qaz,qel,vms());
@@ -361,6 +436,10 @@ function manApply(){const a=parseFloat($('m-az').value),e=parseFloat($('m-el').v
  gotoOn=true; jogStop(); setMode('man',true);}
 function manSpd(){jogSpeed=parseFloat($('m-spd').value);$('m-spd-l').textContent=jogSpeed.toFixed(1);}
 
+// 지형 쌍둥이(10-04) — 단추 · ?terrain=1(상황실 화면 · 처음부터 켬). 고른 것은 이 브라우저에 기억
+function toggleTer(on){ if(!A3D)return; const v=on==null?!A3D.terrainOn():!!on; A3D.setTerrain(v);
+  const b=$('b-ter'); if(b)b.classList.toggle('on',v); try{localStorage.setItem('a3d.terrain',v?'1':'0');}catch(e){} }
+setTimeout(()=>{ let v=QS.get('terrain'); if(v==null){try{v=EMBED?null:localStorage.getItem('a3d.terrain');}catch(e){v=null;}} if(v==='1')toggleTer(true); },300);
 // 부품명 라벨(전체페이지)
 const LBL=$('lbls');let showLbl=false;
 function toggleLbl(){showLbl=!showLbl;for(const s of LBL.children)s.style.display=showLbl?'block':'none';}
@@ -423,9 +502,15 @@ function loop(ts){requestAnimationFrame(loop);
   $('mi-tag').textContent=tg[0]; $('mi-tag').className='mt '+tg[1];
   $('mi-on').className='badge '+(idle?'b-idle':on.cls); $('mi-on').textContent=idle?'대기(스토우)':on.txt;
   $('foot').textContent='세종 22m · '+(MODE==='live'?'운영 콘솔(실제)':MODE==='virt'?'가상 관측소':'화면 계산');}
- if(A3D){A3D.place(cAz,cEl);
+ if(A3D){A3D.place(cAz,cEl); A3D.sunUpd(ts);
+  // 10-04 부품 빛·데이터 줄기·케이블 나선·바람(가상·ThreeStar 자료일 때) — 빛이 움직이면 계속 그린다
+  const ex=(MODE==='virt'&&V.ok&&V.ex)?V.ex:null;
+  if(A3D.ant)A3D.ant.status(ex?Object.assign({},ex.faults,{hexapod:ex.hexapod,flow:ex.flow,wrapAz:disAz}):{mount:false,hub:false,data:false,hexapod:false,flow:'idle',wrapAz:MODE==='live'&&L.ok?L.az:null});
+  if(A3D.wind){const w=(ex&&ex.wind)||WX; A3D.wind.set(w?w.wdir:null,w?w.wsp:null);}
+  if(ORBIT&&!A3D.isDrag())A3D.orbit(0.0011);
+  const anim=(A3D.ant?A3D.ant.tick(ts):false)|(A3D.wind?A3D.wind.tick(ts):false)|ORBIT;
   const moving=Math.abs(shortest(cAz,tAz))>0.02||Math.abs(tEl-cEl)>0.02;
-  if(dirty||moving||A3D.isDrag()||ts-_lastR>2500){A3D.updCam(); projLbls(); A3D.rn.render(A3D.scene,A3D.cam); _lastR=ts; dirty=false;}}
+  if(dirty||moving||anim||A3D.isDrag()||ts-_lastR>2500){A3D.updCam(); projLbls(); A3D.rn.render(A3D.scene,A3D.cam); _lastR=ts; dirty=false;}}
 }
 // 지향 판정 — 가상: HOLD 가 풀렸고 목표와 실측 차가 작으면 On-Source
 function virtOn(){if(V.point&&V.point!=='Point')return {txt:'구동 멈춤('+V.point+')',cls:'b-warn'};
