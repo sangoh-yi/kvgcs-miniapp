@@ -30,7 +30,8 @@
     const t = new T.CanvasTexture(c); t.minFilter = T.LinearFilter; return t;
   }
 
-  function create(deck, canvas, coreEl) {
+  function create(deck, canvas, coreEl, opts) {
+    opts = opts || {};                                  // core: false — 코어 칸에 레이더 홀로그램을 그리지 않는다(실물 모형이 대신, 10-04)
     const T = window.THREE;
     if (!T) throw new Error('three.js 없음');
     const rn = new T.WebGLRenderer({ canvas, antialias: true, alpha: true });
@@ -297,7 +298,7 @@
       rn.clear();
       rn.render(sc, oc);
       const r = coreRect();
-      if (r.w > 4 && r.h > 4) {
+      if (opts.core !== false && r.w > 4 && r.h > 4) {
         const vy = H - r.y - r.h;
         rn.setScissorTest(true); rn.setViewport(r.x, vy, r.w, r.h); rn.setScissor(r.x, vy, r.w, r.h);
         cc.aspect = r.w / r.h; cc.updateProjectionMatrix();

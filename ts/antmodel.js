@@ -1,0 +1,166 @@
+/* antmodel.js — 세종 22m VLBI 안테나 실시간 모형(three.js r128 + GLTFLoader, 2026-10-04 센터장님 "블렌더로 실제 우리 세종 VLBI 안테나 모델링 ·
+ *   실제 구동하는 모델 · 첨단스럽고 실제랑 똑같이"). 모형 models/sejong22m.glb 는 Blender 로 만든 것(models/build_sejong22m.py —
+ *   사진·IVS 2012 제원: 지름 22 m · 성형 카세그레인 · 높이 28 m). 노드 'AZ'(방위) · 'EL'(고도)을 실제 방위·고도로 돌린다.
+ *   연출: 어두운 바닥 · 방위 눈금 고리(10°/30°)와 북 표시 · 안테나 방위 바늘 · 관측 중이면 접시 축을 따라 빔(맥동) · 상태 색 고리 ·
+ *   사실적 재질(PBR, 하늘 반사 · 해 그림자). 끌면 둘러보고 · 휠 확대 · 두 번 누르면 처음 시점. 글은 캔버스에 쓰지 않는다.
+ * 쓰기: const m = AntModel.create(canvas, { url: '/web/models/sejong22m.glb' }); m.set({ az, el, state }); m.resize();
+ *   state: idle 파랑 · run 초록 · busy 호박 · halt 빨강 · off 회색
+ */
+'use strict';
+(function () {
+  const D2R = Math.PI / 180;
+  const COL = { idle: 0x58a6ff, run: 0x3fb950, busy: 0xe3b341, halt: 0xf85149, off: 0x6e7f94 };
+  function ringTex(T) {                              // 방위 눈금 고리(바닥) — 10° 잔 · 30° 긴 · 북 빨강
+    const S = 1024, c = document.createElement('canvas'); c.width = c.height = S;
+    const g = c.getContext('2d'), C = S / 2;
+    g.strokeStyle = 'rgba(140,190,255,.55)'; g.lineWidth = 3; g.beginPath(); g.arc(C, C, S * 0.47, 0, Math.PI * 2); g.stroke();
+    g.strokeStyle = 'rgba(140,190,255,.25)'; g.lineWidth = 2; g.beginPath(); g.arc(C, C, S * 0.40, 0, Math.PI * 2); g.stroke();
+    g.beginPath(); g.arc(C, C, S * 0.30, 0, Math.PI * 2); g.stroke();
+    for (let a = 0; a < 360; a += 5) {
+      const L = a % 30 ? (a % 10 ? 10 : 18) : 34, r0 = S * 0.47, rad = (a - 90) * D2R;
+      g.strokeStyle = a === 0 ? 'rgba(255,110,100,1)' : 'rgba(160,205,255,.8)'; g.lineWidth = a % 30 ? 2 : 4;
+      g.beginPath(); g.moveTo(C + r0 * Math.cos(rad), C + r0 * Math.sin(rad)); g.lineTo(C + (r0 - L) * Math.cos(rad), C + (r0 - L) * Math.sin(rad)); g.stroke();
+    }
+    g.fillStyle = 'rgba(255,110,100,1)'; g.beginPath(); g.moveTo(C, S * 0.005); g.lineTo(C - 16, S * 0.045); g.lineTo(C + 16, S * 0.045); g.closePath(); g.fill();
+    const t = new T.CanvasTexture(c); t.anisotropy = 4; return t;
+  }
+  function glowTex(T) {
+    const c = document.createElement('canvas'); c.width = c.height = 128;
+    const g = c.getContext('2d'), gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.3, 'rgba(255,255,255,.45)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, 128, 128); return new T.CanvasTexture(c);
+  }
+  // 하늘 반사(PMREM) — 위 밝은 하늘색 → 지평선 옅은 회청 → 아래 어두운 땅
+  function envMap(T, rn) {
+    const sc = new T.Scene(), geo = new T.SphereGeometry(10, 32, 16), cols = [];
+    const p = geo.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const y = p.getY(i) / 10, c = new T.Color();
+      if (y > 0) c.setRGB(0.55 + 0.25 * (1 - y), 0.68 + 0.18 * (1 - y), 0.88); else c.setRGB(0.18, 0.2, 0.22);
+      cols.push(c.r, c.g, c.b);
+    }
+    geo.setAttribute('color', new T.Float32BufferAttribute(cols, 3));
+    sc.add(new T.Mesh(geo, new T.MeshBasicMaterial({ vertexColors: true, side: T.BackSide })));
+    const pm = new T.PMREMGenerator(rn); const rt = pm.fromScene(sc, 0.02); pm.dispose(); return rt.texture;
+  }
+
+  function create(canvas, opts) {
+    opts = opts || {};
+    const T = window.THREE;
+    if (!T || !T.GLTFLoader) throw new Error('three.js · GLTFLoader 없음');
+    const rn = new T.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    rn.setClearColor(0x000000, 0); rn.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    rn.outputEncoding = T.sRGBEncoding; rn.toneMapping = T.ACESFilmicToneMapping; rn.toneMappingExposure = 0.8;
+    rn.shadowMap.enabled = true; rn.shadowMap.type = T.PCFSoftShadowMap;
+    const scene = new T.Scene();
+    scene.environment = envMap(T, rn);
+    const cam = new T.PerspectiveCamera(30, 1.4, 0.5, 600);
+    // 빛 — 하늘·땅 · 해(그림자) · 뒤쪽 파란 테두리 빛(첨단 느낌)
+    scene.add(new T.HemisphereLight(0xcfe3ff, 0x101828, 0.32));
+    const sun = new T.DirectionalLight(0xfff4e6, 2.8); sun.position.set(-30, 48, 26); sun.castShadow = true;
+    sun.shadow.mapSize.set(1024, 1024); Object.assign(sun.shadow.camera, { left: -26, right: 26, top: 34, bottom: -6, near: 1, far: 140 });
+    sun.shadow.bias = -0.0006; scene.add(sun);
+    const rim = new T.DirectionalLight(0x6fb0ff, 0.9); rim.position.set(30, 20, -40); scene.add(rim);
+    // 바닥 — 어두운 원판 · 방위 눈금 고리 · 그림자 받기
+    // 바닥은 빛을 받지 않는 어두운 면 + 그림자만 얹는 면(해를 받아 밝게 뜨지 않게)
+    const floor = new T.Mesh(new T.CircleGeometry(30, 96), new T.MeshBasicMaterial({ color: 0x060d1a }));
+    floor.rotation.x = -Math.PI / 2; scene.add(floor);
+    const shadowF = new T.Mesh(new T.CircleGeometry(30, 96), new T.ShadowMaterial({ opacity: 0.55 }));
+    shadowF.rotation.x = -Math.PI / 2; shadowF.position.y = 0.01; shadowF.receiveShadow = true; scene.add(shadowF);
+    const grid = new T.PolarGridHelper(29, 24, 6, 96, 0x1f3f6e, 0x15294a); grid.position.y = 0.02; scene.add(grid);
+    const ring = new T.Mesh(new T.PlaneGeometry(46, 46), new T.MeshBasicMaterial({ map: ringTex(T), transparent: true, depthWrite: false, color: COL.idle }));
+    ring.rotation.x = -Math.PI / 2; ring.position.y = 0.03; scene.add(ring);
+    const glowM = new T.MeshBasicMaterial({ color: COL.idle, transparent: true, opacity: 0.55, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide });
+    const halo = new T.Mesh(new T.RingGeometry(21.6, 22.6, 128), glowM); halo.rotation.x = -Math.PI / 2; halo.position.y = 0.05; scene.add(halo);
+    // 안테나 방위 바늘(바닥) · 빔
+    const needle = new T.Mesh(new T.PlaneGeometry(0.7, 12), new T.MeshBasicMaterial({ color: 0xbfe0ff, transparent: true, opacity: 0.85, depthWrite: false, blending: T.AdditiveBlending }));
+    needle.geometry.translate(0, 6 + 9.5, 0); needle.rotation.x = -Math.PI / 2; const needleG = new T.Group(); needleG.add(needle); needleG.position.y = 0.06; scene.add(needleG);
+    const beamM = new T.MeshBasicMaterial({ color: COL.idle, transparent: true, opacity: 0.0, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide });
+    const beamG = new T.ConeGeometry(4.0, 60, 32, 1, true); beamG.translate(0, -30, 0); beamG.rotateX(-Math.PI / 2);   // 꼭지 = 원점, 넓은 쪽 +Z
+    const beam = new T.Mesh(beamG, beamM); scene.add(beam);
+    const glow = new T.Sprite(new T.SpriteMaterial({ map: glowTex(T), color: COL.idle, transparent: true, opacity: 0, depthWrite: false, blending: T.AdditiveBlending }));
+    glow.scale.set(9, 9, 1); scene.add(glow);
+
+    let AZ = null, EL = null, model = null, ready = false, loadErr = null;
+    new T.GLTFLoader().load(opts.url || '/web/models/sejong22m.glb', (g) => {
+      model = g.scene; scene.add(model);
+      model.traverse((o) => {
+        if (o.isMesh) {
+          o.castShadow = true; o.receiveShadow = true;
+          const m = o.material; if (m && m.map) m.map.encoding = T.sRGBEncoding;
+          if (m) m.envMapIntensity = 0.55;
+        }
+      });
+      AZ = model.getObjectByName('AZ'); EL = model.getObjectByName('EL'); ready = !!(AZ && EL);
+      dirty = true;
+    }, undefined, (e) => { loadErr = e; });
+
+    // 시점 — 남서쪽 조금 높은 데서(정문 사진처럼). 끌면 둘러보기
+    const TH0 = 1.22, PH0 = -0.62, RAD0 = 72;
+    let th = TH0, ph = PH0, rad = RAD0, sway = 0, lastUser = -1e9, drag = false, px = 0, py = 0;
+    const tgt = new T.Vector3(0, 14.2, 0);
+    canvas.addEventListener('pointerdown', (e) => { drag = true; px = e.clientX; py = e.clientY; lastUser = performance.now(); canvas.setPointerCapture(e.pointerId); });
+    canvas.addEventListener('pointerup', () => { drag = false; lastUser = performance.now(); });
+    canvas.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      ph -= (e.clientX - px) * 0.008; th = Math.max(0.35, Math.min(1.5, th - (e.clientY - py) * 0.006));
+      px = e.clientX; py = e.clientY; lastUser = performance.now(); dirty = true;
+    });
+    canvas.addEventListener('wheel', (e) => { rad = Math.max(40, Math.min(140, rad + e.deltaY * 0.05)); lastUser = performance.now(); dirty = true; e.preventDefault(); }, { passive: false });
+    canvas.addEventListener('dblclick', () => { th = TH0; ph = PH0; rad = RAD0; sway = 0; lastUser = -1e9; dirty = true; });
+    let visible = true;
+    if ('IntersectionObserver' in window) new IntersectionObserver((es) => { visible = es[0].isIntersecting; }).observe(canvas);
+
+    let az = 0, el = 90, azN = 0, elN = 90, st = 'idle', col = new T.Color(COL.idle), dirty = true, last = 0, raf = 0, lw = 0, lh = 0;
+    function place() {
+      if (!ready) return;
+      // 모형 기본: 고도 90°(위) · 방위 0 에서 접시 축이 남(+Z). three: 북 = −Z · 동 = +X → AZ 회전 = 180° − 방위
+      AZ.rotation.y = (180 - azN) * D2R;
+      EL.rotation.x = (90 - Math.max(0, Math.min(90, elN))) * D2R;
+      needleG.rotation.y = -azN * D2R;
+      // 빔 — 부반사경 근처에서 접시가 보는 쪽으로
+      const ax = Math.sin(azN * D2R) * Math.cos(elN * D2R), ay = Math.sin(elN * D2R), az2 = -Math.cos(azN * D2R) * Math.cos(elN * D2R);
+      const d = new T.Vector3(ax, ay, az2);
+      const o = new T.Vector3(0, 16.2, 0).add(d.clone().multiplyScalar(8.4));
+      beam.position.copy(o); beam.lookAt(o.clone().add(d)); glow.position.copy(o);
+    }
+    function frame(t) {
+      raf = requestAnimationFrame(frame);
+      if (document.hidden || !visible || !canvas.clientWidth) return;
+      if (t - last < 33 && !dirty) return;
+      const dt = Math.min(4, (t - last) / 33); last = t; dirty = false;
+      const da = ((((az - azN) % 360) + 540) % 360) - 180;
+      azN += da * Math.min(1, 0.08 * dt); elN += (el - elN) * Math.min(1, 0.08 * dt);
+      place();
+      if (!drag && t - lastUser > 6000) { sway += 0.003 * dt; ph = PH0 + 0.35 * Math.sin(sway); }
+      cam.position.set(tgt.x + rad * Math.sin(th) * Math.sin(ph), tgt.y + rad * Math.cos(th) * 0.9, tgt.z + rad * Math.sin(th) * Math.cos(ph));
+      cam.lookAt(tgt);
+      const k = 0.5 + 0.5 * Math.sin(t / (st === 'run' ? 380 : st === 'halt' ? 170 : 900));
+      glowM.opacity = 0.35 + 0.35 * k;
+      beamM.opacity = st === 'run' ? 0.10 + 0.10 * k : st === 'busy' ? 0.06 + 0.05 * k : 0.0;
+      glow.material.opacity = st === 'run' || st === 'busy' ? 0.5 + 0.4 * k : 0.0;
+      rn.render(scene, cam);
+    }
+    raf = requestAnimationFrame(frame);
+    return {
+      set(o) {
+        if (o.az != null && isFinite(o.az)) az = ((+o.az % 360) + 360) % 360;
+        if (o.el != null && isFinite(o.el)) el = +o.el;
+        if (o.state && o.state !== st) {
+          st = o.state; col = new T.Color(COL[st] || COL.idle);
+          [ring.material, glowM, beamM, glow.material].forEach((m) => m.color.copy(col));
+        }
+        dirty = true;
+      },
+      resize() {
+        const w = canvas.clientWidth, h = canvas.clientHeight;
+        if (!w || !h || (w === lw && h === lh)) return !!(w && h);
+        lw = w; lh = h; rn.setSize(w, h, false); cam.aspect = w / h;
+        cam.fov = w / h < 1.1 ? 36 : 30; cam.updateProjectionMatrix(); dirty = true; return true;
+      },
+      get ready() { return ready; }, get error() { return loadErr; },
+      dispose() { cancelAnimationFrame(raf); rn.dispose(); },
+    };
+  }
+  window.AntModel = { create, COL };
+})();

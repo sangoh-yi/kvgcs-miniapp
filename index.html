@@ -175,9 +175,10 @@
   .tsm-cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
   .tsm-core{background:radial-gradient(140% 70% at 50% 0%,#12284a 0%,#0a1426 50%,#060c18 100%);color:#e6edf3;border-color:rgba(88,166,255,.38)}
   .tsm-core .tsm-h{color:#fff}.tsm-core .dim{color:#8ea2ba}
-  .tsc-wrap{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:10px;align-items:center;margin-top:6px}
-  .tsc-3d{position:relative;height:150px;border-radius:10px;overflow:hidden;border:1px solid rgba(88,166,255,.32);box-shadow:inset 0 0 22px rgba(88,166,255,.12)}
-  .tsc-fx{position:absolute;inset:0}.tsc-fx canvas{position:absolute;left:0;top:0;display:block}.tsc-corebox{position:absolute;inset:0}
+  .tsc-wrap{display:grid;grid-template-columns:1fr;gap:8px;margin-top:6px}
+  .tsc-wrap .tsc-read{display:grid;grid-template-columns:1fr 1fr;gap:1px 12px}.tsc-wrap .tsc-s{grid-column:1/-1}
+  .tsc-3d{position:relative;height:200px;border-radius:10px;overflow:hidden;border:1px solid rgba(88,166,255,.32);box-shadow:inset 0 0 22px rgba(88,166,255,.12)}
+  .tsc-fx{position:absolute;inset:0}.tsc-fx canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
   .tsc-read{display:flex;flex-direction:column;gap:2px;font-size:11.5px}
   .tsc-s{display:flex;align-items:center;gap:6px;font-weight:700;font-size:12.5px;margin-bottom:2px}
   .tsc-s i{width:8px;height:8px;border-radius:50%;background:#58a6ff;box-shadow:0 0 8px #58a6ff}
@@ -303,7 +304,7 @@
 <script>
 const TG=window.Telegram?.WebApp; TG?.ready(); TG?.expand();
 const GIST_ID=(new URLSearchParams(location.search).get("g")||"5404bef7f8d5b9f4e8d2824515fc8728");
-const REV="p10041336";
+const REV="p10041424";
 let GLOBECODE="";      // 지구본 세션 선택(선택기 → postMessage)
 const BODY={};
 async function loadBody(name){
@@ -497,9 +498,9 @@ const sgn=(v,d=0)=>v==null||!isFinite(v)?"—":(v>0?"+":v<0?"−":"")+Math.abs(v
 const K4=4*Math.LN2;
 // 같은 오리진 ts/ 의 three.js·beam3d.js 를 처음 볼 때만 불러온다
 let TS3P=null;
-function ensureThree(){ if(window.Beam3D&&window.Sky3D&&window.CmdFx&&window.PageFx) return Promise.resolve(true); if(TS3P) return TS3P;
+function ensureThree(){ if(window.Beam3D&&window.Sky3D&&window.CmdFx&&window.PageFx&&window.AntModel) return Promise.resolve(true); if(TS3P) return TS3P;
   const ld=src=>new Promise((ok,no)=>{const e=document.createElement("script"); e.src=src+"?v="+REV; e.onload=ok; e.onerror=no; document.head.appendChild(e);});
-  TS3P=ld("./ts/three.min.js").then(()=>ld("./ts/beam3d.js")).then(()=>ld("./ts/sky3d.js")).then(()=>ld("./ts/cmd3d.js")).then(()=>ld("./ts/fx3d.js")).then(()=>true).catch(()=>false); return TS3P; }
+  TS3P=ld("./ts/three.min.js").then(()=>ld("./ts/GLTFLoader.js")).then(()=>ld("./ts/beam3d.js")).then(()=>ld("./ts/sky3d.js")).then(()=>ld("./ts/cmd3d.js")).then(()=>ld("./ts/fx3d.js")).then(()=>ld("./ts/antmodel.js")).then(()=>true).catch(()=>false); return TS3P; }
 function stageIdx(st){ return ({SELECT:0,SLEW:0,TRACK_WAIT:1,PRE_REC:2,REC_ON:3,REC_WAIT:3,REC_OFF:4,DONE:4})[st]??-1; }
 function obsKind(s,cur){ if(!s||s.state!=="RUNNING") return ["ARMED","SETUP","REC_TEST","CROSS","BOOT","READY"].includes(s&&s.state)?"prep":"idle";
   const g=cur&&cur.stage; return g==="REC_WAIT"||g==="REC_ON"?"rec":g==="SLEW"||g==="SELECT"?"slew":g==="TRACK_WAIT"||g==="PRE_REC"?"arm":"idle"; }
@@ -608,15 +609,15 @@ function mountTSCore(){
   if(TAB!=="ts"||!TSL||TSL.err) return;
   const slot=document.getElementById("tsCoreSlot"); if(!slot) return;
   ensureThree().then(okk=>{
-    const sl=document.getElementById("tsCoreSlot"); if(!sl||!okk||!window.CmdFx) return;
+    const sl=document.getElementById("tsCoreSlot"); if(!sl||!okk||!window.AntModel) return;
+    // 세종 22m 실물 모형(ts/antmodel.js · Blender GLB) — 실제 방위·고도로 움직인다(10-04 센터장님 "블렌더로 실제 우리 안테나")
     if(!TSCW){ TSCW=document.createElement("div"); TSCW.className="tsc-fx";
-      const cv=document.createElement("canvas"); cv.className="deck-fx"; const core=document.createElement("div"); core.className="tsc-corebox";
-      TSCW.append(cv,core);
+      const cv=document.createElement("canvas"); cv.className="tsc-ant"; TSCW.append(cv);
       sl.appendChild(TSCW);
-      try{ TSCF=window.CmdFx.create(TSCW,cv,core); }catch(e){ TSCW=null; return; } }
+      try{ TSCF=window.AntModel.create(cv,{url:"./ts/models/sejong22m.glb"}); }catch(e){ TSCW=null; return; } }
     if(TSCW.parentElement!==sl) sl.appendChild(TSCW);
     const a=TSL.antenna||{};
-    TSCF.set({state:tsState(TSL), az:n2(a.az), el:n2(a.el)});
+    TSCF.resize(); TSCF.set({state:tsState(TSL), az:n2(a.az), el:n2(a.el)});
   });
 }
 // 지향 측정 3D 하늘(ts/sky3d.js) — 캔버스 하나를 계속 쓰고 다시 그릴 때마다 자리(tsSkySlot)로 옮긴다(10-03)
