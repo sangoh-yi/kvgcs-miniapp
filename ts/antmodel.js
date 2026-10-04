@@ -5,7 +5,7 @@
  *   사실적 재질(PBR, 하늘 반사) · **실제 해 쪽 그림자**(밤이면 옅은 달빛) · 바닥을 흐르는 **바람 결** · 받침을 감는 **케이블 나선** ·
  *   기단에서 나가는 **데이터 줄기**(기록·전송 중이면 빛이 흐른다) · 장애 난 부품이 **붉게 빛나고** 풀리면 초록으로 사그라진다(10-04).
  *   끌면 둘러보고 · 휠 확대 · 두 번 누르면 처음 시점. 글은 캔버스에 쓰지 않는다.
- * 쓰기: const m = AntModel.create(canvas, { url: '/web/models/sejong22m.glb' });
+ * 쓰기: const m = AntModel.create(canvas, { url: '/web/models/sejong22m.glb', ortho: '/web/models/terrain/site_ortho_1k.jpg'(선택 — 정사영상 바닥) });
  *       m.set({ az, el, state, faults: {mount, hub, data}, hexapod, flow, wrapAz, wind: {wdir, wsp} }); m.resize();
  *   state: idle 파랑 · run 초록 · busy 호박 · halt 빨강 · off 회색
  *   faults: Sejong22m.faults(...) 결과 — 받침·구동부(ACU) · 허브(수신기·DBBC3) · 데이터 줄기(기록·전송)
@@ -80,6 +80,23 @@
     const shadowF = new T.Mesh(new T.CircleGeometry(30, 96), new T.ShadowMaterial({ opacity: 0.55 }));
     shadowF.rotation.x = -Math.PI / 2; shadowF.position.y = 0.01; shadowF.receiveShadow = true; scene.add(shadowF);
     const grid = new T.PolarGridHelper(29, 24, 6, 96, 0x1f3f6e, 0x15294a); grid.position.y = 0.02; scene.add(grid);
+    // 정사영상 바닥(10-04 디지털 트윈 — 가볍게): opts.ortho(1k, 590 m 네모)의 가운데 ±29 m 를 어둡게 눌러 깐다. 가장자리는 어둠으로 흐린다
+    if (opts.ortho) {
+      const fade = document.createElement('canvas'); fade.width = fade.height = 128;
+      const fg = fade.getContext('2d'), gr = fg.createRadialGradient(64, 64, 20, 64, 64, 64);
+      gr.addColorStop(0, '#fff'); gr.addColorStop(0.7, '#bbb'); gr.addColorStop(1, '#000'); fg.fillStyle = gr; fg.fillRect(0, 0, 128, 128);
+      const og = new T.CircleGeometry(29.5, 96), uv = og.attributes.uv, pp = og.attributes.position;
+      for (let i = 0; i < uv.count; i++) uv.setXY(i, 0.5 + pp.getX(i) / 590, 0.5 + pp.getY(i) / 590);
+      const om = new T.MeshBasicMaterial({ color: 0x7d8a99, transparent: true, alphaMap: new T.CanvasTexture(fade), depthWrite: false });
+      const disc = new T.Mesh(og, om); disc.rotation.x = -Math.PI / 2; disc.position.y = 0.006; disc.visible = false; scene.add(disc);
+      const put = (tex) => { tex.encoding = T.sRGBEncoding; tex.anisotropy = 4; om.map = tex; om.needsUpdate = true; disc.visible = true; grid.material.opacity = 0.45; grid.material.transparent = true; dirty = true; };
+      const u = opts.ortho;
+      if (window.TSX && window.TSX.has && window.TSX.has(u)) {
+        const rel = new URL(u, location.href).href.split('?')[0].slice(window.TSX.base.length);
+        window.TSX.fetch(rel).then((b) => createImageBitmap(new Blob([b], { type: 'image/jpeg' }), { imageOrientation: 'flipY' }))
+          .then((bm) => { const t = new T.Texture(bm); t.flipY = false; t.needsUpdate = true; put(t); }).catch(() => {});
+      } else new T.TextureLoader().load(u, put, undefined, () => {});
+    }
     const ring = new T.Mesh(new T.PlaneGeometry(46, 46), new T.MeshBasicMaterial({ map: ringTex(T), transparent: true, depthWrite: false, color: COL.idle }));
     ring.rotation.x = -Math.PI / 2; ring.position.y = 0.03; scene.add(ring);
     const glowM = new T.MeshBasicMaterial({ color: COL.idle, transparent: true, opacity: 0.55, depthWrite: false, blending: T.AdditiveBlending, side: T.DoubleSide });

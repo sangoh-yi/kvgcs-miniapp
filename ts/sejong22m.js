@@ -12,6 +12,7 @@
  *         hexapod: 참이면 부반사경이 아직 자리 잡는 중(ACU Dio Out 0x40) — 호박색 맥동, 잡히면 초록 한 번
  *         flow: 'flow'(기록·전송 중 — 빛이 흐른다) · 'idle'(옅게) · 'bad'(멈추고 붉다) — 데이터 줄기
  *         wrapAz: ACU 방위 원값(−90~450) — 받침을 감는 나선(케이블 감김)에서 지금 자리까지 밝힌다(wrap 를 켰을 때)
+ *       A.setTrunk(pts)   — 데이터 줄기 길을 바꾼다([[x, y, z], …] 모형 좌표 m — 지형 쌍둥이에서 관측동 현관까지)
  *       A.tick(ms)        — 그리기 직전에 부른다. 빛이 움직이는 중이면 참(계속 그려야 한다)
  *       A.parts.<이름>    — 이름표 자리(Object3D): feed sub dish quad bus rx elax alid yoke cone found
  *       A.ready()         — 다 불러왔는가
@@ -107,7 +108,24 @@
       if (!ok) return;
       AZN.rotation.y = (180 - az) * D2R; ELN.rotation.x = (90 - el) * D2R;
     }
-    const api = { place, parts, ready: () => ok, status, tick, get model() { return model; } };
+    let trunkPath = null;
+    // 데이터 줄기 길 바꾸기(10-04 디지털 트윈 — 지형 위로 관측동 현관까지). pts = [[x, y, z], …] 모형 좌표(m, x 동 · y 높이 · z −북)
+    let trunk0 = null;
+    function setTrunk(pts) {                    // pts 가 없으면 처음 길(기단 둘레 짧은 빛 관)로 되돌린다
+      trunkPath = pts;
+      if (!trunk) return;
+      if (!trunk0) trunk0 = trunk.geometry;
+      let g = trunk0, len = 15;
+      if (pts && pts.length >= 2) {
+        const curve = new T.CatmullRomCurve3(pts.map((p) => new T.Vector3(p[0], p[1], p[2])));
+        g = new T.TubeGeometry(curve, Math.max(96, pts.length * 10), 0.16, 8, false); len = curve.getLength();
+      }
+      if (trunk.geometry !== trunk0 && trunk.geometry !== g) trunk.geometry.dispose();
+      trunk.geometry = g;
+      if (G.data) for (const m of G.data.meshes) m.geometry = g;
+      trunkM.uniforms.uN.value = pts ? Math.max(6, len / 1.8) : 9.0;
+    }
+    const api = { place, parts, ready: () => ok, status, tick, setTrunk, get model() { return model; } };
     if (!T || !T.GLTFLoader) { if (o.onerror) o.onerror(new Error('three.js · GLTFLoader 없음')); return api; }
     // 미니앱 잠금판(miniapp_lock.py)이면 window.TSX 가 암호문을 받아 풀어 준다 — 아니면 지금처럼 주소로
     const L = new T.GLTFLoader(), url = o.url || 'models/sejong22m.glb';
@@ -166,6 +184,7 @@
       model = m;
       (o.parent || scene).add(m);
       ok = true; place(); status({});
+      if (trunkPath) setTrunk(trunkPath);
       if (o.onload) o.onload(m);
     };
     if (window.TSX && window.TSX.glb) window.TSX.glb(url).then((buf) => L.parse(buf, '', done, fail), fail);
