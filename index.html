@@ -202,9 +202,6 @@
     background:radial-gradient(130% 95% at 50% 14%,#1b2a45 0%,#0d1728 52%,#0a1220 100%)}
   .tsm-antf{position:absolute;border:0;border-radius:10px;z-index:2;background:transparent;display:none}
   .tsm-sub{font-size:11.5px;font-weight:700;margin-top:6px}.tsm-sub .dim{font-weight:400}
-  .pf-svg{width:100%;height:150px;display:block}.pf-bg{fill:color-mix(in srgb,var(--card2) 80%,transparent)}.pf-grid{stroke:var(--line);stroke-width:1}
-  .pf-pt{fill:var(--dim);opacity:.85}.pf-fit{fill:none;stroke:#f778ba;stroke-width:2}.pf-x0{stroke:#fff;stroke-width:1.5}.pf-x0l{font-size:10px;fill:var(--tx);font-family:ui-monospace,monospace}
-  .pf-res{fill:color-mix(in srgb,var(--card2) 70%,transparent)}.pf-3s{stroke:var(--warn);stroke-dasharray:3 3;stroke-width:1}.pf-rp{fill:var(--navy);opacity:.8}.pf-out{fill:var(--bad)}
   .tsm-kv{display:grid;grid-template-columns:72px auto 1fr;gap:2px 8px;align-items:center;font-size:12px;padding:3px 0}
   .tsm-kv span{color:var(--dim)}.tsm-kv b{font-family:ui-monospace,monospace}.tsm-kv em{font-style:normal;font-size:10.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .tsm-bar{grid-column:1/-1;display:block;height:5px;border-radius:3px;background:var(--line);overflow:hidden}.tsm-bar i{display:block;height:100%;border-radius:3px}
@@ -304,7 +301,7 @@
 <script>
 const TG=window.Telegram?.WebApp; TG?.ready(); TG?.expand();
 const GIST_ID=(new URLSearchParams(location.search).get("g")||"5404bef7f8d5b9f4e8d2824515fc8728");
-const REV="p10041554";
+const REV="p10041701";
 let GLOBECODE="";      // 지구본 세션 선택(선택기 → postMessage)
 const BODY={};
 async function loadBody(name){
@@ -547,25 +544,6 @@ function tlSvg(t,cur){                            // 스캔 시간표 — 입체
   if(xNow!=null) g+=`<line x1="${xNow}" x2="${xNow}" y1="${top-5}" y2="${top+bh+5}" stroke="#fff" stroke-width="5" opacity=".55" filter="url(#tlGw)" class="tl-pulse"/><line x1="${xNow}" x2="${xNow}" y1="${top-5}" y2="${top+bh+5}" stroke="#fff" stroke-width="1.6"/>`;
   return `<svg class="tl-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${g}</svg>`;
 }
-function profSvg(f,pts,hp,lbl){                   // 단면 — 측정 점 · 맞춘 곡선 · x0 · 잔차 띠(±3σ)
-  const W=330,H=150,L=30,R=6,T=6,resH=34,gap=5,B=14,ph=H-T-B-resH-gap,pw=W-L-R;
-  if(!f||f.amp==null||!f.fwhm) return `<div class="tsm-note">${esc(lbl)} 맞춤 없음</div>`;
-  const fy=x=>f.base+(f.slope||0)*x+f.amp*Math.exp(-K4*(x-f.x0)**2/(f.fwhm*f.fwhm));
-  let xlo=-3*hp,xhi=3*hp; if(pts.length){xlo=Math.min(xlo,pts[0][0]);xhi=Math.max(xhi,pts[pts.length-1][0]);}
-  let ylo=1e9,yhi=-1e9; const cv=[]; for(let k=0;k<=120;k++){const x=xlo+(xhi-xlo)*k/120,y=fy(x);cv.push([x,y]);ylo=Math.min(ylo,y);yhi=Math.max(yhi,y);}
-  for(const p of pts){ylo=Math.min(ylo,p[1]);yhi=Math.max(yhi,p[1]);} const pad=(yhi-ylo)*.08; ylo-=pad; yhi+=pad*2;
-  const X=x=>L+(x-xlo)/(xhi-xlo)*pw, Y=y=>T+(1-(y-ylo)/(yhi-ylo))*ph;
-  let g=`<rect x="${L}" y="${T}" width="${pw}" height="${ph}" class="pf-bg"/>`;
-  for(const v of [-hp*2,0,hp*2]) g+=`<line x1="${X(v)}" x2="${X(v)}" y1="${T}" y2="${T+ph+gap+resH}" class="pf-grid"/><text x="${X(v)}" y="${H-2}" text-anchor="middle" class="mc-l">${v?sgn(v):"0″"}</text>`;
-  g+=pts.map(p=>`<circle cx="${X(p[0]).toFixed(1)}" cy="${Y(p[1]).toFixed(1)}" r="1.7" class="pf-pt"/>`).join("");
-  g+=`<path d="${cv.map((p,k)=>(k?"L":"M")+X(p[0]).toFixed(1)+" "+Y(p[1]).toFixed(1)).join("")}" class="pf-fit"/>`;
-  g+=`<line x1="${X(f.x0)}" x2="${X(f.x0)}" y1="${T}" y2="${T+ph}" class="pf-x0"/><text x="${X(f.x0)+4}" y="${T+10}" class="pf-x0l">x0 ${sgn(f.x0)}</text>`;
-  const res=pts.map(p=>[p[0],p[1]-fy(p[0])]), sd=Math.sqrt(res.reduce((a,r)=>a+r[1]*r[1],0)/Math.max(1,res.length))||1e-6;
-  const lim=Math.max(3.5*sd,...res.map(r=>Math.abs(r[1])))*1.08, y0=T+ph+gap, RY=r=>y0+resH/2-r/lim*(resH/2);
-  g+=`<rect x="${L}" y="${y0}" width="${pw}" height="${resH}" class="pf-res"/><line x1="${L}" x2="${W-R}" y1="${RY(3*sd)}" y2="${RY(3*sd)}" class="pf-3s"/><line x1="${L}" x2="${W-R}" y1="${RY(-3*sd)}" y2="${RY(-3*sd)}" class="pf-3s"/>`+
-     `<text x="${L-3}" y="${y0+9}" text-anchor="end" class="mc-l">잔차</text>`+res.map(r=>`<circle cx="${X(r[0]).toFixed(1)}" cy="${RY(r[1]).toFixed(1)}" r="1.5" class="${Math.abs(r[1])>3*sd?"pf-out":"pf-rp"}"/>`).join("");
-  return `<div class="tsm-sub">${esc(lbl)} <span class="dim">오프셋 <b>${sgn(f.x0)}</b> · 빔폭 <b>${Math.round(f.fwhm)}″</b> · SNR <b>${f.snr!=null?(+f.snr).toFixed(1):"—"}</b></span></div><svg class="pf-svg" viewBox="0 0 ${W} ${H}">${g}</svg>`;
-}
 const kvBar=(v,max,cls)=>`<span class="tsm-bar ${cls}"><i style="width:${Math.max(2,Math.min(100,v/max*100)).toFixed(1)}%"></i></span>`;
 const q3=(v,a,b)=>v<=a?"good":v<=b?"warn":"bad";
 // 지향 모형 측정(10-03 센터장님 "포인팅 관측도 관측이니까 미니앱에도") — 운용 화면 '지금 스캔' 칸과 같은 내용
@@ -700,7 +678,7 @@ function vTSL(){
     h+=`<div class="tsl-fil" style="margin-top:6px">${names.map(n=>`<div class="${TSCH===n?"on":""}" onclick="TSCH='${n}';TSSIG='';render()">${n}</div>`).join("")}<div onclick="if(TS3D)TS3D.reset()">시점 처음</div></div>
       <div class="tsm-3d" id="tsBeamSlot"><div class="tsm-3dn" id="tsBeamNote">3D 준비 중…</div></div>`;
     const ch=cf.channels[TSCH], fa=ch.fits.Az, fe=ch.fits.El, hp=n2(ch.hp)||(ch.band==="X"?400:1200);
-    h+=profSvg(fa,ch.pts.Az||[],hp,"방위 단면 Az")+profSvg(fe,ch.pts.El||[],hp,"고도 단면 El");
+    // 방위·고도 단면 그림은 걷었다(10-04 센터장님 "크로스 스캔에서 이제 방위·고도 단면 그래프 필요 없음") — 아래 자세한 분석·채널 표에 수치가 있다
     if(fa&&fe&&fa.fwhm&&fe.fwhm){const off=Math.hypot(fa.x0,fe.x0),ob2=off/((fa.fwhm+fe.fwhm)/2)*100,l0=(1-Math.exp(-K4*(fa.x0**2/fa.fwhm**2+fe.x0**2/fe.fwhm**2)))*100,
       pc=s.pointing_corr||{},ca=(n2(pc.az_arcsec)||0),ce=(n2(pc.el_arcsec)||0),l1=(1-Math.exp(-K4*((fa.x0-ca)**2/fa.fwhm**2+(fe.x0-ce)**2/fe.fwhm**2)))*100,
       ell=Math.max(fa.fwhm,fe.fwhm)/Math.min(fa.fwhm,fe.fwhm),snr=Math.min(n2(fa.snr)||0,n2(fe.snr)||0);
