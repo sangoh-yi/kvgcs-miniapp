@@ -173,6 +173,20 @@
     background:radial-gradient(ellipse at 50% 30%,rgba(88,166,255,.18),transparent 62%),linear-gradient(180deg,#0a1222,#060a14);box-shadow:inset 0 0 36px rgba(0,0,0,.55)}
   .tsm-3dn{position:absolute;inset:0;display:grid;place-items:center;font-size:12px;color:#8ba0b8}
   .tsm-cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+  .tsm-core{background:radial-gradient(140% 70% at 50% 0%,#12284a 0%,#0a1426 50%,#060c18 100%);color:#e6edf3;border-color:rgba(88,166,255,.38)}
+  .tsm-core .tsm-h{color:#fff}.tsm-core .dim{color:#8ea2ba}
+  .tsc-wrap{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:10px;align-items:center;margin-top:6px}
+  .tsc-3d{position:relative;height:150px;border-radius:10px;overflow:hidden;border:1px solid rgba(88,166,255,.32);box-shadow:inset 0 0 22px rgba(88,166,255,.12)}
+  .tsc-fx{position:absolute;inset:0}.tsc-fx canvas{position:absolute;left:0;top:0;display:block}.tsc-corebox{position:absolute;inset:0}
+  .tsc-read{display:flex;flex-direction:column;gap:2px;font-size:11.5px}
+  .tsc-s{display:flex;align-items:center;gap:6px;font-weight:700;font-size:12.5px;margin-bottom:2px}
+  .tsc-s i{width:8px;height:8px;border-radius:50%;background:#58a6ff;box-shadow:0 0 8px #58a6ff}
+  .tsc-run i{background:#3fb950;box-shadow:0 0 8px #3fb950}.tsc-busy i{background:#e3b341;box-shadow:0 0 8px #e3b341}.tsc-halt i{background:#f85149;box-shadow:0 0 8px #f85149}.tsc-off i{background:#6e7f94}
+  .tsc-k{display:flex;justify-content:space-between;border-bottom:1px dashed rgba(88,166,255,.14);padding:1px 0}.tsc-k span{color:#7f93ab}.tsc-k b{color:#fff}
+  .tsc-led{display:flex;flex-wrap:wrap;gap:3px 9px;margin-top:8px;font:700 10px var(--mono,monospace);color:#6f8299}
+  .tsc-led span{display:inline-flex;align-items:center;gap:3px}.tsc-led i{width:6px;height:6px;border-radius:50%;background:#3a4656}
+  .tsc-led span.on{color:#a9c7e8}.tsc-led span.on i{background:#3fb950;box-shadow:0 0 6px #3fb950;animation:tscled 2.6s ease-in-out infinite;animation-delay:var(--d)}
+  @keyframes tscled{0%,100%{opacity:1}45%{opacity:.35}50%{opacity:1}}
   .tsm-sky3d{position:relative;height:250px;border-radius:10px;overflow:hidden;margin:6px 0 4px;border:1px solid rgba(88,166,255,.28);
     background:radial-gradient(120% 90% at 50% 18%,#132a4a,#081223 58%,#050b16);box-shadow:inset 0 0 36px rgba(0,0,0,.55)}
   .tsm-pcleg{display:flex;flex-wrap:wrap;align-items:center;gap:4px 5px;font-size:10.5px;color:var(--dim)}
@@ -283,7 +297,7 @@
 <script>
 const TG=window.Telegram?.WebApp; TG?.ready(); TG?.expand();
 const GIST_ID=(new URLSearchParams(location.search).get("g")||"5404bef7f8d5b9f4e8d2824515fc8728");
-const REV="p10040856";
+const REV="p10041145";
 let GLOBECODE="";      // 지구본 세션 선택(선택기 → postMessage)
 const BODY={};
 async function loadBody(name){
@@ -477,9 +491,9 @@ const sgn=(v,d=0)=>v==null||!isFinite(v)?"—":(v>0?"+":v<0?"−":"")+Math.abs(v
 const K4=4*Math.LN2;
 // 같은 오리진 ts/ 의 three.js·beam3d.js 를 처음 볼 때만 불러온다
 let TS3P=null;
-function ensureThree(){ if(window.Beam3D&&window.Sky3D) return Promise.resolve(true); if(TS3P) return TS3P;
+function ensureThree(){ if(window.Beam3D&&window.Sky3D&&window.CmdFx) return Promise.resolve(true); if(TS3P) return TS3P;
   const ld=src=>new Promise((ok,no)=>{const e=document.createElement("script"); e.src=src+"?v="+REV; e.onload=ok; e.onerror=no; document.head.appendChild(e);});
-  TS3P=ld("./ts/three.min.js").then(()=>ld("./ts/beam3d.js")).then(()=>ld("./ts/sky3d.js")).then(()=>true).catch(()=>false); return TS3P; }
+  TS3P=ld("./ts/three.min.js").then(()=>ld("./ts/beam3d.js")).then(()=>ld("./ts/sky3d.js")).then(()=>ld("./ts/cmd3d.js")).then(()=>true).catch(()=>false); return TS3P; }
 function stageIdx(st){ return ({SELECT:0,SLEW:0,TRACK_WAIT:1,PRE_REC:2,REC_ON:3,REC_WAIT:3,REC_OFF:4,DONE:4})[st]??-1; }
 function obsKind(s,cur){ if(!s||s.state!=="RUNNING") return ["ARMED","SETUP","REC_TEST","CROSS","BOOT","READY"].includes(s&&s.state)?"prep":"idle";
   const g=cur&&cur.stage; return g==="REC_WAIT"||g==="REC_ON"?"rec":g==="SLEW"||g==="SELECT"?"slew":g==="TRACK_WAIT"||g==="PRE_REC"?"arm":"idle"; }
@@ -561,6 +575,44 @@ function tsPcamp(t){
     <div class="tsm-pcst"><span>점 <b class="mono">${pc.n}</b></span><span>X 쓸 수 있음 <b class="mono">${pc.n_ok}</b></span><span>보정 뒤 <b class="mono">${pc.n_refrac}</b></span><span>사분면 <b class="mono" style="${quads>=4?"color:var(--ok)":""}">${quads}/4</b></span><span>고도 <b class="mono">${els.length?`${Math.min(...els).toFixed(0)}~${Math.max(...els).toFixed(0)}°`:"—"}</b></span></div>
     <div class="tsm-pcrows">${rows}</div></div>`;
 }
+// ThreeStar 상태(10-04) — 대시보드 명령 칸의 레이더 홀로그램 코어(ts/cmd3d.js)·상태·장비 LED. 명령 단추는 없다(미니앱은 조회 전용)
+function tsState(t){
+  const a=t.antenna||{}, s=t.session||{}, st=t.stage||{}, pc=t.pcamp||{};
+  const busyS=!!s.state&&["IDLE","DONE","FAILED","ABORTED"].indexOf(s.state)<0;
+  if(String(a.point||"").indexOf("Halt")>=0) return "halt";
+  if(busyS) return "run";
+  if((st.kind==="cross_test"&&st.state==="running")||(pc.now&&pc.now.running)) return "busy";
+  if(t.phase==="off") return "off";
+  return "idle";
+}
+function tsCore(t){
+  const a=t.antenna||{}, s=t.session||null, k=tsState(t), op=t.real_open||[], on=d=>op.indexOf(d)>=0;
+  const KO={halt:"구동 멈춤",run:"세션 도는 중",busy:(t.stage&&t.stage.kind==="cross_test"&&t.stage.state==="running")?"십자 스캔 중":"지향 측정 훑는 중",off:"장비 연결 꺼짐",idle:"대기"};
+  const led=[["터널",!!t.tunnel],["ACU",on("acu")],["DBBC3",on("dbbc3")],["기록기",on("flexbuff")],["TPD",on("tpd")],["MCAST",!!(t.mcast&&t.mcast.connected)],["AWS",on("aws")]];
+  return `<div class="card tsm tsm-core"><div class="tsm-h">ThreeStar 상태 <span class="dim">자동 운용 · 조회 전용</span><span class="tsm-badge ${k==="run"||k==="busy"?"run":""}" style="margin-left:auto"><i></i>${esc({off:"끔",query:"조회",setup:"구성",observe:"관측"}[t.phase]||t.phase||"—")}</span></div>
+    <div class="tsc-wrap"><div class="tsc-3d" id="tsCoreSlot"></div>
+      <div class="tsc-read"><div class="tsc-s tsc-${k}"><i></i>${KO[k]}</div>
+        <div class="tsc-k"><span>방위</span><b class="mono">${n2(a.az)?.toFixed(1)??"–"}°</b></div><div class="tsc-k"><span>고도</span><b class="mono">${n2(a.el)?.toFixed(1)??"–"}°</b></div>
+        <div class="tsc-k"><span>ACU</span><b>${esc(a.point||"—")}</b></div><div class="tsc-k"><span>세션</span><b class="mono">${s&&s.code?esc(s.code):"없음"}</b></div>
+        <div class="tsc-k"><span>KVGCS</span><b>${t.kvgcs_down?"내려감":"돌고 있음"}</b></div></div></div>
+    <div class="tsc-led">${led.map(([n,o],i)=>`<span class="${o?"on":""}" style="--d:${(i*0.23).toFixed(2)}s"><i></i>${n}</span>`).join("")}</div></div>`;
+}
+let TSCF=null, TSCW=null;
+function mountTSCore(){
+  if(TAB!=="ts"||!TSL||TSL.err) return;
+  const slot=document.getElementById("tsCoreSlot"); if(!slot) return;
+  ensureThree().then(okk=>{
+    const sl=document.getElementById("tsCoreSlot"); if(!sl||!okk||!window.CmdFx) return;
+    if(!TSCW){ TSCW=document.createElement("div"); TSCW.className="tsc-fx";
+      const cv=document.createElement("canvas"); cv.className="deck-fx"; const core=document.createElement("div"); core.className="tsc-corebox";
+      TSCW.append(cv,core);
+      sl.appendChild(TSCW);
+      try{ TSCF=window.CmdFx.create(TSCW,cv,core); }catch(e){ TSCW=null; return; } }
+    if(TSCW.parentElement!==sl) sl.appendChild(TSCW);
+    const a=TSL.antenna||{};
+    TSCF.set({state:tsState(TSL), az:n2(a.az), el:n2(a.el)});
+  });
+}
 // 지향 측정 3D 하늘(ts/sky3d.js) — 캔버스 하나를 계속 쓰고 다시 그릴 때마다 자리(tsSkySlot)로 옮긴다(10-03)
 let TSKY=null, TSKW=null, TSKT=null;
 function mountTSSky(){
@@ -586,8 +638,8 @@ function vTSL(){
   const t=TSL, noS=!t.session, s=t.session||{state:"IDLE",state_ko:"세션 없음",counts:{}}, cur=s.current||{}, nx=s.next||{}, now=Date.now()/1000, c=s.counts||{};
   const ok=k=>n2(c[k])||0, done=s.done||0, N=s.n_scans||0, pct=done/Math.max(1,N)*100;
   const ob=obsKind(s,cur), al=t.alerts||[];
-  let h;
-  if(noS){ h=`<div class="card tsm tsm-hero"><div class="tsm-top">${TS_RANK}<div><b class="tsm-brand">Three<span>Star</span></b><div class="dim mono" style="font-size:11px">v${esc(t.version||"?")}</div></div><div class="tsm-sess"><span class="dim">세션 없음 · 지향 모형 측정 중</span></div></div></div>`+tsPcamp(t); }
+  let h, late="";                                  // late = 전송·시간표 — 십자 스캔 뒤에(10-04 대시보드처럼 지금 스캔·안테나·십자 스캔을 붙여)
+  if(noS){ h=`<div class="card tsm tsm-hero"><div class="tsm-top">${TS_RANK}<div><b class="tsm-brand">Three<span>Star</span></b><div class="dim mono" style="font-size:11px">v${esc(t.version||"?")}</div></div><div class="tsm-sess"><span class="dim">세션 없음 · 지향 모형 측정 중</span></div></div></div>`+tsCore(t)+tsPcamp(t); }
   else {
   // A. 머리 HUD
   h=`<div class="card tsm tsm-hero"><div class="tsm-top">${TS_RANK}<div><b class="tsm-brand">Three<span>Star</span></b><div class="dim mono" style="font-size:11px">v${esc(t.version||"?")}</div></div>
@@ -595,6 +647,7 @@ function vTSL(){
     <div class="tsm-hud"><span class="hud-o" data-k="${ob}"><i></i><b>${OBS_T[ob][0]}</b><span class="mono">${esc(ob==="rec"||ob==="slew"||ob==="arm"?`${cur.scan||""} · ${cur.source||""}`:OBS_T[ob][1])}</span></span>
       ${al.length?`<span class="hud-a"><i></i><b>${al.length}</b> 경보</span>`:""}
       <span class="tsm-clk"><span class="dim">KST</span> <b class="mono" id="tsClk">${kst(now)}</b><br><span class="dim mono" style="font-size:10.5px">UTC <span id="tsUtc">${new Date(now*1000).toISOString().slice(11,19)}</span></span></span></div></div>`;
+  h+=tsCore(t);                                    // ThreeStar 상태 — 대시보드 명령 칸의 레이더 코어·장비 LED(조회 전용, 10-04)
   // B. 스캔 끝 막대
   const segs=Object.keys(TS_COL).filter(k=>k!=="running"&&c[k]).map(k=>`<i style="width:${(c[k]/Math.max(1,N)*100).toFixed(2)}%;background:${TS_COL[k]}"></i>`).join("");
   h+=`<div class="card tsm"><div class="tsm-prog-h"><span><b class="mono">${done}</b> / ${N} 스캔 끝</span><span class="tsm-pct">${pct.toFixed(1)} %</span></div>
@@ -616,14 +669,14 @@ function vTSL(){
   // D. 데이터 전송
   const et=((D&&D.transfers)||[]).find(e=>(e.exp||"").toLowerCase()===(s.code||"").toLowerCase())||((D&&D.transfers)||[])[0];
   if(et&&et.total_groups){const sent=n2(et.done_groups)||0,tot=n2(et.total_groups)||1,xp=Math.min(100,sent/tot*100),rf=Math.min(tot,(ok("ok")+ok("late")+ok("suspect"))*3),lag=Math.max(0,rf-sent);
-    h+=`<div class="card tsm tsm-xf"><div class="tsm-h">데이터 전송 <span class="dim">e-transfer → ${esc(et.target||"")}</span><span class="tsm-badge run" style="margin-left:auto"><i></i>보내는 중</span></div>
+    late+=`<div class="card tsm tsm-xf"><div class="tsm-h">데이터 전송 <span class="dim">e-transfer → ${esc(et.target||"")}</span><span class="tsm-badge run" style="margin-left:auto"><i></i>보내는 중</span></div>
       <div class="xf-row"><div class="xf-pc">${xp.toFixed(xp<10?1:0)}<small>%</small></div><div class="dim" style="font-size:12px"><b class="mono" style="font-size:15px;color:var(--tx)">${sent}</b> / ${tot} 파일<br>스캔 ${Math.floor(sent/3)} / ${Math.round(tot/3)}</div></div>
       <div class="xf-bar"><i class="rec" style="width:${(rf/tot*100).toFixed(2)}%"></i><i class="sent" style="width:${xp.toFixed(2)}%"></i><b style="left:${(rf/tot*100).toFixed(2)}%"></b></div>
       <div class="tsm-leg" style="margin-top:6px"><span><i style="background:#39c5cf"></i>보냄 <b>${sent}</b></span><span><i style="background:rgba(160,180,210,.5)"></i>기록됨 <b>${rf}</b></span><span>밀림 <b>${lag}</b> 파일</span></div>
       <div class="grid g3 tsm-stats"><div><span>순간 속도</span><b>${n2(et.rate_mbs)!=null?(+et.rate_mbs).toFixed(0)+" MB/s":esc(et.rate_mbs||"—")}</b></div><div><span>나머지</span><b>${tot-sent} 파일</b></div><div><span>예상 끝</span><b style="font-size:11px">${esc(et.finish||"—")}</b></div></div></div>`;}
   // E. 스캔 시간표
-  h+=`<div class="card tsm"><div class="tsm-h">스캔 시간표 <span class="dim">${N}개 · KST</span></div>${tlSvg(t,cur)}</div>`;
-  if(t.pcamp) h+=tsPcamp(t);
+  late+=`<div class="card tsm"><div class="tsm-h">스캔 시간표 <span class="dim">${N}개 · KST</span></div>${tlSvg(t,cur)}</div>`;
+  if(t.pcamp) late+=tsPcamp(t);
   }
   // F. 안테나
   const a=t.antenna||{};
@@ -652,6 +705,7 @@ function vTSL(){
     h+=`<ul class="tsm-rs">${(cf.reasons||[]).map(r=>`<li>${esc(r)}</li>`).join("")}</ul>`;
   } else h+=`<div class="tsm-note">십자 스캔 자료 없음</div>`;
   h+=`</div>`;
+  h+=late;
   // H. 장비 · I. 경보
   const lk=(t.links||[]).map(l=>`<div class="tsl-link"><i style="background:${l.stale>0?"var(--bad)":"var(--ok)"}"></i><span>${esc(l.name)}</span></div>`).join("");
   const recNow=cur.stage==="REC_WAIT";
@@ -941,7 +995,7 @@ function render(full=true){
   const app=document.getElementById("app");
   app.innerHTML=`<div class="view">${v()}</div>`;
   mountFrames();
-  mountTS3D(); mountTSAnt(); mountTSSky();
+  mountTS3D(); mountTSAnt(); mountTSSky(); mountTSCore();
   document.getElementById("foot").innerHTML=
     `<span class="pulse" style="color:${stale?"var(--bad)":"var(--ok)"}"></span>
      ${ago(age)} 갱신 · 15초마다 자동 · 조회 전용`;
