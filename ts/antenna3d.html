@@ -269,7 +269,7 @@ if(T&&hasGL()){try{A3D=(function(){
   const TER={on:false,mesh:null,ring:null,busy:false,twin:null,dem:null};
   async function setTerrain(on){
     TER.on=!!on; GND.visible=!TER.on; if(WIND)WIND.group.visible=!TER.on;
-    if(TER.mesh)TER.mesh.visible=TER.on; if(TER.ring)TER.ring.visible=TER.on; if(TER.twin)TER.twin.visible=TER.on;
+    if(TER.mesh)TER.mesh.visible=TER.on; if(TER.shadow)TER.shadow.visible=TER.on; if(TER.ring)TER.ring.visible=TER.on; if(TER.twin)TER.twin.visible=TER.on;
     if(ANT&&ANT.setTrunk)ANT.setTrunk(TER.on&&TER.path?TER.path:TRUNK0);
     // 지형일 때는 안개를 화면 바탕색(#0a1120, sRGB → 선형)으로 — 사진 끝이 바탕에 녹아든다
     scene.fog=TER.on?new T.Fog(new T.Color(0x0a1120).convertSRGBToLinear(),330,980):(EMBED?null:new T.Fog(0x0a1120,240,560));
@@ -280,10 +280,13 @@ if(T&&hasGL()){try{A3D=(function(){
       // 미니앱 잠금판이면 TSX 가 암호문(x/<사이트 기준 경로>.bin)을 풀어 준다
       const base='models/terrain/', get=async(u,t)=>{ if(window.TSX&&TSX.fetch&&TSX.has&&TSX.has(u)){const rel=new URL(u,location.href).href.split('?')[0].slice(TSX.base.length);
           const b=await TSX.fetch(rel);return t==='json'?JSON.parse(new TextDecoder().decode(b)):new Blob([b],{type:'image/jpeg'});}
+        if(t==='img')return u;   // 잠금판이 아니면 그림은 주소 그대로(10-05 — 큰 그림을 blob 으로 거치면 크롬이 디스크에 내려 두다 깨질 수 있다)
         const r=await fetch(u,{cache:'force-cache'}); if(!r.ok)throw new Error(u+' '+r.status); return t==='json'?r.json():r.blob(); };
-      // 무늬 크기 — 큰 화면(크게 보기·상황실) 4k · 카드 2k · 아주 작은 창 1k
-      const big=Math.max(innerWidth,innerHeight), oname=big<520?'site_ortho_1k.jpg':(EMBED&&!BARE)||big<1100?'site_ortho.jpg':'site_ortho_4k.jpg';
-      const [dem,hz,img]=await Promise.all([get(base+'site_dem.json','json'),get(base+'horizon.json','json'),get(base+oname,'blob')]);
+      // 무늬 크기 — 10-05 화질(센터장님 "정사영상 화질이 너무 안 좋은데"): 작은 창이 1k(0.58 m/px)를 받아 뭉개지던 것을 막는다.
+      //   늘 2k(0.29 m/px — 원본 0.25 m 와 거의 같다) 이상 · 데스크톱의 큰 화면(크게 보기·상황실)은 4k. 휴대폰·미니앱은 메모리 때문에 2k 까지
+      const px=Math.max(innerWidth,innerHeight)*Math.min(devicePixelRatio||1,2), mobile=!!FEEDURL||/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent),
+            oname=!mobile&&px>=1100&&!(EMBED&&!BARE)?'site_ortho_4k.jpg':'site_ortho.jpg';
+      const [dem,hz,img]=await Promise.all([get(base+'site_dem.json','json'),get(base+'horizon.json','json'),get(base+oname,'img')]);
       TER.dem=dem;
       const K=1.7, S=dem.side_m*K, N=dem.n, geo=new T.PlaneGeometry(S,S,N-1,N-1); geo.rotateX(-Math.PI/2);
       const pos=geo.attributes.position;
@@ -291,11 +294,15 @@ if(T&&hasGL()){try{A3D=(function(){
         // 보정판(v2)은 그대로 · 옛 판은 안테나 둘레 14 m 를 마당으로 눌러 30 m 까지 잇는다
         const w=dem.corrected?1:r<14?0:r>30?1:(r-14)/16; pos.setY(k,(dem.h[i*N+j]||0)*K*w*w*(3-2*w)-0.05);}
       geo.computeVertexNormals();
-      const tex=new T.Texture(); tex.image=await createImageBitmap(img,{imageOrientation:'flipY'}).catch(()=>null);
-      if(!tex.image){const im=new Image(); im.src=URL.createObjectURL(img); await im.decode(); tex.image=im; tex.flipY=true;} else tex.flipY=false;
-      tex.encoding=T.sRGBEncoding; tex.anisotropy=Math.min(8,rn.capabilities.getMaxAnisotropy()); tex.needsUpdate=true;
-      TER.mesh=new T.Mesh(geo,new T.MeshStandardMaterial({map:tex,roughness:1,metalness:0,envMapIntensity:.25}));
-      TER.mesh.receiveShadow=true; scene.add(TER.mesh);
+      const tex=new T.Texture(); let imgEl=null;
+      if(typeof img==='string'){ imgEl=new Image(); imgEl.decoding='async'; imgEl.src=img; await imgEl.decode(); tex.image=imgEl; tex.flipY=true; }
+      else{ tex.image=await createImageBitmap(img,{imageOrientation:'flipY'}).catch(()=>null);
+        if(!tex.image){const im=new Image(); im.src=URL.createObjectURL(img); await im.decode(); tex.image=im; tex.flipY=true;} else tex.flipY=false; }
+      tex.encoding=T.sRGBEncoding; tex.anisotropy=rn.capabilities.getMaxAnisotropy(); tex.needsUpdate=true;   // 비스듬히 봐도 흐려지지 않게 이방성 최대
+      // 사진 색 그대로(조명·ACES 톤 매핑을 받으면 어둡고 흐려졌다 — 10-05) — 정사영상에 해 그늘이 이미 들어 있다. 안테나·건물 그림자는 위에 따로 얹는다
+      TER.mesh=new T.Mesh(geo,new T.MeshBasicMaterial({map:tex,color:0xeeeeee,toneMapped:false}));
+      scene.add(TER.mesh);
+      TER.shadow=new T.Mesh(geo,new T.ShadowMaterial({opacity:.38})); TER.shadow.receiveShadow=true; TER.shadow.position.y=.03; scene.add(TER.shadow);
       // 지평선 — 반지름 RH 의 띠: 아래(땅 밖) → 실제 앙각 높이. 윗 가장자리에 옅은 청록 선
       const RH=760, M=360, vs=[], ix=[], ln=[];
       for(let a=0;a<=M;a++){const az=(a%360)*Math.PI/180, el=(hz.el[a%360]||0), y=Math.tan(Math.max(-0.4,el)*Math.PI/180)*RH;
@@ -306,7 +313,7 @@ if(T&&hasGL()){try{A3D=(function(){
       TER.ring.add(new T.Mesh(hg,new T.MeshBasicMaterial({color:new T.Color(0x081120).convertSRGBToLinear(),side:T.DoubleSide,fog:false,toneMapped:false})));
       TER.ring.add(new T.Line(new T.BufferGeometry().setFromPoints(ln),new T.LineBasicMaterial({color:0x5fd0e6,transparent:true,opacity:.55,fog:false,toneMapped:false})));
       scene.add(TER.ring);
-      TER.mesh.visible=TER.ring.visible=TER.on; dirty=true;
+      TER.mesh.visible=TER.shadow.visible=TER.ring.visible=TER.on; dirty=true;
       // 데이터 줄기 — 안테나 기단에서 지형을 따라 관측동 동쪽 현관(−37.8, 15)까지
       if(dem.corrected){const hAt=(e,n)=>{const x=(e+dem.side_m/2)/dem.side_m*(N-1), y=(dem.side_m/2-n)/dem.side_m*(N-1), j0=Math.max(0,Math.min(N-2,Math.floor(x))), i0=Math.max(0,Math.min(N-2,Math.floor(y))), fx=x-j0, fy=y-i0, H=dem.h;
           return H[i0*N+j0]*(1-fx)*(1-fy)+H[i0*N+j0+1]*fx*(1-fy)+H[(i0+1)*N+j0]*(1-fx)*fy+H[(i0+1)*N+j0+1]*fx*fy;};
@@ -317,8 +324,8 @@ if(T&&hasGL()){try{A3D=(function(){
       // 건물·필라 — 지붕에 같은 정사영상(glTF 무늬 좌표라 위아래를 뒤집지 않은 판)
       if(T.GLTFLoader){
         try{
-          const roofTex=new T.Texture(await createImageBitmap(img)); roofTex.flipY=false; roofTex.encoding=T.sRGBEncoding;
-          roofTex.anisotropy=Math.min(8,rn.capabilities.getMaxAnisotropy()); roofTex.needsUpdate=true;
+          const roofTex=new T.Texture(imgEl||await createImageBitmap(img)); roofTex.flipY=false; roofTex.encoding=T.sRGBEncoding;
+          roofTex.anisotropy=rn.capabilities.getMaxAnisotropy(); roofTex.needsUpdate=true;
           const L=new T.GLTFLoader(), url='models/site_twin.glb';
           const g=await new Promise((ok,no)=>{ if(window.TSX&&TSX.glb) TSX.glb(url).then(b=>L.parse(b,'',ok,no),no); else L.load(url,ok,undefined,no); });
           const tw=g.scene; tw.scale.setScalar(K);

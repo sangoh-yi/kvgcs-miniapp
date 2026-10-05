@@ -313,7 +313,7 @@
 <script>
 const TG=window.Telegram?.WebApp; TG?.ready(); TG?.expand();
 const GIST_ID=(new URLSearchParams(location.search).get("g")||"5404bef7f8d5b9f4e8d2824515fc8728");
-const REV="p10042106";
+const REV="p10051211";
 let GLOBECODE="";      // 지구본 세션 선택(선택기 → postMessage)
 const BODY={};
 async function loadBody(name){
@@ -617,7 +617,7 @@ function mountTSCore(){
     if(!TSCW){ TSCW=document.createElement("div"); TSCW.className="tsc-fx";
       const cv=document.createElement("canvas"); cv.className="tsc-ant"; TSCW.append(cv);
       sl.appendChild(TSCW);
-      try{ TSCF=window.AntModel.create(cv,{url:"./ts/models/sejong22m.glb", ortho:"./ts/models/terrain/site_ortho_1k.jpg" /* 정사영상 바닥 — 운용 화면과 똑같이(10-04) */}); }catch(e){ TSCW=null; return; } }
+      try{ TSCF=window.AntModel.create(cv,{url:"./ts/models/sejong22m.glb", ortho:"./ts/models/terrain/site_ortho_core.jpg", orthoSpan:64 /* 정사영상 바닥 — 운용 화면과 똑같이(10-04) */}); }catch(e){ TSCW=null; return; } }
     if(TSCW.parentElement!==sl) sl.appendChild(TSCW);
     const a=TSL.antenna||{};
     TSCF.resize(); TSCF.set(Object.assign({state:tsState(TSL), az:n2(a.az), el:n2(a.el)}, tsAntEx(TSL)));
