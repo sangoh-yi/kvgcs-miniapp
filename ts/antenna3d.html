@@ -252,15 +252,15 @@ if(T&&hasGL()){try{A3D=(function(){
   //   부품 이름표 자리·돌리기는 공용 lib/sejong22m.js(운영 콘솔·미니앱 3D 탭·지금 스캔도 같은 것)
   //   10-04: 장애 난 부품 빛 · 부반사경 자리 잡기 · 받침을 감는 케이블 나선 · 기단에서 나가는 데이터 줄기 · 바닥 바람 결
   // 트윈 이름표(부품명 단추) — [키, 글, [동, 높이, 북] m](site_twin.json 의 자리)
-  const TWIN_LBL=[['tw_main','관측동',[-64,7.4,15.7]],['tw_sejn','SEJN GNSS',[-15.09,2.3,-56.4]],['tw_vp01','VP01',[-29.42,-1.2,-33.19]],['tw_vp02','VP02',[15.2,1.8,-20.0]],
-    ['tw_vp03','VP03',[28.47,1.9,0.06]],['tw_vp04','VP04',[-11.55,1.6,40.44]],['tw_vp05','VP05(옥상)',[-42.8,6.6,15.78]],['tw_slr','SLR',[-40.3,0.2,-191.9]]];
+  const TWIN_LBL=[['tw_main','관측동',[-64,8.4,15.7]],['tw_sejn','SEJN GNSS',[-15.09,2.9,-56.4]],['tw_vp01','VP01',[-29.42,-0.4,-33.19]],['tw_vp02','VP02',[15.2,2.55,-20.0]],
+    ['tw_vp03','VP03',[28.47,2.7,0.06]],['tw_vp04','VP04',[-11.55,2.3,40.44]],['tw_vp05','VP05(옥상)',[-42.8,7.3,15.78]]];   // SLR 은 뺌(10-05 센터장님 "SLR 하지 말고")
   const LBLs=document.getElementById('lbls');
   const TRUNK0=null;                                    // 지형을 끄면 처음 길(기단 둘레 짧은 빛 관)로 되돌린다 — setTrunk(null) 은 그대로 둔다
   const ANT=window.Sejong22m?Sejong22m.add(scene,{url:'models/sejong22m.glb',scale:1.7,trunk:{az:150,len:12},wrap:true,onload:()=>{dirty=true;},
     onerror:()=>{const d=$('nogl');d.querySelector('div').innerHTML='<b>안테나 모형을 불러오지 못했습니다</b><br>방위·고도 글은 그대로 갱신됩니다';d.hidden=false;}}):null;
   const parts=ANT?ANT.parts:{}, place=(az,el)=>{if(ANT)ANT.place(az,el);};
   const WIND=window.Sejong22m?Sejong22m.wind(scene,{radius:34,y:0.3,scale:1.7}):null;   // 패드 윗면(0) 위
-  // ===================== 관측소 디지털 트윈(10-04) — 정사영상 지형 + 건물·필라·GNSS 기둥·SLR 돔 + 지평선 =====================
+  // ===================== 관측소 디지털 트윈(10-04) — 정사영상 지형 + 건물·필라·GNSS 기둥 + 지평선 (SLR 은 10-05 부터 뺌) =====================
   //   센터장님 "정사영상은 입혀야지. 센터 건물이랑 필라까지 입체적으로 디지털트윈처럼" — 기본으로 켠다(끄기는 '지형' 단추 · ?terrain=0)
   //   models/terrain/: site_ortho_4k·site_ortho(2k)·_1k.jpg(국토지리정보원 정사영상 2024 · 도엽 36706093 · IVP 가운데 · 진북 위 590 m 네모)
   //     · site_dem.json(121×121, 안테나 마당 = 0 m, 필라·GNSS 기둥·건물 바닥으로 보정) · horizon.json(방위 1° 최대 앙각)

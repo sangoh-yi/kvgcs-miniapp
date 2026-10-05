@@ -313,7 +313,7 @@
 <script>
 const TG=window.Telegram?.WebApp; TG?.ready(); TG?.expand();
 const GIST_ID=(new URLSearchParams(location.search).get("g")||"5404bef7f8d5b9f4e8d2824515fc8728");
-const REV="p10051330";
+const REV="p10051413";
 let GLOBECODE="";      // 지구본 세션 선택(선택기 → postMessage)
 const BODY={};
 async function loadBody(name){
@@ -559,6 +559,24 @@ function tlSvg(t,cur){                            // 스캔 시간표 — 입체
 const kvBar=(v,max,cls)=>`<span class="tsm-bar ${cls}"><i style="width:${Math.max(2,Math.min(100,v/max*100)).toFixed(1)}%"></i></span>`;
 const q3=(v,a,b)=>v<=a?"good":v<=b?"warn":"bad";
 // 지향 모형 측정(10-03 센터장님 "포인팅 관측도 관측이니까 미니앱에도") — 운용 화면 '지금 스캔' 칸과 같은 내용
+// 연결측량(10-05 센터장님 "연결측량 정보도 여기에서 볼 수 있게 · 토탈스테이션 관측·분석 모의도") — 운용 화면 연결측량 쪽(ts/localtie.html)을
+//   누르면 전체 화면으로 띄운다(3D·모의 보기 전용, 장비 명령 없음). 공개판은 0.1 m 반올림 자리·IERS 결합 잔차만, mm 좌표는 잠금판에서만
+function tsLocalTie(){
+  if(!tsLocalTie.open) tsLocalTie.open=function(){
+    let w=document.getElementById("tsLtWrap");
+    if(!w){ w=document.createElement("div"); w.id="tsLtWrap";
+      Object.assign(w.style,{position:"fixed",inset:"0",zIndex:"9000",background:"#0a1120"});
+      const f=document.createElement("iframe"); f.src="./ts/localtie.html?embed=1&v="+REV; f.title="연결측량 디지털 트윈"; f.setAttribute("referrerpolicy","no-referrer");
+      Object.assign(f.style,{position:"absolute",inset:"0",width:"100%",height:"100%",border:"0"});
+      const x=document.createElement("button"); x.textContent="✕ 닫기"; x.onclick=()=>{w.style.display="none";};
+      Object.assign(x.style,{position:"absolute",right:"10px",top:"8px",zIndex:"2",background:"rgba(15,26,44,.92)",color:"#dbe7f5",border:"1px solid #37e8cf",borderRadius:"8px",padding:"6px 12px",font:"600 13px sans-serif"});
+      w.appendChild(f); w.appendChild(x); document.body.appendChild(w); }
+    w.style.display="block";
+  };
+  return `<div class="card tsm"><div class="tsm-h">연결측량 <span class="dim">VLBI · 위성기준점 · 필라 · 2026 1·2차</span></div>
+    <div class="dim" style="font-size:12px;line-height:1.6">VLBI IVP 와 위성기준점 SEJN · 필라 VP01~05 를 관측소 디지털 트윈 위에 보이고, 필라 위 토탈스테이션이 안테나 타겟을 재 IVP·축 오프셋을 구하는 과정을 모의로 돌려 본다(화면 안에서만).</div>
+    <div class="tsl-fil" style="margin-top:8px"><div class="on" onclick="tsLocalTie.open()">3D 열기 · 모의 관측 ▶</div></div></div>`;
+}
 function tsPcamp(t){
   const pc=t.pcamp; if(!pc) return "";
   const now=Date.now()/1000, run=pc.now&&pc.now.running, a=t.antenna||{}, P=pc.points||[];
@@ -743,6 +761,7 @@ function vTSL(){
   // F2. 신호 흐름 3D(10-04 — 대시보드 '신호 흐름' 카드와 같은 ts/flow3d.js · 마디 이름은 캔버스 아래 띠)
   h+=`<div class="card tsm tsm-core"><div class="tsm-h">신호 흐름 <span class="dim">안테나 → 상관센터</span><span class="tsm-badge" id="tsFlowBadge" style="margin-left:auto"><i></i>—</span></div>
     <div class="tsm-flow" id="tsFlowSlot"></div></div>`;
+  h+=tsLocalTie();                                 // 연결측량(10-05)
   // G. 십자 스캔
   const cf=t.cross_full; h+=`<div class="card tsm"><div class="tsm-h">십자 스캔 <span class="dim">신호·포인팅 점검</span>${cf?`<span class="tsm-badge run" style="margin-left:auto;background:rgba(47,217,130,.15);color:var(--ok)">${cf.ref?"최근 ":""}${esc(cf.verdict||"")}</span>`:""}</div>`;
   if(cf&&cf.channels){
