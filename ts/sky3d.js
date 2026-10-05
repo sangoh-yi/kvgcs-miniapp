@@ -7,7 +7,8 @@
  *   레이더 쪽 하늘(방위 236.35° 에서 각거리 110° 안 — X 는 BBC 방식) 경계 점선 · 태양 회피 고리(4° · 15°) · 해 자리(10-04).
  *   천천히 좌우로 흔들린다(끌면 멈추고 5 s 뒤 다시) · 휠 확대 · 두 번 누르면 처음 시점 · 화면에 보일 때만 그린다.
  *   가운데 안테나는 세종 22m 실물 모형(lib/sejong22m.js · models/sejong22m.glb, 10-04) — 그 스크립트가 먼저 있어야 한다.
- * 쓰기: const s = Sky3D.create(canvas); s.set({points, ant, next, running, tracks, scale}); s.resize(); s.dispose();
+ * 쓰기: const s = Sky3D.create(canvas, {elLim}); s.set({points, ant, next, running, tracks, scale, scans}); s.resize(); s.dispose();
+ *   scans(10-05, 관측 세션): [{az, el, k}] — k = ok·late·suspect·failed·skipped·pending·next·now. tracks 의 w(진하기)·label·lab([방위, 고도] 이름표 자리)
  *   points: [{az, el, ok, refrac, dx, de}] (dx·de = X 대역 오프셋 ″, X1·X2) · ant: {az, el} · next: {az, el} ·
  *   tracks: Sky3D.tracks(['CASA','TAUA','CYGA'], t0, 24) · scale: ″ 하나당 길이(반구 반지름 1, 기본 0.005 = 40″ → 0.2)
  */
@@ -59,6 +60,7 @@
     opts = opts || {};
     const T = window.THREE;
     if (!T) throw new Error('three.js 없음');
+    const ELL = opts.elLim != null ? opts.elLim : 20;          // 고도 하한 — 지향 측정 20° · 관측 세션은 안테나 하한(5°, 10-05)
     const rn = new T.WebGLRenderer({ canvas, antialias: true, alpha: true });
     rn.setClearColor(0x000000, 0);
     rn.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -99,7 +101,7 @@
     // ── 반구: 고도 고리(30·60) · 방위 경선(30° 마다) · 측정 하한 20° — 앞쪽은 옅게 ──
     for (const el of [30, 60]) { const p = []; for (let a = 0; a <= 360; a += 2) p.push(dir(T, a, el)); base.add(fline(p, 0x4f7fb8, 0.75)); }
     for (let az = 0; az < 360; az += 30) { const p = []; for (let e = 0; e <= 90; e += 2) p.push(dir(T, az, e)); base.add(fline(p, 0x3a6597, az % 90 ? 0.4 : 0.75)); }
-    const lim = []; for (let a = 0; a <= 360; a += 2) lim.push(dir(T, a, 20));
+    const lim = []; for (let a = 0; a <= 360; a += 2) lim.push(dir(T, a, ELL));
     base.add(fline(lim, 0x36c2b0, 0.55));
     for (const el of [30, 60]) { const sp = textSprite(T, el + '°', '#8fb0d6', 0.075, 600); sp.position.copy(dir(T, 300, el, 1.06)); base.add(sp); }
     const dome = new T.Mesh(new T.SphereGeometry(0.997, 72, 24, 0, Math.PI * 2, 0, Math.PI / 2),
@@ -201,6 +203,9 @@
       ok: glowTex(T, 'rgba(225,255,230,1)', 'rgba(63,185,80,.75)'),
       old: glowTex(T, 'rgba(235,240,245,1)', 'rgba(139,148,158,.6)'),
       bad: glowTex(T, 'rgba(255,215,210,1)', 'rgba(248,81,73,.7)'),
+      pend: glowTex(T, 'rgba(200,220,245,.9)', 'rgba(88,130,190,.35)'),     // 세션 — 예정 스캔(10-05)
+      next: glowTex(T, 'rgba(255,240,200,1)', 'rgba(227,179,65,.8)'),       //        다음 스캔
+      now: glowTex(T, 'rgba(240,255,255,1)', 'rgba(55,232,207,.9)'),        //        지금 스캔
     };
     for (const t of Object.values(TEX)) t.keep = true;        // 다시 그릴 때 버리지 않는다(같이 쓰는 무늬)
     function build() {
@@ -210,21 +215,36 @@
       // 전파원 하루 길 — 고도 20° 위는 진하게, 지금 자리에 빛점과 이름
       for (const tr of model.tracks || []) {
         let seg = [], hi = null;
-        const flush = () => { if (seg.length > 1) data.add(line(seg, tr.color, hi ? 0.8 : 0.22)); seg = []; };
+        const w = tr.w != null ? tr.w : 1;                       // 세션 — 지금·다음 소스는 진하게, 나머지는 옅게(10-05)
+        const flush = () => { if (seg.length > 1) data.add(line(seg, tr.color, (hi ? 0.8 : 0.22) * w)); seg = []; };
         for (const [az, el] of tr.pts) {
           if (el < 0) { flush(); hi = null; continue; }
-          const h = el >= 20;
+          const h = el >= ELL;
           if (hi !== null && h !== hi) { const last = seg[seg.length - 1]; flush(); if (last) seg.push(last); }
           hi = h; seg.push(dir(T, az, el, 1.003));
         }
         flush();
-        if (tr.now && tr.now[1] > 0) {
-          const c = '#' + tr.color.toString(16).padStart(6, '0');
-          const sp = textSprite(T, tr.src, c, 0.085, 700);
-          sp.position.copy(dir(T, tr.now[0], tr.now[1] + 9, 1.06)); data.add(sp);
+        const c = '#' + tr.color.toString(16).padStart(6, '0');
+        if (tr.now && tr.now[1] > 0 && tr.dot !== false) {
           const g = new T.Sprite(new T.SpriteMaterial({ map: glowTex(T, 'rgba(255,255,255,1)', c + 'aa'), transparent: true, depthWrite: false, blending: T.AdditiveBlending }));
-          g.position.copy(dir(T, tr.now[0], tr.now[1], 1.004)); g.scale.set(0.09, 0.09, 1); data.add(g);
+          g.position.copy(dir(T, tr.now[0], tr.now[1], 1.004)); g.scale.set(0.09 * Math.max(0.5, w), 0.09 * Math.max(0.5, w), 1); data.add(g);
         }
+        const lp = tr.lab || tr.now;                             // 이름표 자리 — 세션은 화면이 겹치지 않게 골라 준다(lab)
+        if (tr.label !== false && lp && lp[1] > 0) {
+          const sp = textSprite(T, tr.src, c, tr.labH || 0.085, 700);
+          sp.position.copy(dir(T, lp[0], lp[1] + (tr.labUp != null ? tr.labUp : 9), 1.06)); data.add(sp);
+        }
+      }
+      // 세션 스캔 자리(10-05) — 끝난 것은 결과 색으로 옅게, 예정은 희미하게, 다음은 호박색, 지금은 밝게(고리가 퍼진다)
+      const KTEX = { ok: 'ok', late: 'ok', suspect: 'old', failed: 'bad', skipped: 'old', pending: 'pend', running: 'now', now: 'now', next: 'next' };
+      for (const q of model.scans || []) {
+        if (q.az == null || q.el == null || q.el < 0) continue;
+        const d = dir(T, q.az, q.el, 1.001), k = KTEX[q.k] || 'pend';
+        const done = !['pending', 'next', 'now', 'running'].includes(q.k);
+        const sp = new T.Sprite(new T.SpriteMaterial({ map: TEX[k], transparent: true, depthWrite: false, blending: T.AdditiveBlending,
+          opacity: q.k === 'pending' ? 0.45 : done ? 0.6 : 1 }));
+        const sz = k === 'now' ? 0.13 : k === 'next' ? 0.085 : done ? 0.06 : 0.045; sp.scale.set(sz, sz, 1); sp.position.copy(d); data.add(sp);
+        if (k === 'now') latest = { d, color: 0x37e8cf };
       }
       // 측정점(빛 구슬) + X 대역 오프셋 화살(크게 늘림)
       const arrows = [];
@@ -290,7 +310,8 @@
     let sig = '';
     return {
       set(m) {
-        const s = JSON.stringify([m.points, m.tracks && m.tracks.map((t) => [t.src, t.pts.length, t.now && t.now.map((v) => Math.round(v))]), m.scale]);
+        const s = JSON.stringify([m.points, m.tracks && m.tracks.map((t) => [t.src, t.pts.length, t.now && t.now.map((v) => Math.round(v)), t.w, t.label, t.lab && t.lab.map((v) => Math.round(v))]),
+          m.scale, m.scans && m.scans.map((q) => q.k[0] + Math.round(q.az) + ',' + Math.round(q.el)).join(' ')]);
         model = m;
         if (s !== sig) { sig = s; build(); }
         placeAnt();
@@ -329,5 +350,5 @@
       return { key: n, src: NAME[n], color, pts: track(ra, dec, t0, hours || 24, 10), now: track(ra, dec, t0, 0, 10)[0] };
     });
   }
-  window.Sky3D = { create, tracks, NAME };
+  window.Sky3D = { create, tracks, track, NAME };          // track(적경 h, 적위 °, t0, 시간, 분) — 세션 전파원 길을 화면이 그린다(10-05)
 })();
