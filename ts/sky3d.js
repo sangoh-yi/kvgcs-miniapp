@@ -162,8 +162,8 @@
     }
 
     // ── 안테나: 세종 22m 실물 모형(공용 lib/sejong22m.js — 10-04 센터장님 "기존 안테나 구동 모형을 실물 모형으로 전면 대체") ──
-    //   반구 반지름 1 에 높이 약 0.29(m 실척 × AS). 빔은 고도축(16.2 m)에서 나간다. 이 장면은 sRGB 출력이 아니라 무늬는 선형으로(linear)
-    const AS = 0.0105, AO = new T.Vector3(0, 16.2 * AS, 0);
+    //   반구 반지름 1 에 높이 약 0.29(m 실척 × AS). 빔은 고도축(15.7 m — 10-05 조립도)에서 나간다. 이 장면은 sRGB 출력이 아니라 무늬는 선형으로(linear)
+    const AS = 0.0105, AO = new T.Vector3(0, 15.7 * AS, 0);
     const ANT = window.Sejong22m ? Sejong22m.add(scene, { url: opts.glb || GLB, scale: AS, shadow: false, linear: true, onload: () => { dirty = true; } }) : null;
     // 빔 — 접시에서 하늘까지 빛줄기(가산 혼합 원뿔) + 하늘에 닿은 자리 빛
     const beamMat = new T.MeshBasicMaterial({ color: 0x58a6ff, transparent: true, opacity: 0.2, side: T.DoubleSide, depthWrite: false, blending: T.AdditiveBlending });

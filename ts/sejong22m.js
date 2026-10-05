@@ -2,7 +2,7 @@
  *   2026-10-04 센터장님 "기존 안테나 구동 관련 모형을 실물 모형으로 전면 대체 — 대시보드하고 미니앱에".
  *   쓰는 곳: ThreeStar 안테나 카드(threestar/web/antenna3d.html) · 명령 칸·미니앱 상태 칸(antmodel.js) · 운영 콘솔 3D 안테나(antenna3d.html) ·
  *            미니앱 3D 탭(miniapp/antenna3d.html) · 지금 스캔 하늘(threestar/web/sky3d.js, 작게) · 상황실 화면(wall.html).
- *   원본: threestar/web/models/build_sejong22m.py — 노드 Base(고정)·AZ(방위)·EL(고도), m 실척(높이 28 m · 고도축 16.2 m).
+ *   원본: threestar/web/models/build_sejong22m.py — 노드 Base(고정)·AZ(방위)·EL(고도), m 실척(10-05 v2 — 제작사 조립도: 높이 28 m · 고도축 15.7 m · 기단 4.5 m · 접시 22 m).
  *
  * 쓰기: const A = Sejong22m.add(scene, {url, scale, shadow, envI, linear, parent, trunk, wrap, onload, onerror});
  *       A.place(az, el)   — 방위(북→동)·고도(°). 불러오기 전에 불러도 되며, 다 불러오면 그 자세로 놓인다
@@ -29,26 +29,31 @@
 (function () {
   const D2R = Math.PI / 180;
   const LAT = 36.5219, LON = 127.3025;
-  // 이름표 자리(m, 노드 좌표 — glTF 는 Y 가 위, Blender −Y → three +Z). 부품 상자 가운데는 한가운데로 몰려 겹쳐서 부품마다 따로 잡았다
+  // 이름표 자리(m, 노드 좌표 — glTF 는 Y 가 위, Blender −Y → three +Z). 10-05 v2: 제작사 조립도 치수(고도축 15.7 · 기단 4.5 · 꼭짓점 Z_el 5.15 ·
+  //   부반사경 11.0 · 고도 바퀴 r 4.45 · 수신기실 Z_el 2.1~5.0). 부품 상자 가운데는 한가운데로 몰려 겹쳐서 부품마다 따로 잡았다
   const ANCHOR = {
-    feed: ['EL', 0, 3.5, 0],          // 접시 꼭짓점 피드 덮개
-    sub: ['EL', 0, 8.7, 0],           // 부반사경
+    feed: ['EL', 0, 5.3, 0],          // 접시 꼭짓점 피드 덮개(고어텍스 창)
+    sub: ['EL', 0, 11.3, 0],          // 부반사경
+    hexa: ['EL', 0, 12.1, 0],         // 헥사포드(부반사경 자세 조정 — 꼭대기 28.0 m)
     dish: ['EL', -11.2, 8.5, 0],      // 주반사면 테
-    quad: ['EL', 4.2, 6.6, -4.2],     // 다리(4개 중 하나)
-    bus: ['EL', 7.6, 5.5, 0],         // 뒷면 판넬 원뿔
-    rx: ['EL', 0, 1.2, 2.2],          // 허브(수신기실)
-    elax: ['AZ', 3.6, 16.2, 0],       // 고도축 베어링
-    alid: ['AZ', 0, 10.9, 2.7],       // 방위 받침 상자
-    yoke: ['AZ', -2.75, 14.2, 0.9],   // 갈래 팔
-    cone: ['Base', 0, 6.0, 2.5],      // 받침 원뿔
-    found: ['Base', 0, 1.8, 3.6],     // 기단 건물(벽화)
+    quad: ['EL', 3.68, 10.0, -3.68],  // 다리(4개 중 하나, 트러스 피복)
+    bus: ['EL', 8.45, 4.6, 0],        // 뒷면 BUS 피복
+    rx: ['EL', 0, 3.6, -2.4],         // 수신기실
+    wheel: ['EL', 0.45, -4.38, -0.77],// 고도 바퀴(기어 부채꼴)
+    cw: ['EL', 0.95, -3.2, 0],        // 평형추
+    elax: ['AZ', 4.5, 15.7, 0],       // 고도축 베어링
+    yoke: ['AZ', 4.8, 13.8, 0],       // 요크 팔
+    alid: ['AZ', 0, 9.6, 1.7],        // 방위로 도는 몸통
+    stair: ['AZ', -5.6, 9.8, -0.5],   // 계단·발판
+    cone: ['Base', 0, 6.2, 2.7],      // 받침 원뿔
+    found: ['Base', 0, 2.2, 3.6],     // 기단 건물(벽화, 4.5 m)
   };
-  // 빛나는 부품 묶음(GLB 노드 이름)
+  // 빛나는 부품 묶음(GLB 노드 이름 — v2)
   const GROUP = {
-    mount: ['Pedestal_Cone', 'Az_Bearing', 'Alidade_Skirt', 'Alidade_Box', 'Alidade_Top', 'Yoke_L', 'Yoke_R',
-            'El_Bearing_L', 'El_Bearing_R', 'El_Bearing_Cap_L', 'El_Bearing_Cap_R', 'El_CableWrap'],
-    hub: ['Hub_Cabin', 'Hub_Collar', 'Feed_Cover'],
-    hexapod: ['Subreflector_Housing', 'Subreflector'],
+    mount: ['Pedestal_Cone', 'Az_Bearing', 'Alidade_Box', 'Yoke_Base_L', 'Yoke_Base_R', 'Yoke_Base_Bridge', 'Yoke_L', 'Yoke_R',
+            'El_Bearing_L', 'El_Bearing_R', 'El_Bearing_Cap_L', 'El_Bearing_Cap_R', 'El_Pillow_L', 'El_Pillow_R', 'El_Drive', 'El_Encoder'],
+    hub: ['Receiver_Room', 'Hub_Frame', 'Feed_Cover', 'Instrument_Ring'],
+    hexapod: ['Subreflector_Back', 'Subreflector', 'Hexapod_Top', 'Hexapod_Base', 'Hexapod_Legs'],
   };
   const C_BAD = 0xff4a3d, C_OK = 0x3fdc6a, C_HEX = 0xf0b43c;
   const ZC = { ccw: 0x39c5cf, n: 0xc9d1d9, cw: 0xf778ba };          // 운용 화면 케이블 구역 색(--z-ccw · --z-n · --z-cw)
@@ -173,7 +178,7 @@
         const sh = new T.Mesh(trunk.geometry, G.data.mat); sh.visible = false; sh.renderOrder = 4; trunk.add(sh); G.data.meshes.push(sh);
       }
       if (o.wrap) {                              // 케이블 감김 — 받침 원뿔을 1.5 바퀴 도는 나선(ACU 방위 −90 → 450 이 아래 → 위)
-        const y0 = 5.45, y1 = 7.35, cr = (y) => 2.55 - (y - 5.2) * (0.7 / 2.4) + 0.32;
+        const y0 = 4.95, y1 = 7.45, cr = (y) => 3.45 - (y - 4.5) * (1.6 / 3.3) + 0.3;   // v2 원뿔 r 3.5 @ 4.5 → 1.85 @ 7.8
         class Helix extends T.Curve {
           getPoint(u, v) { v = v || new T.Vector3(); const a = (-90 + 540 * u) * D2R, y = y0 + (y1 - y0) * u, r = cr(y); return v.set(Math.sin(a) * r, y, -Math.cos(a) * r); }
         }
@@ -333,5 +338,5 @@
     return { mount: why.mount.length > 0, hub: why.hub.length > 0, data: why.data.length > 0, why };
   }
 
-  window.Sejong22m = { add, sun, sunLight, wind, faults, EL_Z: 16.2, HEIGHT: 28, LAT, LON, ZONE_COLOR: ZC };
+  window.Sejong22m = { add, sun, sunLight, wind, faults, EL_Z: 15.7, HEIGHT: 28, RIM_Z: 9.08, LAT, LON, ZONE_COLOR: ZC };
 })();

@@ -143,7 +143,7 @@
       // 빔 — 부반사경 근처에서 접시가 보는 쪽으로
       const ax = Math.sin(azN * D2R) * Math.cos(elN * D2R), ay = Math.sin(elN * D2R), az2 = -Math.cos(azN * D2R) * Math.cos(elN * D2R);
       const d = new T.Vector3(ax, ay, az2);
-      const o = new T.Vector3(0, 16.2, 0).add(d.clone().multiplyScalar(8.4));
+      const o = new T.Vector3(0, 15.7, 0).add(d.clone().multiplyScalar(9.1));   // 고도축 15.7 m(조립도) · 접시 입구(테 Z_el 9.08)
       beam.position.copy(o); beam.lookAt(o.clone().add(d)); glow.position.copy(o);
     }
     function frame(t) {
