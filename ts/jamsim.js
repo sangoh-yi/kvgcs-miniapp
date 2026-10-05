@@ -19,7 +19,7 @@
     const cam = new T.PerspectiveCamera(42, 1, 0.5, 3000);
     scene.add(new T.HemisphereLight(0xcfe2ff, 0x16202c, 0.85));
     const sun = new T.DirectionalLight(0xfff2e0, 1.4); sun.position.set(-120, 260, 160); scene.add(sun);
-    const G = {}; for (const k of ['ter', 'over', 'st', 'traffic', 'jam', 'rays', 'hyp', 'est', 'wave', 'lab']) { G[k] = new T.Group(); scene.add(G[k]); }
+    const G = {}; for (const k of ['ter', 'over', 'st', 'traffic', 'jam', 'rays', 'hyp', 'est', 'wave', 'lab', 'cmp']) { G[k] = new T.Group(); scene.add(G[k]); }
 
     const st = {
       ready: false, key: 'fixed', t: 0, play: false, speed: 10, dur: 900, lastTick: -1, lastFp: null, layer: 10, show: { hyp: true, rays: true, fp: true, lab: true },
@@ -196,7 +196,7 @@
         else if (js >= 10) { r = 255; gg = 230; b = 150; a = (js - 10) * 4; }
         im.data[4 * k] = r; im.data[4 * k + 1] = gg; im.data[4 * k + 2] = b; im.data[4 * k + 3] = a;
       }
-      g.putImageData(im, 0, 0); st.fpTex.needsUpdate = true; st.fpMesh.visible = st.show.fp;
+      g.putImageData(im, 0, 0); st.fpTex.needsUpdate = true; st.fpMesh.visible = st.show.fp && !st.cmp;
       const cell = (JC.gcDist(region.lat0, region.lon0, region.lat0, region.lon1) / nx) * (JC.gcDist(region.lat0, region.lon0, region.lat1, region.lon0) / ny) / 1e6;
       st.area = { loss: L * cell, degrade: Gd * cell };
     }
@@ -310,7 +310,8 @@
     // ── 카메라 ──
     // 카메라는 남쪽에서 북쪽을 본다(화면 위 = 북) — ph = π/2 근처
     let th = 0.95, ph = 1.45, rad = 300, tgt = new T.Vector3(0, 0, 0), drag = 0, px = 0, py = 0, dirty = true;
-    function aim() { cam.position.set(tgt.x + rad * Math.sin(th) * Math.cos(ph), tgt.y + rad * Math.cos(th), tgt.z + rad * Math.sin(th) * Math.sin(ph)); cam.lookAt(tgt); }
+    function aim() { const nr = Math.max(0.0005, Math.min(0.5, rad * 0.002)); if (Math.abs(cam.near - nr) > 1e-9) { cam.near = nr; cam.updateProjectionMatrix(); }   // 아주 가까이(비교 m 축척)도 보이게
+      cam.position.set(tgt.x + rad * Math.sin(th) * Math.cos(ph), tgt.y + rad * Math.cos(th), tgt.z + rad * Math.sin(th) * Math.sin(ph)); cam.lookAt(tgt); }
     canvas.addEventListener('pointerdown', (e) => { drag = e.button === 2 || e.shiftKey ? 2 : 1; px = e.clientX; py = e.clientY; canvas.setPointerCapture(e.pointerId); });
     canvas.addEventListener('pointerup', () => { drag = 0; });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -320,7 +321,7 @@
       else { const k = rad / 600, r = new T.Vector3(Math.sin(ph), 0, -Math.cos(ph)), f = new T.Vector3(Math.cos(ph), 0, Math.sin(ph)); tgt.addScaledVector(r, dx * k).addScaledVector(f, -dy * k); }
       dirty = true;
     });
-    canvas.addEventListener('wheel', (e) => { rad = Math.max(12, Math.min(700, rad * (1 + Math.sign(e.deltaY) * 0.1))); dirty = true; e.preventDefault(); }, { passive: false });
+    canvas.addEventListener('wheel', (e) => { rad = Math.max(st.cmp ? 0.02 : 12, Math.min(700, rad * (1 + Math.sign(e.deltaY) * 0.1))); dirty = true; e.preventDefault(); }, { passive: false });
     canvas.addEventListener('dblclick', () => view('all'));
     function view(k) {
       if (k === 'jam' && JM) { tgt.copy(JM.g.position); th = 0.95; ph = 1.3; rad = 70; }
@@ -356,6 +357,7 @@
       for (const l of G.lab.children) { if (l.userData.follow) l.position.copy(l.userData.follow.position).add(new T.Vector3(0, 5.6 * ks, 0)); if (l.userData.base) l.scale.set(l.userData.base[0] * ks, l.userData.base[1] * ks, 1); }
       if (JM) for (const c of JM.g.children) if (c.isSprite && c.userData.base) { c.scale.set(c.userData.base[0] * ks, c.userData.base[1] * ks, 1); c.position.y = 10.5 * Math.max(1, ks); }
       G.lab.visible = st.show.lab;
+      for (const l of G.cmp.children) if (l.isSprite && l.userData.base) { const kk = Math.max(0.5, Math.min(3, rad / 40)); l.scale.set(l.userData.base[0] * kk, l.userData.base[1] * kk, 1); }
       if (dirty) { aim(); rn.render(scene, cam); dirty = st.play || !!st.waves; }
     }
 
@@ -377,16 +379,65 @@
       requestAnimationFrame(frame);
     })().catch((e) => { if (ui.onError) ui.onError(e); });
 
+    // ── VLBI 켜기/끄기 비교 그림(10-05) — 방식마다 다른 색: 추정점 · 1σ 타원(실선) · 95 % 타원(점선), 가운데 = 참 자리
+    //   mode 'true' = 실제 축척(1 칸 = 1 km) · 'log' = 로그 고리(참 자리에서의 거리 r → 1.2 + 2.4·log₁₀(r/1 m) 칸 — 1 m ~ 100 km 를 한 화면에)
+    const LOGR = (r) => (r < 1 ? 1.2 * r : 1.2 + 2.4 * Math.log10(r));
+    st.cmp = null;
+    function showCompare(rows, mode) {
+      G.cmp.clear(); st.cmp = rows && rows.length ? { rows, mode } : null;
+      // 비교를 보이는 동안은 영향 지도·경로·쌍곡선·파면·한 판 추정을 접어 타원이 묻히지 않게 한다(지우면 되돌린다)
+      const on = !st.cmp; for (const k of ['rays', 'hyp', 'wave', 'est']) G[k].visible = on; if (st.fpMesh) st.fpMesh.visible = on && st.show.fp;
+      if (!st.cmp) { dirty = true; return; }
+      const tr0 = rows.find((r) => r.truth) || {}, tE = tr0.truth.e, tN = tr0.truth.n;
+      const tg = F.fromEnu([tE, tN, 0]), tl = JC.geod(tg[0], tg[1], tg[2]), y0 = groundY(tl[0], tl[1]) + 0.25 + (st.key === 'drone' ? 0 : 0);
+      const P = (de, dn, lift) => {                    // 참 자리 기준 오프셋(m) → 장면
+        if (mode === 'log') { const r = Math.hypot(de, dn), k = r > 0 ? LOGR(r) / r : 0; return new T.Vector3((tE + 0) / 1000 + de * k, y0 + (lift || 0), -tN / 1000 - dn * k); }
+        return new T.Vector3((tE + de) / 1000, y0 + (lift || 0), -(tN + dn) / 1000);
+      };
+      if (mode === 'log') {                          // 기준 고리 1 m ~ 100 km
+        for (let e = 0; e <= 5; e++) {
+          const R = LOGR(10 ** e), pts = []; for (let k = 0; k <= 96; k++) { const a = k / 96 * 2 * Math.PI; pts.push(new T.Vector3(tE / 1000 + R * Math.cos(a), y0, -tN / 1000 + R * Math.sin(a))); }
+          G.cmp.add(new T.Line(new T.BufferGeometry().setFromPoints(pts), new T.LineBasicMaterial({ color: 0x8ea3c0, transparent: true, opacity: 0.45, toneMapped: false })));
+          const lb = label(['1 m', '10 m', '100 m', '1 km', '10 km', '100 km'][e], '#9fb4cc', 0.75); lb.position.set(tE / 1000 + R + 0.15, y0 + 0.5, -tN / 1000); lb.userData.cmp = 1; G.cmp.add(lb);
+        }
+      }
+      // 참 자리 — 흰 십자
+      for (const [a, b] of [[[-1, 0], [1, 0]], [[0, -1], [0, 1]]]) G.cmp.add(new T.Line(new T.BufferGeometry().setFromPoints([new T.Vector3(tE / 1000 + a[0] * 0.8, y0 + 0.05, -tN / 1000 - a[1] * 0.8), new T.Vector3(tE / 1000 + b[0] * 0.8, y0 + 0.05, -tN / 1000 - b[1] * 0.8)]), new T.LineBasicMaterial({ color: 0xffffff, toneMapped: false })));
+      rows.forEach((r, i) => {
+        if (!r.cov || r.fail) return;
+        const col = new T.Color(r.col), lift = 0.04 * (i + 1);
+        const [[a, b], [, d]] = r.cov, tr2 = a + d, q = Math.sqrt(Math.max(0, 0.25 * (a - d) ** 2 + b * b)), l1 = 0.5 * tr2 + q, l2 = Math.max(0, 0.5 * tr2 - q), ang = 0.5 * Math.atan2(2 * b, a - d);
+        for (const [kk, dash] of [[1, false], [2.4477, true]]) {   // 1σ · 95 %(2차원 카이제곱 2 자유도)
+          const pts = []; for (let k = 0; k <= 96; k++) { const t = k / 96 * 2 * Math.PI, x = kk * Math.sqrt(l1) * Math.cos(t), y = kk * Math.sqrt(l2) * Math.sin(t);
+            pts.push(P(r.mean.e + x * Math.cos(ang) - y * Math.sin(ang), r.mean.n + x * Math.sin(ang) + y * Math.cos(ang), lift)); }
+          const m = dash ? new T.LineDashedMaterial({ color: col, dashSize: 0.35, gapSize: 0.25, transparent: true, opacity: 0.85, toneMapped: false }) : new T.LineBasicMaterial({ color: col, toneMapped: false });
+          const l = new T.Line(new T.BufferGeometry().setFromPoints(pts), m); if (dash) l.computeLineDistances(); G.cmp.add(l);
+        }
+        const pt = r.ex ? P(r.ex.err.e, r.ex.err.n, lift + 0.05) : P(r.mean.e, r.mean.n, lift + 0.05);   // 한 판의 추정점
+        const dot = new T.Points(new T.BufferGeometry().setFromPoints([pt]), new T.PointsMaterial({ color: col, size: 9, sizeAttenuation: false, toneMapped: false, depthTest: false }));
+        dot.renderOrder = 6; G.cmp.add(dot);
+      });
+      G.cmp.traverse((o) => { if (o.material) { o.material.depthTest = false; o.material.depthWrite = false; o.renderOrder = Math.max(o.renderOrder || 0, 7); } });   // 지형에 가리지 않게
+      dirty = true;
+    }
+    function cmpView() {
+      const c = st.cmp; if (!c) return; const t = c.rows.find((r) => r.truth); if (!t) return;
+      tgt.set(t.truth.e / 1000, 0, -t.truth.n / 1000); th = 0.32; ph = 1.45;
+      if (c.mode === 'log') rad = 40; else { const R = Math.max(...c.rows.filter((r) => r.r95).map((r) => r.r95)) / 1000; rad = Math.max(0.05, Math.min(650, R * 3.2)); }
+      dirty = true;
+    }
+
     function reset() {
       st.t = 0; st.lastTick = -1; st.events = []; st.alerted = false; st.ev0 = st.ev1 = st.ev2 = 0; st.lastFp = null;
       for (const o of TR) { o.state = 'ok'; if (o.kind === 'cg') { o.lat = o.home[0]; o.lon = o.home[1]; o.go = false; o.arr = 0; o.dist = null; } }
       if (ui.onEvent) ui.onEvent(null);
     }
     return {
-      setScenario(k) { st.key = k; st.dur = 900; reset(); if (st.ready) { buildJammer(); tick(true); view('all'); } },
+      setScenario(k) { st.key = k; st.dur = 900; reset(); showCompare(null); if (st.ready) { buildJammer(); tick(true); view('all'); } },
+      showCompare(rows, mode) { showCompare(rows, mode); cmpView(); }, cmpMode(mode) { if (st.cmp) { showCompare(st.cmp.rows, mode); cmpView(); } }, clearCompare() { showCompare(null); },
       set(k, v) { st.p[k] = v; st.lastFp = null; if (st.ready) tick(true); },
       layer(h) { st.layer = h; st.lastFp = null; if (st.ready) tick(true); },
-      toggle(k, on) { st.show[k] = on; if (st.ready) { if (k === 'fp') st.fpMesh.visible = on; tick(true); } dirty = true; },
+      toggle(k, on) { st.show[k] = on; if (st.ready) { if (k === 'fp') st.fpMesh.visible = on && !st.cmp; tick(true); } dirty = true; },
       play() { if (st.t >= st.dur) reset(); st.play = true; }, pause() { st.play = false; }, speed(x) { st.speed = x; },
       seek(t) { st.t = t; st.lastTick = -1; if (st.ready) tick(true); dirty = true; }, reset() { reset(); if (st.ready) tick(true); },
       view, state: () => (st.ready ? snapshot(jamNow()) : null), core: () => ({ D, F, data }), mag: () => st.mag,

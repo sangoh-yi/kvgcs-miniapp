@@ -156,26 +156,36 @@
     st.sort((a, b) => b.snrDb - a.snrDb);
     const top = st[0], detSnr = opt.detSnr || 7;
     for (const s of st) s.corrSnr = s === top ? Infinity : corrStats(top.s, s.s, beff, T).snr;
-    const det = top && top.snrDb > -20 ? st.filter((s) => s.corrSnr >= detSnr) : [];
-    const is3 = opt.mode === '3d', useF = !!opt.useFdoa, nPos = is3 ? 3 : 2, nX = nPos + (useF ? 2 : 0);
+    //   meas = 'env'(교차상관 끔): 기준점마다 따로 신호 가장자리(포락선) 시각을 잰다 — 처프가 수신 대역을 지날 때 생기는 펄스의 앞가장자리
+    //   (오르는 시간 ≈ 1/B_rx, 펄스 K = T·f_rep 개 평균). 연속 잡음 교란에는 시각 표지가 없어 못 잰다. 감지는 기준점마다 s·√K ≥ detSnr(비동기 적분)
+    const env = opt.meas === 'env', fRep = opt.fRep || 1000, K = Math.max(1, Math.round(T * fRep)), brx = Math.min(B, jam.bw);
+    let det;
+    if (env) {
+      for (const s of st) { s.envSnr = s.s * Math.sqrt(K); s.sigToa = Math.max(1 / (brx * Math.sqrt(s.s * K)), (opt.envFloor == null ? 0.2 : opt.envFloor) / brx); }
+      det = jam.type === 'chirp' ? st.filter((s) => s.envSnr >= detSnr) : [];
+    } else det = top && top.snrDb > -20 ? st.filter((s) => s.corrSnr >= detSnr) : [];
+    const is3 = opt.mode === '3d', useF = !!opt.useFdoa && !env, nPos = is3 ? 3 : 2, nX = nPos + (useF ? 2 : 0);
     const need = nX + 1 - (useF ? Math.min(2, nX) : 0) + 1;
-    const out = { st, det, nfl, beff, T };
+    const out = { st, det, nfl, beff, T, env };
+    if (env && jam.type !== 'chirp') { out.fail = '연속 잡음 교란 — 신호에 시작·끝 같은 표지가 없어 기준점마다 도착 시각을 못 잰다(교차상관이 있어야 한다)'; return out; }
     if (det.length < Math.max(4, need)) { out.fail = `감지한 기준점 ${det.length} 곳 — 위치를 풀려면 ${Math.max(4, need)} 곳 넘게`; return out; }
     const ref = det[0], others = det.slice(1);
     const mp = (opt.mpNs == null ? 5 : opt.mpNs) * 1e-9;
     const sig = (s) => Math.sqrt(s.sigClk ** 2 + mp * mp);                 // 기준점마다 독립: 시계 + 다중경로(참 오차의 크기)
     //   clockAware = false: 유지 시계로 넘어간 것을 모른 채 모든 기준점을 GNSS 시각 수준으로 믿고 푼다 → 시계 오차가 그대로 위치 오차가 된다
     const aware = opt.clockAware !== false, sigW = (s) => aware ? sig(s) : Math.sqrt(CLOCKS.gnss.fixed ** 2 + mp * mp);
-    const pairs = others.map((s) => Object.assign({ s }, corrStats(ref.s, s.s, beff, T)));
+    const pairs = env ? others.map((s) => ({ s, snr: s.envSnr, rho: null, sigTau: s.sigToa, sigNu: Infinity }))
+      : others.map((s) => Object.assign({ s }, corrStats(ref.s, s.s, beff, T)));
+    const refTau = env ? ref.sigToa : 0, refN = noise ? refTau * R.n() : 0;    // 포락선: 기준점 자기 시각 잡음이 모든 쌍에 같이 든다
     const rngP = (p, q) => norm(sub(p, q));
     const rate = (p, v, q) => { const d = sub(p, q); return dot(v, d) / norm(d); };   // 거리 변화율(m/s)
     const clkTrue = new Map(det.map((s) => [s.id, noise ? sig(s) * R.n() : 0]));
     const fclkTrue = new Map(det.map((s) => [s.id, noise ? s.sigFclk * F_L1 * R.n() : 0]));
-    const tdoa = pairs.map((P) => (rngP(pj, P.s.p) - rngP(pj, ref.p)) / C + (clkTrue.get(P.s.id) - clkTrue.get(ref.id)) + (noise ? P.sigTau * R.n() : 0));
+    const tdoa = pairs.map((P) => (rngP(pj, P.s.p) - rngP(pj, ref.p)) / C + (clkTrue.get(P.s.id) - clkTrue.get(ref.id)) + (noise ? P.sigTau * R.n() : 0) - refN);
     const fdoa = pairs.map((P) => -(rate(pj, vj, P.s.p) - rate(pj, vj, ref.p)) / LAM + (fclkTrue.get(P.s.id) - fclkTrue.get(ref.id)) + (noise ? P.sigNu * R.n() : 0));
     // 공분산 — 모든 쌍이 같은 기준점을 쓰니 서로 상관(기준점 몫이 모든 칸에)
     const nP = pairs.length;
-    const Ct = Array.from({ length: nP }, (_, i) => Array.from({ length: nP }, (_, j) => (i === j ? pairs[i].sigTau ** 2 + sigW(pairs[i].s) ** 2 : 0) + sigW(ref) ** 2));
+    const Ct = Array.from({ length: nP }, (_, i) => Array.from({ length: nP }, (_, j) => (i === j ? pairs[i].sigTau ** 2 + sigW(pairs[i].s) ** 2 : 0) + sigW(ref) ** 2 + refTau ** 2));
     const Cf = Array.from({ length: nP }, (_, i) => Array.from({ length: nP }, (_, j) => (i === j ? pairs[i].sigNu ** 2 + (pairs[i].s.sigFclk * F_L1) ** 2 : 0) + (ref.sigFclk * F_L1) ** 2));
     const enuJ = F.toEnu(pj), hA = opt.hAssume == null ? (D.sea(jam.lat, jam.lon) ? 10 : 20) : opt.hAssume;
     const toP = (x) => {
@@ -327,6 +337,135 @@
     return { tauEst: lag / fs, tauTrue: o.tau, dfEst: slope / (2 * Math.PI), dfTrue: o.dfHz || 0, peakSnr: (y1 - mu) / sd, lagAxis: lagAxis.map((v) => v + shift / fs), amp: ampOut, phs, phT: phs.map((_, q) => (q + 0.5) * Ls / fsL), fs, N, fsL, NL };
   }
 
+  // ════ VLBI 기술 켜기/끄기 비교(2026-10-05 센터장님 "전파교란 위치를 VLBI 기술을 적용하고 안 하고 차이는?") ════
+  //   VLBI 세 요소 — ① 교차상관(끄면 기준점마다 포락선 시각) ② 긴 적분 √(B·T)(끄면 1 ms 스냅숏) ③ 원자 시계 유지(끄면 OCXO)
+  //   기존 방식 둘 — RSSI 거리(세기 → 거리, 그림자 σ) · 방향 탐지 DF(방위 σ + 다중경로 치우침). 값은 일반적인 값(대략)이며 바꿀 수 있다.
+  function rxView(opt) {                              // 기준점마다 받은 세기 · 감시 대역 SNR(solve 와 같은 식)
+    const { D, jam } = opt, B = opt.sdrBw || 5e6, GN = opt.geoidN == null ? 25 : opt.geoidN, nfl = sdrNoiseDbm(B, opt.nf);
+    const J = { lat: jam.lat, lon: jam.lon, h: jam.hAsl, eirpW: jam.eirpW, bw: jam.bw };
+    return opt.stations.map((s) => {
+      const hAsl = s.h - GN, r = jamAt(D, J, { lat: s.lat, lon: s.lon, h: hAsl + 2.5 }, 0), snrDb = r.pr + db(Math.min(1, jam.bw / B)) - nfl;
+      return Object.assign({}, s, { hAsl, pr: r.pr, snrDb, s: undb(snrDb), los: r.path.los, xy: opt.F.toEnu(ecef(s.lat, s.lon, s.h + 2.5)) });
+    });
+  }
+  // 작은 감쇠 가우스-뉴턴 — resid(x) 는 σ 로 나눈 잔차 벡터. 반환: x · 공분산 (JᵀJ)⁻¹ · 비용
+  function lmFit(resid, x0, steps) {
+    let x = x0.slice(), r0 = resid(x), c0 = r0.reduce((a, v) => a + v * v, 0), lam = 1e-3, cov = null;
+    for (let it = 0; it < 80; it++) {
+      const cols = x.map((_, k) => { const xp = x.slice(); xp[k] += steps[k]; const r1 = resid(xp); return r1.map((v, i) => (v - r0[i]) / steps[k]); });
+      const A = tr(cols), AtA = matMul(tr(A), A), g = matMul(tr(A), r0.map((v) => [-v])).map((v) => v[0]);
+      cov = inv(AtA); if (!cov) break;
+      let took = false;
+      for (let t = 0; t < 8; t++) {
+        const Nd = AtA.map((row, i) => row.map((v, j) => (i === j ? v * (1 + lam) : v))), Ni = inv(Nd); if (!Ni) { lam *= 10; continue; }
+        let dx = matMul(Ni, g.map((v) => [v])).map((v) => v[0]); const h = Math.hypot(dx[0], dx[1]); if (h > 50000) dx = dx.map((v) => v * 50000 / h);
+        const xn = x.map((v, k) => v + dx[k]), rn = resid(xn), cn = rn.reduce((a, v) => a + v * v, 0);
+        if (cn <= c0) { const small = Math.hypot(dx[0], dx[1]) < 1e-3; x = xn; r0 = rn; c0 = cn; lam = Math.max(1e-7, lam / 10); took = !(small && lam <= 1e-3); break; }
+        lam *= 10;
+      }
+      if (!took) break;
+    }
+    return { x, cov, cost: c0, n: r0.length };
+  }
+  function gridStart(F, D, f) {                        // 지역 전체 3 km 격자에서 비용 f(e, n) 가 가장 작은 곳
+    const reg = D.region, mLat = 0.5 * (reg.lat0 + reg.lat1), mLon = 0.5 * (reg.lon0 + reg.lon1);
+    const e0 = F.enu(mLat, reg.lon0, 0)[0], e1 = F.enu(mLat, reg.lon1, 0)[0], n0 = F.enu(reg.lat0, mLon, 0)[1], n1 = F.enu(reg.lat1, mLon, 0)[1];
+    let best = null; for (let e = e0; e <= e1; e += 3000) for (let n = n0; n <= n1; n += 3000) { const c = f(e, n); if (!best || c < best.c) best = { e, n, c }; }
+    return best;
+  }
+  function pack(F, x, cov, enuJ, det, extra) {
+    const g = geod(...F.fromEnu([x[0], x[1], 0])), eE = x[0] - enuJ[0], eN = x[1] - enuJ[1];
+    const sEE = cov[0][0], sNN = cov[1][1], sEN = cov[0][1], q = Math.sqrt(0.25 * (sEE - sNN) ** 2 + sEN * sEN);
+    return Object.assign({ ok: true, n: det.length, det, est: { lat: g[0], lon: g[1], e: x[0], n: x[1] }, truth: { e: enuJ[0], n: enuJ[1], u: enuJ[2] },
+      err: { e: eE, n: eN, u: null, h: Math.hypot(eE, eN) }, sigma: { e: Math.sqrt(sEE), n: Math.sqrt(sNN), u: null },
+      ellipse: { a: Math.sqrt(0.5 * (sEE + sNN) + q), b: Math.sqrt(Math.max(0, 0.5 * (sEE + sNN) - q)), ang: 0.5 * Math.atan2(2 * sEN, sEE - sNN) } }, extra || {});
+  }
+  // RSSI 거리 — 수신 세기 = P₀ − 10·n·log₁₀(d) + 그림자. P₀(모르는 출력)와 자리를 함께 푼다. 참 세기에는 지형 회절이 들어 있으나 모형은 모른다
+  function solveRss(opt) {
+    const { F, D, jam } = opt, B = opt.sdrBw || 5e6, Tr = opt.Trss || 1, sh = opt.shadowDb == null ? 7 : opt.shadowDb, nE = opt.plExp || 2;
+    const noise = opt.noise == null ? 1 : opt.noise, R = rng((opt.seed || 7) + 101), GN = opt.geoidN == null ? 25 : opt.geoidN;
+    const st = rxView(opt).map((s) => Object.assign(s, { eSnr: s.s * Math.sqrt(Math.min(B, jam.bw) * Tr) }));
+    const det = st.filter((s) => s.eSnr >= (opt.detSnr || 7)).sort((a, b) => b.snrDb - a.snrDb);
+    if (det.length < 4) return { fail: `세기를 잰 기준점 ${det.length} 곳 — 4 곳 넘게 있어야 한다`, det, n: det.length };
+    const enuJ = F.toEnu(ecef(jam.lat, jam.lon, jam.hAsl + GN));
+    const sig = det.map((q) => Math.hypot(sh, 4.343 / Math.max(1e-3, q.eSnr)));          // 그림자 + 세기 측정 잡음
+    const y = det.map((q, i) => q.pr + (noise ? sig[i] * R.n() : 0));
+    const L = (e, n, q) => 10 * nE * Math.log10(Math.max(50, Math.hypot(e - q.xy[0], n - q.xy[1])));
+    const P0of = (e, n) => { let a = 0, w = 0; det.forEach((q, i) => { const k = 1 / sig[i] ** 2; a += k * (y[i] + L(e, n, q)); w += k; }); return a / w; };
+    const b0 = gridStart(F, D, (e, n) => { const P0 = P0of(e, n); return det.reduce((c, q, i) => c + ((y[i] - P0 + L(e, n, q)) / sig[i]) ** 2, 0); });
+    const f = lmFit((x) => det.map((q, i) => (y[i] - (x[2] - L(x[0], x[1], q))) / sig[i]), [b0.e, b0.n, P0of(b0.e, b0.n)], [1, 1, 0.01]);
+    return pack(F, f.x, f.cov, enuJ, det, { chi2: f.cost / Math.max(1, f.n - 3), p0: f.x[2] });
+  }
+  // 방향 탐지 DF — 기준점마다 방위(진북 기준)를 잰다: 장비 σ + 다중경로 치우침(기준점마다 한 번 뽑아 그 판 내내 같다 — 평균으로 줄지 않는다)
+  function bearingTo(lat1, lon1, lat2, lon2) {
+    const p1 = lat1 * D2R, p2 = lat2 * D2R, dl = (lon2 - lon1) * D2R;
+    return Math.atan2(Math.sin(dl) * Math.cos(p2), Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl));
+  }
+  function solveDf(opt) {
+    const { F, D, jam } = opt, B = opt.sdrBw || 5e6, Td = opt.Tdf || 1, sa = (opt.dfDeg == null ? 1.5 : opt.dfDeg) * D2R, sb = (opt.dfBiasDeg == null ? 1.0 : opt.dfBiasDeg) * D2R;
+    const noise = opt.noise == null ? 1 : opt.noise, R = rng((opt.seed || 7) + 202), GN = opt.geoidN == null ? 25 : opt.geoidN;
+    const st = rxView(opt).map((s) => Object.assign(s, { eSnr: s.s * Math.sqrt(Math.min(B, jam.bw) * Td) }));
+    const det = st.filter((s) => s.eSnr >= (opt.detSnr || 7)).sort((a, b) => b.snrDb - a.snrDb);
+    if (det.length < 3) return { fail: `방위를 잰 기준점 ${det.length} 곳 — 3 곳 넘게 있어야 한다`, det, n: det.length };
+    const enuJ = F.toEnu(ecef(jam.lat, jam.lon, jam.hAsl + GN));
+    const sig = det.map((q) => sa * Math.sqrt(1 + (7 / q.eSnr) ** 2));                  // 약한 신호일수록 방위가 흔들린다
+    const th = det.map((q, i) => bearingTo(q.lat, q.lon, jam.lat, jam.lon) + (noise ? sig[i] * R.n() + sb * R.n() : 0));
+    const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+    const res = (e, n) => { const g = geod(...F.fromEnu([e, n, 0])); return det.map((q, i) => wrap(th[i] - bearingTo(q.lat, q.lon, g[0], g[1])) / sig[i]); };
+    const b0 = gridStart(F, D, (e, n) => res(e, n).reduce((c, v) => c + v * v, 0));
+    const f = lmFit((x) => res(x[0], x[1]), [b0.e, b0.n], [1, 1]);
+    return pack(F, f.x, f.cov, enuJ, det, { chi2: f.cost / Math.max(1, f.n - 2) });
+  }
+
+  const METHODS = {
+    vlbi: { name: 'VLBI 전부', col: '#37e8cf', kind: 'tdoa', corr: 1, integ: 1, atom: 1,
+      why: '교차상관 · 긴 적분 · 원자 시계 — 잡음 아래 신호도 잡고 도착 시각 차를 ns 로 잰다' },
+    noCorr: { name: '① 교차상관 끔', col: '#bc8cff', kind: 'tdoa', corr: 0, integ: 1, atom: 1,
+      why: '기준점끼리 기록을 곱해 쌓지 않으면 연속 잡음에는 시각 표지가 없어 못 잰다 — 처프는 펄스 가장자리로 재지만 1/B(수십 m) 수준으로 떨어진다' },
+    noInt: { name: '② 긴 적분 끔', col: '#7cb8ff', kind: 'tdoa', corr: 1, integ: 0, atom: 1,
+      why: '1 ms 만 보면 상관 이득 √(B·T) 가 1/30 로 줄어 — 잡음 아래인 먼 기준점이 빠지고 남은 쌍의 지연 오차가 30 배 커진다' },
+    noAtom: { name: '③ 원자 시계 끔', col: '#f0b44c', kind: 'tdoa', corr: 1, integ: 1, atom: 0,
+      why: '교란으로 기준점 GNSS 시각이 끊기면 OCXO 가 흘러 1 ns = 30 cm 씩 오차가 쌓인다 — 교란이 길수록 커진다' },
+    rss: { name: 'RSSI 거리', col: '#ff6b8a', kind: 'rss',
+      why: '세기로 거리를 어림하면 그림자 ±7 dB 가 거리 ×2.2 배 흔들림이 되고, 지형 회절 손실을 모르면 더 멀리 잡힌다' },
+    df: { name: '방향 탐지 DF', col: '#ff9f43', kind: 'df',
+      why: '방위 1.5° 는 100 km 에서 2.6 km 의 가로 오차 — 멀수록 커지고, 다중경로 치우침은 평균해도 줄지 않는다' },
+  };
+  //   P(비교 설정): {Tshort, fRep, envFloor, atomClock, clockAware, shadowDb, plExp, Trss, dfDeg, dfBiasDeg, Tdf}
+  function methodOpt(m, base, P) {
+    if (m.kind !== 'tdoa') return Object.assign({}, base, P);
+    return Object.assign({}, base, { meas: m.corr ? 'corr' : 'env', T: m.integ ? base.T : (P.Tshort || 1e-3), fRep: P.fRep, envFloor: P.envFloor,
+      clock: m.atom ? (P.atomClock || 'maser') : 'ocxo', clockAware: P.clockAware, useFdoa: !!base.useFdoa && !!m.corr });
+  }
+  function runOnce(m, o) { return m.kind === 'rss' ? solveRss(o) : m.kind === 'df' ? solveDf(o) : solve(o); }
+  //   몬테카를로 n 판 → 오차 통계. 교란 지속(시계)을 바꾼 판은 holds 로(시계에 기대는 방식만)
+  function runMethod(m, base, P, n, seed0, holds) {
+    const o0 = methodOpt(m, base, P), z = runOnce(m, Object.assign({}, o0, { noise: 0 }));
+    const out = { m, n, ok: 0, fail: null, E: [], N: [], U: [], V: [], ex: null, formal: z.ok ? z.sigma : null, nDet: z.n || (z.det ? z.det.length : 0), zero: z.ok ? z.err : null };
+    if (!z.ok) { out.fail = z.fail || '풀지 못함'; return out; }
+    for (let k = 0; k < n; k++) {
+      const r = runOnce(m, Object.assign({}, o0, { noise: 1, seed: seed0 + k }));
+      if (!r.ok) continue;
+      out.ok++; out.E.push(r.err.e); out.N.push(r.err.n); if (r.err.u != null && base.mode === '3d') out.U.push(r.err.u);
+      if (r.est.ve != null) out.V.push(Math.hypot(r.err.ve, r.err.vn));
+      if (!out.ex) out.ex = r;
+    }
+    const rms = (a) => (a.length ? Math.sqrt(a.reduce((x, v) => x + v * v, 0) / a.length) : null), mean = (a) => a.reduce((x, v) => x + v, 0) / Math.max(1, a.length);
+    const H = out.E.map((e, i) => Math.hypot(e, out.N[i])).sort((a, b) => a - b);
+    const mE = mean(out.E), mN = mean(out.N), cEE = mean(out.E.map((v) => (v - mE) ** 2)), cNN = mean(out.N.map((v) => (v - mN) ** 2)), cEN = mean(out.E.map((v, i) => (v - mE) * (out.N[i] - mN)));
+    Object.assign(out, { rmsE: rms(out.E), rmsN: rms(out.N), rmsU: out.U.length ? rms(out.U) : null, rmsH: rms(H), r95: H.length ? H[Math.min(H.length - 1, Math.floor(0.95 * H.length))] : null,
+      mean: { e: mE, n: mN }, cov: [[cEE, cEN], [cEN, cNN]], rmsV: out.V.length ? rms(out.V) : null,
+      ratio: out.formal && out.E.length > 3 ? (Math.sqrt(cEE) + Math.sqrt(cNN)) / (out.formal.e + out.formal.n) : null });
+    out.hold = {};
+    if (holds && m.kind === 'tdoa') for (const t of holds) {
+      const e = []; for (let k = 0; k < Math.max(6, Math.round(n / 2)); k++) { const r = runOnce(m, Object.assign({}, o0, { noise: 1, seed: seed0 + 500 + k, tHold: t })); if (r.ok) e.push(r.err.h); }
+      out.hold[t] = e.length ? Math.sqrt(e.reduce((x, v) => x + v * v, 0) / e.length) : null;
+    }
+    // 걸리는 시간(대략) — 관측 적분 + 기록 모으기·풀이 1.5 s
+    out.latency = m.kind === 'rss' ? (P.Trss || 1) + 1.5 : m.kind === 'df' ? (P.Tdf || 1) + 1.5 : (m.integ ? base.T : (P.Tshort || 1e-3)) + 1.5;
+    return out;
+  }
+
   // ── 시나리오(가상) — 교란원 · 움직임 ──
   const KN = 0.514444;
   const SCEN = {
@@ -352,6 +491,6 @@
     return { lat: S.lat, lon: S.lon, hAsl: D.at(S.lat, S.lon) + S.agl, eirpW: S.eirpW, bw: S.bw, type: S.type, vel: [0, 0] };
   }
 
-  const API = { SCEN, jamAtTime, KN, C, F_L1, LAM, GPS_S_DBM, JS_DEGRADE, JS_LOSS, CLOCKS, ecef, geod, frame, dem, path, knife, jamAt, state, clockSigma, sdrNoiseDbm, corrStats, solve, footprint, corrDemo, gcDist, rng, db, undb };
+  const API = { METHODS, methodOpt, runMethod, solveRss, solveDf, bearingTo, rxView, SCEN, jamAtTime, KN, C, F_L1, LAM, GPS_S_DBM, JS_DEGRADE, JS_LOSS, CLOCKS, ecef, geod, frame, dem, path, knife, jamAt, state, clockSigma, sdrNoiseDbm, corrStats, solve, footprint, corrDemo, gcDist, rng, db, undb };
   if (typeof module !== 'undefined' && module.exports) module.exports = API; else root.JamCore = API;
 })(typeof window !== 'undefined' ? window : globalThis);

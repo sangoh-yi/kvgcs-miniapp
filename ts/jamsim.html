@@ -32,6 +32,7 @@ main{display:grid;grid-template-columns:minmax(0,1fr) 440px;height:calc(100% - 5
 .tbar .t{font-family:var(--mono);color:var(--ac);min-width:96px;text-align:right;font-size:12px}
 .tbar button{background:var(--panel2);color:var(--tx);border:1px solid var(--line);border-radius:7px;padding:4px 10px;font:inherit;font-size:12px;cursor:pointer}
 .tbar button.pri{border-color:var(--ac);color:var(--ac)}
+button.vb{background:var(--panel2);color:var(--tx);border:1px solid var(--line);border-radius:7px;padding:4px 9px;font:inherit;font-size:12px;cursor:pointer}
 .status{padding:5px 10px;border-top:1px solid var(--line);background:#0b1528;color:var(--dim);font-size:12px;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:27px}
 .status b{color:var(--ac);font-weight:600}
 .legend{display:flex;gap:10px;flex-wrap:wrap;padding:4px 10px;border-top:1px solid var(--line);background:var(--panel);font-size:11px;color:var(--dim)}
@@ -69,6 +70,18 @@ canvas.plot{width:100%;height:150px;display:block;background:#0b1528;border:1px 
 .go button{flex:1;padding:7px 0;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--tx);font:inherit;font-weight:700;cursor:pointer}
 .go button.pri{border-color:var(--ac);background:rgba(55,232,207,.12);color:var(--ac)}
 ul.src{margin:4px 0 0 16px;padding:0}ul.src li{margin:4px 0;color:var(--dim);font-size:11.5px}
+.tw{overflow-x:auto;margin:6px 0;border:1px solid var(--line);border-radius:8px}
+.tw table{font-size:11px}.tw td,.tw th{padding:3px 5px}
+.tg{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.tg label{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:7px;padding:4px 8px;cursor:pointer;font-size:12px;background:var(--panel2)}
+.leg{display:flex;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--dim);margin:6px 0}
+.leg span{display:inline-flex;align-items:center;gap:4px}.leg i{width:14px;height:3px;border-radius:2px;display:inline-block}
+details{margin:8px 0;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:#0b1528}
+details summary{cursor:pointer;color:var(--tx);font-weight:700;font-size:12px}
+.pbar{height:6px;border-radius:4px;background:#0b1528;border:1px solid var(--line);overflow:hidden;margin:6px 0}
+.pbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--ac),#5fb8ff)}
+ul.why{margin:4px 0 0 16px;padding:0}ul.why li{margin:5px 0;font-size:11.5px;color:var(--tx)}ul.why li span{color:var(--dim)}
+@media (max-width:520px){.tw table{font-size:10.5px}.tw td,.tw th{padding:2px 3px}}
 body.embed header .back{display:none}
 @media (max-width:900px){
   main{grid-template-columns:1fr;grid-template-rows:58vh auto;height:auto}
@@ -111,7 +124,7 @@ body.embed header .back{display:none}
     <div class="status" id="status">불러오는 중… · 끌어서 돌리기 · 휠 확대 · 오른쪽(또는 Shift) 끌기 이동 · 두 번 누르면 처음 시점 · 높이 6 배 과장 · 모형은 보이게 키웠다</div>
   </section>
   <aside>
-    <div class="tabs"><button class="on" data-p="flow">과정</button><button data-p="set">설정</button><button data-p="how">방법·출처</button></div>
+    <div class="tabs"><button class="on" data-p="flow">과정</button><button data-p="cmp">비교</button><button data-p="set">설정</button><button data-p="how">방법·출처</button></div>
     <div class="pane on" id="p-flow">
       <div class="note">화면 안에서만 도는 모의입니다 — <b>실제 장비 명령은 없습니다.</b> 교란원 자리·출력은 공개 보도에 기댄 <b>가상 시나리오</b>이고, 위성기준점 좌표·지형·위성영상은 실제 자료입니다.</div>
       <div class="ctl"><label>시나리오</label><select id="scn"><option value="fixed">① 고정 지상 교란원 — 해주 일대(가상)</option><option value="ship">② 선박 탑재 이동 교란원 — 연평도 서쪽</option><option value="drone">③ 드론 교란원 — 인천공항 접근로</option></select></div>
@@ -131,6 +144,33 @@ body.embed header .back{display:none}
       <div class="go"><button id="bSeed">다시 뽑기(잡음)</button><button class="pri" id="bClk">시계별 비교 돌리기</button></div>
       <canvas class="plot" id="clkPlot"></canvas>
       <div class="note" id="clkNote">교란이 길어질수록 GNSS 시각을 잃은 기준점의 시계가 흐른다. 같은 교란을 유지 시계만 바꿔 풀어 수평 위치 오차를 비교한다(시계 넘어감을 모르고 풀 때 · 잡음 6 판 rms).</div>
+    </div>
+    <div class="pane" id="p-cmp">
+      <div class="note"><b>VLBI 기술을 쓰면 무엇이 다른가</b> — 지금 보이는 교란(시나리오·시각·출력)을 같은 위성기준점으로 방식마다 몬테카를로 판을 돌려 푼다. VLBI 의 세 요소를 하나씩 끄고, 기존 방식 둘(RSSI 거리·방향 탐지)과 나란히 본다. 기존 방식 값은 <b>일반적인 값(대략)</b>이고 아래 '비교 설정'에서 바꿀 수 있다.</div>
+      <div class="tg"><label><input type="checkbox" id="cC" checked>① 교차상관</label><label><input type="checkbox" id="cI" checked>② 긴 적분 √(B·T)</label><label><input type="checkbox" id="cA" checked>③ 원자 시계 유지</label></div>
+      <div class="go"><button class="pri" id="cmpAll">한눈 비교(여섯 방식)</button><button id="cmpSel">선택 조합 + RSSI · DF</button></div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="seg" id="cmpMode"><button data-m="log" class="on" title="참 자리에서의 거리를 로그로 — 1 m ~ 100 km 를 한 화면에">로그 고리</button><button data-m="true" title="1 칸 = 1 km 그대로">실제 축척</button></span><button id="cmpView" class="vb">비교 시점</button><button id="cmpClr" class="vb">지우기</button></div>
+      <div class="pbar"><i id="cmpBar"></i></div><div class="note" id="cmpProg">단추를 누르면 돈다(방식마다 판 수만큼 · 교란 1 시간·1 일·7 일 뒤도)</div>
+      <div class="leg" id="cmpLeg"></div>
+      <div class="tw"><table id="cmpT1"></table></div>
+      <div class="tw"><table id="cmpT2"></table></div>
+      <div id="cmpWhy"></div>
+      <details><summary>비교 설정 — 일반적인 값(대략)</summary>
+        <div class="ctl" style="margin-top:8px">
+          <label>판 수</label><select id="cN"><option>12</option><option selected>24</option><option>48</option></select>
+          <label>② 끔: 스냅숏</label><select id="cTs"><option value="0.1">0.1 ms</option><option value="1" selected>1 ms</option><option value="10">10 ms</option></select>
+          <label>① 끔: 처프 반복</label><select id="cFr"><option value="100">100 Hz</option><option value="1000" selected>1 kHz</option><option value="10000">10 kHz</option></select>
+          <label>① 끔: 가장자리 바닥</label><select id="cEf"><option value="0.1">0.1/B</option><option value="0.2" selected>0.2/B</option><option value="0.5">0.5/B</option></select>
+          <label>③ 켬: 원자 시계</label><select id="cAc"><option value="maser" selected>수소메이저</option><option value="fiber">광섬유 시각(세종 메이저)</option><option value="rb">루비듐</option></select>
+          <label>시계 넘어감</label><select id="cAw"><option value="0" selected>모른다 — 모두 GNSS 시각으로 믿고 푼다</option><option value="1">안다 — 유지 시계 오차만큼 덜 믿는다</option></select>
+          <label>RSSI 그림자 σ</label><select id="cSh"><option value="6">6 dB</option><option value="7" selected>7 dB</option><option value="8">8 dB</option></select>
+          <label>RSSI 경로 손실 지수</label><select id="cPl"><option value="2" selected>2.0(자유공간)</option><option value="2.5">2.5</option><option value="3">3.0</option></select>
+          <label>RSSI·DF 평균</label><select id="cTr"><option value="0.1">0.1 s</option><option value="1" selected>1 s</option><option value="10">10 s</option></select>
+          <label>DF 방위 σ</label><select id="cDf"><option value="1">1°</option><option value="1.5" selected>1.5°</option><option value="2">2°</option></select>
+          <label>DF 다중경로 치우침</label><select id="cDb"><option value="0">0°</option><option value="0.5">0.5°</option><option value="1" selected>1°</option><option value="2">2°</option></select>
+        </div>
+        <div class="note">RSSI: 수신 세기 = P₀ − 10·n·log₁₀(d) + 그림자, 모르는 출력 P₀ 와 자리를 함께 푼다(참 세기에는 지형 회절이 들어 있으나 모형은 모른다). DF: 기준점마다 진북 방위(장비 σ + 기준점마다 같은 다중경로 치우침)를 재 최소제곱 교차. 둘 다 2차원(높이 못 구함), 위성기준점에 같은 장비(세기 측정기 · 방향 탐지 배열 안테나)를 단다고 본다. 걸리는 시간 = 적분 + 기록 모으기·풀이 1.5 s(대략).</div>
+      </details>
     </div>
     <div class="pane" id="p-how"></div>
   </aside>
@@ -293,6 +333,61 @@ function plotClk(res,col){
   const nm={ocxo:'OCXO',rb:'루비듐',maser:'수소메이저',fiber:'광섬유 시각'};
   $('clkNote').innerHTML=Object.keys(res).map(k=>`<span style="color:${col[k]}">■</span> ${nm[k]} — 1 시간 ${fmt(res[k][2])} · 하루 ${fmt(res[k][4])} · 7 일 ${fmt(res[k][5])}`).join('<br>')+'<br>시계가 넘어간 것을 모르고 풀 때의 수평 오차(잡음 6 판 rms). 메이저·광섬유는 교란이 길어도 m 수준을 지킨다.';
 }
+
+// ── VLBI 켜기/끄기 비교(10-05 센터장님 "전파교란 위치를 VLBI 기술을 적용하고 안 하고 차이는?") ──
+const HOLD3=[3600,86400,604800], fm=v=>v==null||!isFinite(v)?'—':v<1?f(v*100,0)+' cm':v<1000?f(v,v<10?1:0)+' m':f(v/1000,v<100000?1:0)+' km';
+let cmpRows=null, cmpMode='log', cmpBusy=false;
+const cmpP=()=>({Tshort:+$('cTs').value/1000,fRep:+$('cFr').value,envFloor:+$('cEf').value,atomClock:$('cAc').value,clockAware:$('cAw').value==='1',
+  shadowDb:+$('cSh').value,plExp:+$('cPl').value,Trss:+$('cTr').value,Tdf:+$('cTr').value,dfDeg:+$('cDf').value,dfBiasDeg:+$('cDb').value});
+async function runCmp(list){
+  const s=last; if(!s||cmpBusy)return; cmpBusy=true;
+  const {D,F,data}=S.core(), sc=s.S, n=+$('cN').value, P=cmpP();
+  const base={F,D,stations:data.stations,jam:s.jam,T:s.p.T,sdrBw:s.p.sdrBw,mpNs:s.p.mpNs,tHold:Math.max(s.p.tHold,s.t),mode:sc.mode,useFdoa:sc.fdoa,hAssume:sc.agl};
+  const tq=F.toEnu(JC.ecef(s.jam.lat,s.jam.lon,s.jam.hAsl+25)), truth={e:tq[0],n:tq[1],u:tq[2]};
+  cmpRows=[]; cmpRows.ctx={sc,s,lost:(s.sol&&s.sol.st?s.sol.st.filter(x=>x.lost).length:0),t:s.t,eirp:s.jam.eirpW};
+  for(let i=0;i<list.length;i++){
+    $('cmpProg').textContent=`계산 중 — ${list[i].name} (${i+1}/${list.length})`; $('cmpBar').style.width=(100*i/list.length)+'%';
+    await new Promise(r=>setTimeout(r,30));
+    const o=JC.runMethod(list[i],base,P,n,7000+i*37,HOLD3);
+    cmpRows.push(Object.assign(o,{name:list[i].name,col:list[i].col,truth}));
+    renderCmp(); S.showCompare(cmpRows.filter(r=>!r.fail),cmpMode);
+  }
+  $('cmpBar').style.width='100%'; $('cmpProg').textContent=`끝 — ${sc.name} · 교란 +${Math.floor(s.t)} s · EIRP ${f(s.jam.eirpW,s.jam.eirpW<10?1:0)} W · 방식마다 ${n} 판(교란 지속은 절반)`;
+  cmpBusy=false;
+}
+function renderCmp(){
+  const R=cmpRows; if(!R){['cmpT1','cmpT2'].forEach(id=>$(id).innerHTML='');$('cmpWhy').innerHTML='';$('cmpLeg').innerHTML='';return;}
+  const sc=R.ctx.sc, mov=!!(sc.path||sc.orbitM), nm=r=>`<td class="n"><span class="dot" style="background:${r.col}"></span>${esc(r.name)}</td>`;
+  $('cmpLeg').innerHTML=R.map(r=>`<span><i style="background:${r.col}"></i>${esc(r.name)}${r.fail?' (실패)':''}</span>`).join('')+'<span>실선 1σ · 점선 95 % · 점 = 한 판 추정 · 흰 십자 = 참 자리</span>';
+  $('cmpT1').innerHTML='<tr><th>방식</th><th>감지</th><th>수평 rms</th><th>95 %</th><th>높이 rms</th><th>흩어짐÷형식</th></tr>'+R.map(r=>r.fail
+    ?`<tr>${nm(r)}<td class="bad">${r.nDet||0} 곳</td><td class="bad" colspan="4">실패</td></tr>`
+    :`<tr>${nm(r)}<td>${r.nDet} 곳</td><td>${fm(r.rmsH)}</td><td>${fm(r.r95)}</td><td>${sc.mode==='3d'?(r.rmsU!=null?fm(r.rmsU):'못 구함'):'묶음'}</td><td>${r.ratio!=null?f(r.ratio,2):'—'}</td></tr>`).join('');
+  //   속도: FDOA 가 있으면 그 오차. 없으면 60 s 떨어진 두 위치의 차 — 치우침은 두 위치에 같이 들어 빠지고 무작위 몫만 남는다(√2·σ/60)
+  const sp=r=>{ if(!mov)return '— 고정'; if(r.rmsV!=null)return 'FDOA ±'+f(r.rmsV,r.rmsV<0.1?3:2)+' m/s';
+    if(!r.cov)return '—'; const sv=Math.SQRT2*Math.sqrt(r.cov[0][0]+r.cov[1][1])/60; return sv>50?'<span class="bad">쓸 수 없음</span>':'두 위치 60 s ±'+f(sv,sv<1?2:0)+' m/s'; };
+  const hd=(r,t)=>r.m.kind==='tdoa'?fm(r.hold[t]):'<span style="color:var(--dim)">시계 무관</span>';
+  $('cmpT2').innerHTML='<tr><th>방식</th><th>1 시간</th><th>1 일</th><th>7 일</th><th>속도</th><th>첫 위치</th></tr>'+R.map(r=>r.fail
+    ?`<tr>${nm(r)}<td colspan="5" class="bad">—</td></tr>`
+    :`<tr>${nm(r)}<td>${hd(r,3600)}</td><td>${hd(r,86400)}</td><td>${hd(r,604800)}</td><td>${sp(r)}</td><td>약 ${f(r.latency,r.latency<2?1:0)} s</td></tr>`).join('');
+  const v=R.find(r=>r.m===JC.METHODS.vlbi&&!r.fail), sol=last&&last.sol;
+  let w='<h2>왜 다른가 <small>요소마다 한 줄</small></h2><ul class="why">'+R.map(r=>{
+    let x=r.m.why;
+    if(r.fail) x+=` <span>— 이번 결과: ${esc(r.fail)}${r.m===JC.METHODS.noCorr&&sc.type==='chirp'?' · 출력 배율을 올리면(설정 탭) 처프 가장자리로 1/B(수십 m) 수준에 잡힌다':''}</span>`;
+    else if(r.m===JC.METHODS.noAtom&&R.ctx.lost===0) x+=' <span>— 이번 교란은 약해 기준점 GNSS 가 끊기지 않았다 — 그래서 켠 것과 같다</span>';
+    else if(r.m.kind!=='tdoa'&&r.mean) x+=` <span>— 평균 치우침 ${fm(Math.hypot(r.mean.e,r.mean.n))}</span>`;
+    return `<li><b style="color:${r.col}">${esc(r.name)}</b> — ${x}</li>`;}).join('')+'</ul>';
+  if(v) w+=`<div class="note"><b>검산</b> — VLBI 전부: 수평 rms ${fm(v.rmsH)} · 흩어짐÷형식 ${f(v.ratio,2)}(1 근처면 형식 σ 가 맞다)${sol&&sol.ok?` · 과정 탭 5 단계 1σ ${fm(Math.hypot(sol.sigma.e,sol.sigma.n))}`:''}. 끄기·기존 방식이 나쁜 까닭은 위 줄마다. RSSI 는 지형 회절을 모르는 모형 탓에 한쪽으로 치우치고(평균 치우침), DF 는 다중경로 치우침을 모르는 가중 탓에 흩어짐÷형식이 1 보다 크다.</div>`;
+  $('cmpWhy').innerHTML=w;
+}
+const combo=()=>{const c=$('cC').checked,i=$('cI').checked,a=$('cA').checked; return {name:`선택 조합(①${c?'켬':'끔'} ②${i?'켬':'끔'} ③${a?'켬':'끔'})`,col:'#ffffff',kind:'tdoa',corr:c?1:0,integ:i?1:0,atom:a?1:0,
+  why:'고른 요소만 켠 VLBI 식 — '+[c?'':'① 교차상관 없음(포락선 시각)',i?'':'② 짧은 스냅숏',a?'':'③ OCXO 유지'].filter(Boolean).join(' · ')||'세 요소 모두 켬'};};
+$('cmpAll').onclick=()=>runCmp(['vlbi','noCorr','noInt','noAtom','rss','df'].map(k=>JC.METHODS[k]));
+$('cmpSel').onclick=()=>runCmp([combo(),JC.METHODS.rss,JC.METHODS.df]);
+document.querySelectorAll('#cmpMode button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#cmpMode button').forEach(x=>x.classList.toggle('on',x===b));cmpMode=b.dataset.m;S.cmpMode(cmpMode);});
+$('cmpView').onclick=()=>S.cmpMode(cmpMode);
+const clearCmp=()=>{cmpRows=null;renderCmp();S.clearCompare();$('cmpBar').style.width='0';$('cmpProg').textContent='단추를 누르면 돈다(방식마다 판 수만큼 · 교란 1 시간·1 일·7 일 뒤도)';};
+$('cmpClr').onclick=clearCmp;
+$('scn').addEventListener('change',clearCmp);
 
 // ── 방법·출처 ──
 function how(d){
