@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>ThreeStar VLBI 모의</title>
+<!-- VLBI 전 과정 모의(2026-10-05): 관측 기하 → 신호 경로·지연 → 수신·2비트 기록 → 상관(FX) → 프린지 탐색 → 기선 해석.
+     계산 vlbisim_core.js(브라우저에서 실제로 돈다) · 3D vlbisim3d.js · 자산 models/vlbisim/(블렌더) · 자료 models/vlbisim/vlbisim_data.json(IVS VEX) -->
+<style>
+:root{--bg:#0a1120;--panel:#0f1a2c;--panel2:#13223a;--line:#1f3150;--tx:#dbe7f5;--dim:#8ea3c0;--ac:#37e8cf;--warn:#f0b44c;--bad:#ff6b8a;
+  --x:#5fe3ff;--s:#ffb44c;--mono:ui-monospace,"Cascadia Mono",Consolas,monospace}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:13px/1.5 "Noto Sans KR","Malgun Gothic",system-ui,sans-serif}
+header{display:flex;align-items:center;gap:12px;height:50px;padding:0 14px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0f1b30,#0b1424)}
+.rank{display:inline-flex;gap:2px;padding:3px 6px;border:1px solid #c9a13c;border-radius:4px;color:#f2c94c;font-size:12px;letter-spacing:1px}
+.brand{font-weight:800;font-size:15px}.brand span{color:var(--warn)}
+h1{font-size:14px;font-weight:700;margin:0 0 0 4px;white-space:nowrap}
+.chips{display:flex;gap:6px;flex-wrap:wrap;overflow:hidden;max-height:26px}
+.chip{padding:2px 8px;border:1px solid var(--line);border-radius:999px;color:var(--dim);font-size:11.5px;white-space:nowrap}
+.chip b{color:var(--tx);font-family:var(--mono);font-weight:600}
+.back{margin-left:auto;color:var(--tx);text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:12px;white-space:nowrap}
+.back:hover{border-color:var(--ac)}
+main{display:grid;grid-template-columns:minmax(0,1fr) 470px;height:calc(100% - 50px)}
+.view{position:relative;display:flex;flex-direction:column;min-width:0;min-height:0}
+#cv{flex:1 1 auto;width:100%;min-height:0;display:block;cursor:grab;touch-action:none;background:#040913}
+#cv:active{cursor:grabbing}
+.vbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:6px 10px;border-top:1px solid var(--line);background:var(--panel)}
+button{font:inherit}
+.vbar button,.seg button{background:var(--panel2);color:var(--tx);border:1px solid var(--line);border-radius:7px;padding:4px 9px;font-size:12px;cursor:pointer}
+.vbar button.on,.seg button.on{border-color:var(--ac);color:var(--ac)}
+.vbar .sep{width:1px;height:18px;background:var(--line);margin:0 2px}
+.status{padding:5px 10px;border-top:1px solid var(--line);background:#0b1528;color:var(--dim);font-size:12px;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:27px}
+.status b{color:var(--ac);font-weight:600}
+aside{border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
+.tabs{display:flex;border-bottom:1px solid var(--line)}
+.tabs button{flex:1;background:none;border:0;border-bottom:2px solid transparent;color:var(--dim);font-weight:700;padding:10px 0;cursor:pointer}
+.tabs button.on{color:var(--tx);border-bottom-color:var(--ac)}
+.pane{flex:1 1 auto;overflow:auto;padding:10px 14px 18px;display:none}
+.pane.on{display:block}
+.go{display:flex;gap:6px;margin:2px 0 8px}
+.go button{flex:1;padding:8px 0;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--tx);font-weight:700;cursor:pointer}
+.go button.pri{border-color:var(--ac);background:rgba(55,232,207,.12);color:var(--ac)}
+.go button:disabled{opacity:.45;cursor:default}
+.bar{height:6px;border-radius:4px;background:#0b1528;border:1px solid var(--line);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--ac),#5fb8ff);transition:width .2s}
+.cnt{display:flex;justify-content:space-between;color:var(--dim);font-size:11.5px;margin:4px 0 8px;font-family:var(--mono)}
+.steps{display:flex;gap:4px;margin:4px 0 8px}
+.steps button{flex:1;padding:6px 0;border-radius:7px;border:1px solid var(--line);background:#0b1528;color:var(--dim);font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap}
+.steps button.on{border-color:var(--ac);color:var(--ac);background:rgba(55,232,207,.08)}
+.steps button.done{color:var(--tx)}
+.steps button.done::after{content:" ✓";color:var(--ac)}
+h2{font-size:13px;margin:8px 0 4px;display:flex;align-items:baseline;gap:6px}
+h2 small{color:var(--dim);font-weight:400;font-size:11px}
+h3{font-size:12px;margin:12px 0 4px;color:var(--tx)}
+.note{color:var(--dim);font-size:11.8px;line-height:1.6;margin:4px 0}
+.eq{font-family:var(--mono);font-size:11.5px;color:#cfe4ff;background:#0b1528;border:1px solid var(--line);border-radius:7px;padding:6px 8px;margin:6px 0;white-space:pre-wrap;line-height:1.55}
+.tag{display:inline-block;font-size:10.5px;padding:0 6px;border-radius:5px;border:1px solid var(--line);color:var(--dim);margin-left:4px;vertical-align:1px}
+.tag.live{border-color:#2f7d6d;color:var(--ac)}
+canvas.plot{width:100%;height:190px;display:block;background:#0b1528;border:1px solid var(--line);border-radius:8px;margin:6px 0}
+canvas.plot.tall{height:240px}
+table{width:100%;border-collapse:collapse;font-size:11.5px}
+th{color:var(--dim);font-weight:600;font-size:10.5px;text-align:right;padding:3px 4px;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+td{padding:3px 4px;border-bottom:1px solid rgba(31,49,80,.55);text-align:right;font-family:var(--mono);white-space:nowrap}
+td.n{font-family:inherit;font-weight:700}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:12px}
+.kv span{color:var(--dim)}.kv b{font-family:var(--mono);font-weight:600;text-align:right}
+.box{border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:var(--panel2);margin:8px 0}
+.ctl{display:grid;grid-template-columns:132px 1fr;gap:7px 10px;align-items:center;font-size:12px}
+.ctl label{color:var(--dim)}
+select,input[type=number]{background:#0b1528;color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font:inherit;font-size:12px;width:100%}
+.chk{display:flex;gap:10px;flex-wrap:wrap}.chk label{display:inline-flex;gap:4px;align-items:center;color:var(--tx)}
+.good{color:var(--ac)}.warn{color:var(--warn)}.bad{color:var(--bad)}
+.leg{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--dim)}.leg i{display:inline-block;width:10px;height:3px;border-radius:2px;margin-right:4px;vertical-align:2px}
+ol{margin:4px 0 0 18px;padding:0}ol li{margin:3px 0}
+body.embed header .back{display:none}
+@media (max-width:900px){
+  main{grid-template-columns:1fr;grid-template-rows:52vh auto;height:auto}
+  aside{border-left:0;border-top:1px solid var(--line)}
+  .pane{overflow:visible}
+  h1,.chips{display:none}
+  .steps button{font-size:10.5px}
+}
+</style>
+</head>
+<body>
+<header>
+  <span class="rank">★★★</span><span class="brand">Three<span>Star</span></span>
+  <h1>VLBI 전 과정 모의</h1>
+  <div class="chips"><span class="chip">기선 <b id="cBase">—</b></span><span class="chip">세션 <b>R41279</b></span><span class="chip">스캔 <b id="cScan">—</b></span><span class="chip">길이 <b id="cLen">—</b></span></div>
+  <a class="back" href="/" id="back">← 운용 화면</a>
+</header>
+<main>
+  <div class="view">
+    <canvas id="cv"></canvas>
+    <div class="vbar">
+      <button data-v="sky" class="on">우주 · 파면</button><button data-v="chain">신호 사슬</button><button data-v="corr">상관기 · 프린지</button><button data-v="base">기선 해석</button>
+      <span class="sep"></span><span style="color:var(--dim);font-size:11.5px">속도</span>
+      <span class="seg" id="speed"><button data-k="0.5">0.5×</button><button data-k="1" class="on">1×</button><button data-k="3">3×</button></span>
+    </div>
+    <div class="status" id="status">불러오는 중…</div>
+  </div>
+  <aside>
+    <div class="tabs"><button class="on" data-p="pRun">과정</button><button data-p="pSet">설정</button><button data-p="pThe">이론 · 한계</button></div>
+    <div class="pane on" id="pRun">
+      <div class="note">두 안테나가 같은 ICRF 전파원을 수소메이저 시각에 맞춰 동시에 기록하고, 상관기가 두 기록을 맞대어 지연을 재고, 여러 스캔의 지연으로 기선을 푸는 과정을 그대로 돌립니다. 계산은 이 화면에서 실제로 합니다. <b>화면 안 모의 — 장비 명령은 없습니다.</b></div>
+      <div class="go"><button class="pri" id="bRun">▶ 전 과정 실행</button><button id="bCheck">검산(몬테카를로)</button></div>
+      <div class="bar"><i id="pbar"></i></div><div class="cnt"><span id="cntA">준비</span><span id="cntB"></span></div>
+      <div class="steps" id="steps"><button data-s="1" class="on">1 기하</button><button data-s="2">2 지연</button><button data-s="3">3 기록</button><button data-s="4">4 상관</button><button data-s="5">5 프린지</button><button data-s="6">6 기선</button></div>
+      <div id="stepBody"></div>
+    </div>
+    <div class="pane" id="pSet">
+      <h2>관측</h2>
+      <div class="ctl">
+        <label>기선(세종 –)</label><select id="sSt2"></select>
+        <label>스캔(그림·신호 모의)</label><select id="sScan"></select>
+      </div>
+      <h2>참값(모의에 넣는 진짜 값) <small>해석은 이 값을 모른 채 푼다</small></h2>
+      <div class="ctl">
+        <label>시계 차 c₀ (ns)</label><input type="number" id="vC0" value="230" step="10">
+        <label>시계 변화율 (10⁻¹⁴ s/s)</label><input type="number" id="vC1" value="1.4" step="0.2">
+        <label>국 2 선험 위치 오차 X·Y·Z (mm)</label><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px"><input type="number" id="vDx" value="31"><input type="number" id="vDy" value="-24"><input type="number" id="vDz" value="18"></div>
+        <label>천정 습윤 지연 국1·국2 (cm)</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:4px"><input type="number" id="vZ1" value="15"><input type="number" id="vZ2" value="12"></div>
+        <label>VTEC 국1·국2 (TECU)</label><div style="display:grid;grid-template-columns:1fr 1fr;gap:4px"><input type="number" id="vT1" value="18"><input type="number" id="vT2" value="25"></div>
+        <label>전파원 세기 배율</label><input type="number" id="vFlux" value="1" step="0.25" min="0.1">
+        <label>잡음</label><div class="chk"><label><input type="checkbox" id="nTh" checked>열잡음</label><label><input type="checkbox" id="nMa" checked>메이저</label><label><input type="checkbox" id="nTr" checked>대류권 변동</label></div>
+      </div>
+      <h2>신호 모의</h2>
+      <div class="ctl">
+        <label>AP 수 K</label><select id="vK"><option>16</option><option selected>32</option><option>64</option></select>
+        <label>AP 당 표본 N</label><select id="vN"><option>2048</option><option selected>4096</option><option>8192</option></select>
+      </div>
+      <h2>해석</h2>
+      <div class="ctl">
+        <label>대류권 추정</label><select id="vZm"><option value="pwl" selected>2시간 꺾은선(제약 1.5 cm)</option><option value="const">세션 상수</option></select>
+        <label>재가중</label><select id="vRw"><option value="1" selected>χ²/자유도 = 1 이 되게</option><option value="0">하지 않음</option></select>
+        <label>난수 씨앗</label><input type="number" id="vSeed" value="7">
+      </div>
+      <div class="note">설정을 바꾸면 '▶ 전 과정 실행'을 다시 누르세요.</div>
+    </div>
+    <div class="pane" id="pThe"></div>
+  </aside>
+</main>
+<script src="./three.min.js"></script>
+<script src="./GLTFLoader.js"></script>
+<script src="./sejong22m.js"></script>
+<script src="vlbisim_core.js"></script>
+<script src="vlbisim3d.js"></script>
+<script>
+(function () {
+'use strict';
+const $ = (id) => document.getElementById(id), VS = window.VSCore, D2R = Math.PI / 180;
+const QS = new URLSearchParams(location.search); if (QS.has('embed')) document.body.classList.add('embed');
+const f = (v, d) => (v == null || !isFinite(v) ? '—' : (+v).toFixed(d));
+const sg = (v, d) => (v == null || !isFinite(v) ? '—' : (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(d));
+const kst = (u) => { const d = new Date((u + 9 * 3600) * 1000); return d.toISOString().slice(5, 16).replace('T', ' '); };
+const utc = (u) => new Date(u * 1000).toISOString().slice(11, 16);
+let D = null, BND = null, V3 = null, CUR = { step: 1 }, RUN = null, SPEED = 1, busy = false;
+window.__VS = { get V3() { return V3; }, get RUN() { return RUN; } };     // 시험·점검용(헤드리스 화면 확인)
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms / SPEED));
+
+// ───── 자료 ─────
+fetch('models/vlbisim/vlbisim_data.json').then((r) => r.json()).then(init).catch((e) => { $('status').textContent = '자료를 못 읽음: ' + e; });
+function init(d) {
+  D = d; BND = VS.bands(d.freq);
+  const s1 = D.stations.SEJONG, opts = [];
+  for (const [nm, st] of Object.entries(D.stations)) { if (nm === 'SEJONG') continue; const n = VS.commonScans(D, 'r41279', s1.id, st.id).length; if (n >= 8) opts.push([nm, n]); }
+  opts.sort((a, b) => b[1] - a[1]);
+  $('sSt2').innerHTML = opts.map(([nm, n]) => `<option value="${nm}">${nm} (${D.stations[nm].id}) · 공통 스캔 ${n}</option>`).join('');
+  $('sSt2').value = QS.get('st2') && D.stations[QS.get('st2')] ? QS.get('st2') : 'KATH12M';
+  $('sSt2').onchange = () => { pickBaseline(); if (V3) location.search = '?st2=' + $('sSt2').value + (QS.has('embed') ? '&embed=1' : ''); };
+  pickBaseline();
+  V3 = window.VS3D.create($('cv'), { assetsUrl: 'models/vlbisim/vlbisim_assets.glb', sejongUrl: 'models/sejong22m.glb', names: ['세종 KVGSJ', RUN.st2name],
+    onload: () => { $('status').innerHTML = '준비 — <b>▶ 전 과정 실행</b> · 끌어서 돌리기 · 휠 확대 · 안테나는 지구 위에서 약 1만 배 크게 그렸다'; },
+    onerror: (e) => { $('status').textContent = '3D 자산을 못 읽음: ' + e; } });
+  new ResizeObserver(() => V3 && V3.resize()).observe($('cv'));
+  setScan(); showStep(1); theory();
+}
+function pickBaseline() {
+  const st1 = D.stations.SEJONG, nm = $('sSt2').value, st2 = D.stations[nm];
+  const scans = VS.commonScans(D, 'r41279', st1.id, st2.id);
+  RUN = { st1, st2, st2name: `${nm} (${st2.id})`, scans, scanIx: 0, res: {} };
+  let bi = 0; scans.forEach((s, i) => { if (s.T * s.flux > scans[bi].T * scans[bi].flux) bi = i; });
+  $('sScan').innerHTML = scans.map((s, i) => `<option value="${i}">${utc(s.t_start)} UT · ${s.name} · ${s.T} s</option>`).join('');
+  $('sScan').value = bi; RUN.scanIx = bi;
+  $('sScan').onchange = () => { RUN.scanIx = +$('sScan').value; RUN.res = {}; setScan(); showStep(CUR.step); };
+  const L = VS.nrm(VS.sub(st2.xyz, st1.xyz));
+  $('cBase').textContent = `SEJONG–${nm}`; $('cLen').textContent = f(L / 1e3, 1) + ' km';
+}
+function cfg() {
+  return { c0: +$('vC0').value * 1e-9, c1: +$('vC1').value * 1e-14, dx: [+$('vDx').value / 1e3, +$('vDy').value / 1e3, +$('vDz').value / 1e3],
+    z1: +$('vZ1').value / 100, z2: +$('vZ2').value / 100, t1: +$('vT1').value, t2: +$('vT2').value, flux: +$('vFlux').value || 1,
+    th: $('nTh').checked, ma: $('nMa').checked, tr: $('nTr').checked, K: +$('vK').value, N: +$('vN').value, zm: $('vZm').value, rw: $('vRw').value === '1', seed: +$('vSeed').value || 7 };
+}
+// 스캔 하나의 참·선험 모형
+function scanModels() {
+  const c = cfg(), sc = RUN.scans[RUN.scanIx], st1 = RUN.st1, st2 = RUN.st2, t0 = sc.t;
+  const PT = { x1: st1.xyz, x2: VS.add(st2.xyz, c.dx), clk: (t) => c.c0 + c.c1 * t, zhd1: VS.zhd(st1.xyz), zhd2: VS.zhd(st2.xyz), zwd1: c.z1, zwd2: c.z2, vtec1: c.t1, vtec2: c.t2 };
+  const PM = { x1: st1.xyz, x2: st2.xyz, clk: 0, zhd1: VS.zhd(st1.xyz), zhd2: VS.zhd(st2.xyz), zwd1: 0, zwd2: 0, vtec1: 0, vtec2: 0 };
+  return { sc, c, PT, PM, truthAt: (t) => VS.delay(PT, sc.src, t0 + t, t), modelAt: (t) => VS.delay(PM, sc.src, t0 + t, t) };
+}
+function setScan() {
+  const m = scanModels(), d = m.truthAt(0);
+  RUN.geom = d; RUN.m = m;
+  $('cScan').textContent = `${m.sc.name} ${utc(m.sc.t_start)} UT`;
+  if (V3) V3.setScan({ unix: m.sc.t, sC: VS.s_crs(m.sc.src.ra, m.sc.src.dec), x1: RUN.st1.xyz, x2: RUN.st2.xyz, name1: '세종 KVGSJ', name2: RUN.st2name, src: m.sc.name,
+    azel1: [d.az1 / D2R, d.el1 / D2R], azel2: [d.az2 / D2R, d.el2 / D2R] });
+}
+
+// ───── 그림 도구(캔버스 — 3D 밖) ─────
+function cvs(id) { const c = $(id); if (!c) return null; const r = c.getBoundingClientRect(), dp = Math.min(devicePixelRatio || 1, 2); c.width = r.width * dp; c.height = r.height * dp; const g = c.getContext('2d'); g.scale(dp, dp); return { g, w: r.width, h: r.height }; }
+function plot(id, series, o) {
+  const P = cvs(id); if (!P) return; const { g, w, h } = P, L = 46, R = o.r2 ? 46 : 10, Tp = 16, Bt = 26, pw = w - L - R, ph = h - Tp - Bt;
+  let x0 = o.x0, x1 = o.x1, y0 = o.y0, y1 = o.y1;
+  const all = series.filter((s) => !s.right);
+  if (x0 == null) { x0 = Infinity; x1 = -Infinity; for (const s of series) for (const x of s.x) { if (x < x0) x0 = x; if (x > x1) x1 = x; } }
+  if (y0 == null) { y0 = Infinity; y1 = -Infinity; for (const s of all) for (let i = 0; i < s.y.length; i++) { const lo = s.y[i] - (s.e ? s.e[i] : 0), hi = s.y[i] + (s.e ? s.e[i] : 0); if (lo < y0) y0 = lo; if (hi > y1) y1 = hi; } const pad = (y1 - y0) * 0.08 || 1; y0 -= pad; y1 += pad; }
+  const X = (x) => L + (x - x0) / (x1 - x0 || 1) * pw, Y = (y) => Tp + (1 - (y - y0) / (y1 - y0 || 1)) * ph;
+  g.strokeStyle = '#1f3150'; g.lineWidth = 1; g.font = '10.5px ui-monospace,Consolas,monospace'; g.fillStyle = '#8ea3c0';
+  for (let i = 0; i <= 4; i++) { const yy = y0 + (y1 - y0) * i / 4; g.beginPath(); g.moveTo(L, Y(yy)); g.lineTo(L + pw, Y(yy)); g.stroke(); g.textAlign = 'right'; g.fillText(o.yf ? o.yf(yy) : yy.toPrecision(3), L - 4, Y(yy) + 3); }
+  for (let i = 0; i <= 5; i++) { const xx = x0 + (x1 - x0) * i / 5; g.textAlign = 'center'; g.fillText(o.xf ? o.xf(xx) : xx.toPrecision(3), X(xx), h - Bt + 13); }
+  g.textAlign = 'left'; g.fillStyle = '#b8c8de'; g.fillText(o.title || '', L, 11); g.textAlign = 'right'; g.fillStyle = '#8ea3c0'; g.fillText(o.xl || '', L + pw, h - 3);
+  if (o.hline != null) { g.strokeStyle = 'rgba(240,180,76,.6)'; g.setLineDash([4, 3]); g.beginPath(); g.moveTo(L, Y(o.hline)); g.lineTo(L + pw, Y(o.hline)); g.stroke(); g.setLineDash([]); }
+  if (o.vline != null) { g.strokeStyle = 'rgba(55,232,207,.7)'; g.beginPath(); g.moveTo(X(o.vline), Tp); g.lineTo(X(o.vline), Tp + ph); g.stroke(); }
+  for (const s of series) {
+    const yy = s.right ? ((v) => Tp + (1 - (v - o.r0) / (o.r1 - o.r0)) * ph) : Y;
+    g.strokeStyle = s.c; g.fillStyle = s.c; g.lineWidth = s.lw || 1.6;
+    if (s.e) { g.globalAlpha = 0.45; for (let i = 0; i < s.x.length; i++) { g.beginPath(); g.moveTo(X(s.x[i]), yy(s.y[i] - s.e[i])); g.lineTo(X(s.x[i]), yy(s.y[i] + s.e[i])); g.stroke(); } g.globalAlpha = 1; }
+    if (s.dots) { for (let i = 0; i < s.x.length; i++) { g.beginPath(); g.arc(X(s.x[i]), yy(s.y[i]), s.r || 2, 0, 7); g.fill(); } }
+    else if (s.bars) { for (let i = 0; i < s.x.length; i++) { const bw = Math.max(1, s.bw * pw / (x1 - x0)); g.fillRect(X(s.x[i]) - bw / 2, yy(s.y[i]), bw, yy(o.y0 != null ? o.y0 : 0) - yy(s.y[i])); } }
+    else { g.beginPath(); let up = false; for (let i = 0; i < s.x.length; i++) { const v = s.y[i]; if (v == null || !isFinite(v)) { up = false; continue; } if (!up) { g.moveTo(X(s.x[i]), yy(v)); up = true; } else g.lineTo(X(s.x[i]), yy(v)); } g.stroke(); }
+  }
+  if (o.r2) { g.fillStyle = '#8ea3c0'; g.textAlign = 'left'; for (let i = 0; i <= 4; i++) { const v = o.r0 + (o.r1 - o.r0) * i / 4; g.fillText(o.rf ? o.rf(v) : v.toPrecision(2), L + pw + 4, Tp + (1 - i / 4) * ph + 3); } }
+}
+function heat(id, grid, o) {
+  const P = cvs(id); if (!P) return; const { g, w, h } = P, L = 46, R = 10, Tp = 16, Bt = 26, pw = w - L - R, ph = h - Tp - Bt;
+  const ny = grid.length, nx = grid[0].length; let mx = 0; for (const r of grid) for (const v of r) mx = Math.max(mx, v);
+  const img = g.createImageData(nx, ny);
+  for (let i = 0; i < ny; i++) for (let j = 0; j < nx; j++) { const a = grid[i][j] / (mx || 1), c = ramp(a), k = 4 * ((ny - 1 - i) * nx + j); img.data[k] = c[0]; img.data[k + 1] = c[1]; img.data[k + 2] = c[2]; img.data[k + 3] = 255; }
+  const tc = document.createElement('canvas'); tc.width = nx; tc.height = ny; tc.getContext('2d').putImageData(img, 0, 0);
+  g.imageSmoothingEnabled = true; g.drawImage(tc, L, Tp, pw, ph);
+  g.font = '10.5px ui-monospace,Consolas,monospace'; g.fillStyle = '#b8c8de'; g.textAlign = 'left'; g.fillText(o.title || '', L, 11);
+  g.fillStyle = '#8ea3c0'; g.textAlign = 'center';
+  for (let i = 0; i <= 4; i++) { g.fillText(o.xf(i / 4), L + pw * i / 4, h - Bt + 13); }
+  g.textAlign = 'right'; for (let i = 0; i <= 4; i++) g.fillText(o.yf(i / 4), L - 4, Tp + ph * (1 - i / 4) + 3);
+  g.textAlign = 'right'; g.fillText(o.xl || '', L + pw, h - 3);
+  if (o.mark) { g.strokeStyle = '#fff'; g.lineWidth = 1.2; g.beginPath(); g.arc(L + pw * o.mark[0], Tp + ph * (1 - o.mark[1]), 6, 0, 7); g.stroke(); }
+}
+function ramp(a) { const s = [[5, 12, 50], [12, 88, 178], [38, 204, 216], [242, 216, 90], [255, 255, 242]]; const x = Math.max(0, Math.min(0.999, a)) * (s.length - 1), i = Math.floor(x), t = x - i; return [0, 1, 2].map((k) => Math.round(s[i][k] + (s[i + 1][k] - s[i][k]) * t)); }
+
+// ───── 단계 보기 ─────
+const MODE = { 1: 'sky', 2: 'sky', 3: 'chain', 4: 'corr', 5: 'corr', 6: 'base' };
+function showStep(n) {
+  CUR.step = n; document.querySelectorAll('#steps button').forEach((b) => b.classList.toggle('on', +b.dataset.s === n));
+  if (V3) V3.setMode(MODE[n]); document.querySelectorAll('.vbar [data-v]').forEach((b) => b.classList.toggle('on', b.dataset.v === MODE[n]));
+  const fn = [null, step1, step2, step3, step4, step5, step6][n]; $('stepBody').innerHTML = ''; fn();
+}
+for (const b of document.querySelectorAll('#steps button')) b.onclick = () => { if (!busy) showStep(+b.dataset.s); };
+for (const b of document.querySelectorAll('.vbar [data-v]')) b.onclick = () => { document.querySelectorAll('.vbar [data-v]').forEach((x) => x.classList.toggle('on', x === b)); if (V3) V3.setMode(b.dataset.v); };
+for (const b of document.querySelectorAll('#speed button')) b.onclick = () => { document.querySelectorAll('#speed button').forEach((x) => x.classList.toggle('on', x === b)); SPEED = +b.dataset.k; if (V3) V3.setSpeed(SPEED); };
+for (const b of document.querySelectorAll('.tabs button')) b.onclick = () => { document.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('on', x === b)); document.querySelectorAll('.pane').forEach((p) => p.classList.toggle('on', p.id === b.dataset.p)); if (b.dataset.p === 'pRun') showStep(CUR.step); };
+const body = (h) => { $('stepBody').insertAdjacentHTML('beforeend', h); };
+
+function step1() {
+  const d = RUN.geom, m = RUN.m, s1 = VS.geod(RUN.st1.xyz), s2 = VS.geod(RUN.st2.xyz), B = VS.sub(RUN.st2.xyz, RUN.st1.xyz);
+  body(`<h2>1 관측 기하 <small>ICRF 전파원 방향 · 지구 자전 · 두 국의 방위·고도</small><span class="tag live">실제 계산</span></h2>
+   <div class="note">전파원은 우주 저 멀리(수십억 광년) 있어 지구에는 <b>평면파</b>로 닿습니다. 방향 ŝ 는 ICRF 좌표(적경·적위)로 정해져 있고, 지구가 돌면서 두 국에서 보이는 방위·고도가 바뀝니다. 두 국이 함께 볼 수 있을 때만 관측합니다.</div>
+   <div class="eq">ŝ(천구) = (cosδ cosα, cosδ sinα, sinδ)
+ŝ(지구) = R₃(ERA)·ŝ  ERA = 2π(0.7790572732640 + 1.00273781191135448·Tᵤ)
+B = x₂ − x₁(ITRF)  고도 E = asin(ŝ·û),  방위 A = atan2(ŝ·ê, ŝ·n̂)</div>
+   <table><tr><th>국</th><th>위도</th><th>경도</th><th>높이 m</th><th>방위</th><th>고도</th></tr>
+    <tr><td class="n">세종 KVGSJ</td><td>${f(s1.lat / D2R, 4)}°</td><td>${f(s1.lon / D2R, 4)}°</td><td>${f(s1.h, 1)}</td><td>${f(d.az1 / D2R, 1)}°</td><td>${f(d.el1 / D2R, 1)}°</td></tr>
+    <tr><td class="n">${RUN.st2name}</td><td>${f(s2.lat / D2R, 4)}°</td><td>${f(s2.lon / D2R, 4)}°</td><td>${f(s2.h, 1)}</td><td>${f(d.az2 / D2R, 1)}°</td><td>${f(d.el2 / D2R, 1)}°</td></tr></table>
+   <div class="box kv"><span>전파원</span><b>${m.sc.name} · α ${f(m.sc.src.ra / D2R / 15, 5)} h · δ ${sg(m.sc.src.dec / D2R, 4)}°</b>
+    <span>스캔 시각</span><b>${kst(m.sc.t_start)} KST (${utc(m.sc.t_start)} UT) · ${m.sc.T} s</b>
+    <span>지구 자전각 ERA</span><b>${f(VS.era(m.sc.t) / D2R, 4)}°</b>
+    <span>기선 B (X·Y·Z)</span><b>${B.map((v) => f(v / 1e3, 3)).join(' · ')} km</b><span>기선 길이</span><b>${f(VS.nrm(B) / 1e3, 4)} km</b></div>
+   <canvas class="plot" id="g1"></canvas><div class="leg"><span><i style="background:var(--x)"></i>세종 고도</span><span><i style="background:var(--s)"></i>${RUN.st2.id} 고도</span><span><i style="background:#37e8cf"></i>지금 스캔</span><span>점 = 이 기선의 VEX 스캔(전파원마다 다름)</span></div>`);
+  const xs = [], y1 = [], y2 = []; const t0 = m.sc.t;
+  for (let k = -144; k <= 144; k++) { const t = t0 + k * 300, s = VS.crs2trs(VS.s_crs(m.sc.src.ra, m.sc.src.dec), t); xs.push(k * 300 / 3600); y1.push(VS.azel(RUN.st1.xyz, s).el / D2R); y2.push(VS.azel(RUN.st2.xyz, s).el / D2R); }
+  const px = [], p1 = [], p2 = []; for (const sc of RUN.scans) { const s = VS.crs2trs(VS.s_crs(sc.src.ra, sc.src.dec), sc.t), h = (sc.t - t0) / 3600; if (Math.abs(h) > 12) continue; px.push(h); p1.push(VS.azel(RUN.st1.xyz, s).el / D2R); p2.push(VS.azel(RUN.st2.xyz, s).el / D2R); }
+  plot('g1', [{ x: xs, y: y1, c: '#5fe3ff' }, { x: xs, y: y2, c: '#ffb44c' }, { x: px, y: p1, c: '#5fe3ff', dots: 1, r: 1.8 }, { x: px, y: p2, c: '#ffb44c', dots: 1, r: 1.8 }],
+    { title: `이 전파원(${m.sc.name})의 고도 — 스캔 ±12 시간`, x0: -12, x1: 12, y0: -40, y1: 90, hline: 5, vline: 0, xf: (v) => (v >= 0 ? '+' : '') + v.toFixed(0) + 'h', yf: (v) => v.toFixed(0) + '°', xl: '시간' });
+}
+function step2() {
+  const d = RUN.geom, m = RUN.m, bX = BND.X, bS = BND.S;
+  const rate = (m.truthAt(1).tg - m.truthAt(-1).tg) / 2;
+  body(`<h2>2 신호 경로와 지연 <small>τ = t₂ − t₁</small><span class="tag live">실제 계산</span></h2>
+   <div class="note">같은 파면이 두 안테나에 닿는 시각이 다릅니다(3D 노란 막대 = 경로 차 B·ŝ). 대기·전리층·시계·케이블이 이 시각 차에 더해지고, 전리층은 주파수마다 다르게(1/f²) 늦춥니다.</div>
+   <div class="eq">τg = −(B·ŝ)/c ÷ (1 + ŝ·v₂/c)         역행 기선: 파면이 국 2 에 닿는 사이 지구가 돈다(v₂ = ω×x₂)
+τtrop = Σ±[ZHD·m_h(E) + ZWD·m_w(E)]/c     Herring 연분수(Niell 계수)
+τion(f) = ±40.308·STEC/(c·f²)  군지연 + / 위상 −
+τclk = c₀ + c₁t + c₂t² (+ 수소메이저 잡음)</div>
+   <table><tr><th>성분</th><th>값</th><th></th></tr>
+    <tr><td class="n">기하 지연 τg</td><td>${f(d.tg * 1e3, 9)} ms</td><td>${f(d.tg * 1e9, 3)} ns</td></tr>
+    <tr><td class="n">  그 가운데 역행 보정</td><td>${sg(d.ret * 1e9, 4)} ns</td><td></td></tr>
+    <tr><td class="n">기하 지연률 τ̇g</td><td>${sg(rate * 1e6, 5)} µs/s</td><td>X 프린지 ${f(Math.abs(rate) * bX.fmean / 1e3, 2)} kHz</td></tr>
+    <tr><td class="n">대류권(국2 − 국1)</td><td>${sg(d.trop * 1e9, 3)} ns</td><td>ZHD ${f(VS.zhd(RUN.st1.xyz), 3)}/${f(VS.zhd(RUN.st2.xyz), 3)} m</td></tr>
+    <tr><td class="n">전리층 X(군)</td><td>${sg(d.A / bX.feff ** 2 * 1e9, 4)} ns</td><td>f_eff ${f(bX.feff / 1e9, 4)} GHz</td></tr>
+    <tr><td class="n">전리층 S(군)</td><td>${sg(d.A / bS.feff ** 2 * 1e9, 4)} ns</td><td>f_eff ${f(bS.feff / 1e9, 4)} GHz</td></tr>
+    <tr><td class="n">시계 차</td><td>${sg(d.clk * 1e9, 2)} ns</td><td>GPS 로 µs 안 · 메이저로 안정</td></tr>
+    <tr><td class="n">X 군지연 합</td><td>${f(VS.groupAt(d, bX.feff) * 1e3, 9)} ms</td><td></td></tr></table>
+   <canvas class="plot" id="g2"></canvas><div class="leg"><span><i style="background:var(--x)"></i>τg(이 전파원, 하루)</span><span><i style="background:#37e8cf"></i>지금 스캔</span><span>지구가 돌며 B·ŝ 가 하루 주기 사인처럼 바뀐다</span></div>`);
+  const xs = [], ys = []; for (let k = -144; k <= 144; k++) { const t = k * 300, dd = VS.delay(m.PT, m.sc.src, m.sc.t + t, t); xs.push(t / 3600); ys.push(dd.tg * 1e3); }
+  plot('g2', [{ x: xs, y: ys, c: '#5fe3ff' }], { title: '기하 지연 τg (ms)', x0: -12, x1: 12, vline: 0, xf: (v) => (v >= 0 ? '+' : '') + v.toFixed(0) + 'h', yf: (v) => v.toFixed(2), xl: '시간' });
+}
+function step3() {
+  const bX = BND.X, bS = BND.S, nch = D.freq.chan.length, rate = nch * D.freq.sample_rate * 2, sc = RUN.m.sc, lo = D.freq.lo_mhz;
+  const r = RUN.res.X, c = cfg();
+  body(`<h2>3 수신 · 표본화 · 기록 <small>피드 → LNA → LO 하향 변환 → BBC → 2비트 → VDIF → FlexBuff</small><span class="tag live">실제 계산</span></h2>
+   <div class="note">하늘 주파수(RF)를 LO 와 섞어 낮은 주파수(IF)로 내리고, DBBC3 의 BBC 가 8 MHz 폭 채널을 골라 기저대로 내립니다. 수소메이저가 LO·표본 시각·VDIF 시각표를 모두 맞춰서, 두 국 기록을 나중에 마이크로초보다 훨씬 정확히 맞댈 수 있습니다.</div>
+   <div class="eq">RF = LO + BBC(위측파대)  X: LO ${lo.a}·${lo.b} MHz · S: LO ${lo.d} MHz
+표본화 16 Ms/s(나이퀴스트 = 2×8 MHz) · 2비트(문턱 ±0.98σ, 값 ±1·±3.34) · 효율 η = 0.88
+자료율 = ${nch} 채널 × 16 Ms/s × 2 bit = ${f(rate / 1e6, 0)} Mbit/s · 이 스캔 ${f(rate * sc.T / 8 / 1e9, 2)} GB · VDIF 틀 8,000 B + 머리 32 B</div>
+   <canvas class="plot" id="g3a"></canvas><div class="leg"><span><i style="background:var(--x)"></i>X 채널(위측파대 ${bX.ch.length})</span><span><i style="background:var(--s)"></i>S 채널(${bS.ch.length})</span><span><i style="background:#f0b44c"></i>LO</span></div>
+   <canvas class="plot" id="g3b"></canvas>
+   <div class="note">시간 압축 — 실제 스캔 ${sc.T} s 를 AP ${c.K}개로 나누고 AP 마다 그 시각의 표본 ${c.N}개만 실제로 만든다. 상관 계수를 √(2BT/KN) 배 키워 <b>스캔 전체와 같은 SNR</b>을 맞춘다(지연·지연률·위상 변화는 실제 시각 그대로).</div>
+   ${r ? `<div class="box kv"><span>상관 계수(국1·국2, 키운 값)</span><b>${f(r.cr.rho[0], 4)} · ${f(r.cr.rho[1], 4)}</b><span>키운 배율</span><b>${f(r.cr.comp, 1)}</b><span>만든 표본(X)</span><b>${(r.cr.nsamp / 1e6).toFixed(2)} M</b></div>` : '<div class="note">▶ 전 과정 실행을 누르면 이 칸에 실제로 만든 표본이 그려집니다.</div>'}`);
+  // RF 그림: X·S 를 한 그림 두 구간으로 — X 구간만 크게
+  const xs = [], ys = [], cs = [];
+  for (const ch of bX.ch) { xs.push((ch.f + 4e6) / 1e9); ys.push(1); }
+  plot('g3a', [{ x: xs, y: ys, c: '#5fe3ff', bars: 1, bw: 0.008 }, { x: [lo.a / 1e3, lo.a / 1e3, NaN, lo.b / 1e3, lo.b / 1e3], y: [0, 1.15, NaN, 0, 1.15], c: '#f0b44c' }],
+    { title: 'X 대역 하늘 주파수(GHz) — 8 MHz 채널 8 개, 폭 넓게 흩어 대역 합성 정밀도를 높인다', x0: 7.5, x1: 9.0, y0: 0, y1: 1.3, xf: (v) => v.toFixed(2), yf: () => '', xl: 'GHz' });
+  if (r && r.cr.snap) {
+    const sn = r.cr.snap, hx = [], hy = [], qy = [];
+    for (let i = 0; i < 60; i++) { hx.push(-3 + i * 0.1 + 0.05); hy.push(0); qy.push(0); }
+    for (const v of sn.x) { const k = Math.floor((v + 3) / 0.1); if (k >= 0 && k < 60) hy[k]++; }
+    const ql = [-3.3359, -1, 1, 3.3359], qc = [0, 0, 0, 0]; for (const v of sn.q) qc[ql.indexOf(v)]++;
+    plot('g3b', [{ x: hx, y: hy.map((v) => v / sn.x.length / 0.1), c: '#5fe3ff', bars: 1, bw: 0.09 }, { x: ql, y: qc.map((v) => v / sn.q.length), c: '#ffb44c', bars: 1, bw: 0.18, right: 1 }],
+      { title: '표본 분포 — 가우스 잡음(파랑) → 2비트 네 값(주황, 오른쪽 축)', x0: -3.6, x1: 3.6, y0: 0, r2: 1, r0: 0, r1: 0.5, xf: (v) => v.toFixed(1) + 'σ', yf: (v) => v.toFixed(2), rf: (v) => v.toFixed(2), xl: '진폭' });
+  } else plot('g3b', [], { title: '표본 분포 — 실행 뒤 그린다', x0: -3.6, x1: 3.6, y0: 0, y1: 1 });
+}
+function step4() {
+  const r = RUN.res.X;
+  body(`<h2>4 상관(FX) <small>지연 보정 · 프린지 회전 · FFT · X₁·X₂* 누적</small><span class="tag live">실제 계산</span></h2>
+   <div class="note">상관기는 두 기록을 선험 지연 모형만큼 밀어 맞댑니다. 정수 표본은 읽는 자리로, 분수 표본은 주파수 영역 위상으로, 지연률 때문에 kHz 로 도는 위상은 표본마다 되돌립니다(프린지 회전). 그다음 FFT 로 스펙트럼을 내 곱하고 쌓습니다. 남는 것은 <b>모형이 모르는 잔여 지연</b>(시계·대기·기선 오차)뿐이라, 교차 스펙트럼 위상이 주파수에 따라 비스듬히 돕니다.</div>
+   <div class="eq">국 2: 정수 지연 n = round(τm·fs) 만큼 늦춰 읽음
+y₂(t) = q₂(t)·e^{+i2π f_LO τm(t)}            프린지 회전(표본마다)
+X₂(f) = FFT(y₂)·e^{+i2π f (τm − n/fs)}       분수 지연
+V(f) = Σ X₁(f)·X₂*(f) / √(ΣX₁²·ΣX₂²)  위상 = 2π(f_LO+f)·τ_잔여</div>
+   ${r ? `<div class="box kv"><span>선험 지연 τm(가운데)</span><b>${f(r.model * 1e3, 9)} ms</b><span>참 잔여(군, X)</span><b>${f(r.want * 1e9, 3)} ns</b><span>FFT · 스펙트럼 해상도</span><b>${r.cr.NF} 점 · ${f(D.freq.sample_rate / r.cr.NF / 1e3, 0)} kHz</b><span>AP</span><b>${r.cr.K} × ${f(RUN.m.sc.T / r.cr.K, 2)} s</b></div>
+   <canvas class="plot" id="g4a"></canvas><canvas class="plot" id="g4b"></canvas>` : '<div class="note">▶ 전 과정 실행 뒤 교차 스펙트럼이 그려집니다.</div>'}`);
+  if (!r) return;
+  // 교차 스펙트럼(모든 AP 합 — 잔여 지연률이 작아 거의 간섭적) — 채널을 이어 위상
+  const cr = r.cr, xs = [], ph = [], am = []; let off = 0;
+  for (let c = 0; c < cr.band.ch.length; c++) {
+    for (let j = 0; j < cr.fb.length; j++) { let sr = 0, si = 0; for (let k = 0; k < cr.K; k++) { sr += cr.V[k][c][2 * j]; si += cr.V[k][c][2 * j + 1]; } xs.push(c + j / cr.fb.length); ph.push(Math.atan2(si, sr) / Math.PI * 180); am.push(Math.hypot(sr, si) / cr.K); }
+  }
+  plot('g4a', [{ x: xs, y: ph, c: '#ffb44c', dots: 1, r: 1.1 }], { title: '교차 스펙트럼 위상(°) — X 채널 8개 이어 붙임. 기울기 = 잔여 지연', x0: 0, x1: cr.band.ch.length, y0: -190, y1: 190, xf: (v) => 'ch' + Math.round(v + 1), yf: (v) => v.toFixed(0), xl: '채널' });
+  const fr = r.fr, lx = [], ly = []; for (let m = 0; m < fr.PAD; m++) { const t = (m >= fr.PAD / 2 ? m - fr.PAD : m) / (fr.PAD * fr.dF); lx.push(t * 1e6); ly.push(Math.sqrt(fr.lag[m])); }
+  const ord = lx.map((x, i) => i).sort((a, b) => lx[a] - lx[b]);
+  plot('g4b', [{ x: ord.map((i) => lx[i]), y: ord.map((i) => ly[i]), c: '#5fe3ff' }], { title: '지연 스펙트럼(lag) — 봉우리가 단일 대역 지연(SBD)', vline: fr.sbd * 1e6, xf: (v) => v.toFixed(1) + 'µs', yf: (v) => v.toPrecision(2), xl: '잔여 지연' });
+}
+function step5() {
+  const rX = RUN.res.X, rS = RUN.res.S, IF = RUN.res.IF;
+  body(`<h2>5 프린지 탐색 · 대역 합성 · 전리층 <small>HOPS fourfit 순서</small><span class="tag live">실제 계산</span></h2>
+   <div class="note">채널 하나(8 MHz)로는 지연을 ns 수준밖에 못 잽니다(SBD). 채널을 넓게 흩어 두면 채널 사이 위상 차로 지연을 ps 수준까지 잽니다(<b>대역 합성, MBD</b>). 지연과 지연률을 함께 훑어 진폭이 가장 큰 곳을 찾고, S·X 두 대역의 지연 차로 전리층을 지웁니다.</div>
+   <div class="eq">F(τ, ν) = Σ_k Σ_c W_kc · e^{−i2π(f_c − f₀)τ} · e^{−i2π ν t_k}   (W = SBD 로 채널 안 기울기 지운 채널 위상)
+SNR = 진폭 × √(표본 수)   σ_τ = 1 / (2π · SNR · Δf_rms)   Δf_rms(X) = ${f(BND.X.frms / 1e6, 0)} MHz
+전리층 없는 지연 τ = (f_X²τ_X − f_S²τ_S)/(f_X² − f_S²)</div>
+   ${rX ? `<canvas class="plot tall" id="g5a"></canvas><canvas class="plot" id="g5b"></canvas>
+   <table><tr><th>대역</th><th>SBD ns</th><th>MBD ns</th><th>참 ns</th><th>차 ps</th><th>SNR</th><th>σ ps</th><th>지연률 ps/s</th></tr>
+    ${[['X', rX], ['S', rS]].filter((x) => x[1]).map(([b, r]) => `<tr><td class="n" style="color:${b === 'X' ? 'var(--x)' : 'var(--s)'}">${b}</td><td>${f(r.fr.sbd * 1e9, 2)}</td><td>${f(r.fr.mbd * 1e9, 4)}</td><td>${f(r.want * 1e9, 4)}</td><td class="${Math.abs(r.fr.mbd - r.want) < 3 * r.fr.sigma ? 'good' : 'warn'}">${sg((r.fr.mbd - r.want) * 1e12, 1)}</td><td>${f(r.fr.SNR, 1)}</td><td>${f(r.fr.sigma * 1e12, 1)}</td><td>${sg(r.fr.rate * 1e12, 3)}</td></tr>`).join('')}</table>
+   <div class="note">SNR 이론값(감도식) X ${f(rX.snrT, 1)}${rS ? ' · S ' + f(rS.snrT, 1) : ''} · MBD 모호도 X ${f(rX.fr.amb * 1e9, 0)} ns${rS ? ' · S ' + f(rS.fr.amb * 1e9, 0) + ' ns' : ''}(SBD 로 고른다)</div>
+   ${IF ? `<div class="box kv"><span>전리층 없는 잔여 지연</span><b>${f(IF.tau * 1e9, 4)} ns ± ${f(IF.sig * 1e12, 1)} ps</b><span>참(비분산 잔여)</span><b>${f(IF.want * 1e9, 4)} ns · 차 ${sg((IF.tau - IF.want) * 1e12, 1)} ps</b>
+     <span>ΔSTEC(국2 − 국1)</span><b>${f(IF.tec, 2)} TECU (참 ${f(IF.tecT, 2)})</b></div>` : ''}` : '<div class="note">▶ 전 과정 실행 뒤 프린지 그림이 나옵니다.</div>'}`);
+  if (!rX) return;
+  const fr = rX.fr, cols = 128, grid = fr.map.map((m) => { const row = []; for (let j = 0; j < cols; j++) row.push(m.row[(fr.q - cols / 2 + j + fr.RP) % fr.RP]); return row; });
+  const tauA = fr.map[0].tau, tauB = fr.map[fr.map.length - 1].tau, nu0 = (fr.q >= fr.RP / 2 ? fr.q - fr.RP : fr.q) / (fr.RP * fr.dt);
+  heat('g5a', grid, { title: 'X 지연(세로) × 지연률(가로) 진폭 — 3D 상관기 장면의 곡면과 같다', xl: '지연률',
+    xf: (u) => sg((nu0 + (u - 0.5) * cols / (fr.RP * fr.dt)) / BND.X.fmean * 1e12, 2) + 'ps/s', yf: (u) => f((tauA + u * (tauB - tauA)) * 1e9, 1) + 'ns',
+    mark: [0.5, (fr.mbd - tauA) / (tauB - tauA)] });
+  const ry = fr.resid.map((r) => r.ph / Math.PI * 180), rx = fr.resid.map((r) => r.f / 1e9);
+  const ryS = rS ? rS.fr.resid.map((r) => r.ph / Math.PI * 180) : [], rxS = rS ? rS.fr.resid.map((r) => r.f / 1e9) : [];
+  plot('g5b', [{ x: rx, y: ry, c: '#5fe3ff', dots: 1, r: 3.2 }], { title: '맞춘 뒤 X 채널 잔여 위상(°) — 0 둘레에 모이면 맞춤이 좋다', y0: -60, y1: 60, xf: (v) => v.toFixed(2), yf: (v) => v.toFixed(0), xl: 'GHz' });
+}
+function step6() {
+  const r = RUN.res.sess;
+  body(`<h2>6 기선 해석 <small>여러 스캔의 지연 → 가중 최소제곱(가우스-뉴턴)</small><span class="tag live">실제 계산</span><span class="tag">관측량 수준</span></h2>
+   <div class="note">세션의 모든 공통 스캔(VEX 순서 그대로)마다 관측 지연을 만들고, 선험 모형과의 차로 국 2 위치 · 시계 · 두 국 천정 습윤 지연을 함께 풉니다. 세종은 기준점으로 고정합니다. 각 스캔은 신호부터 다 돌리지 않고, 4·5단계에서 검산한 σ = 1/(2π·SNR·Δf_rms) 만큼 잡음을 넣은 지연을 씁니다.</div>
+   <div class="eq">τ_관측 − τ_계산(p) = A·Δp + v      A = ∂τ/∂p  (−ŝ/c · 1 · t · t² · m_w(E)/c)
+Δp = (AᵀWA + 제약)⁻¹ AᵀW(τ_관측 − τ_계산)   W = 1/(σ² + σₐ²)  σₐ: χ²/자유도 = 1 이 되게(재가중)</div>
+   ${r ? `<canvas class="plot" id="g6a"></canvas><div class="leg"><span><i style="background:var(--x)"></i>사후 잔차 ± σ</span><span>wrms ${f(r.est.wrms * 1e12, 1)} ps · χ²/자유도 ${f(r.est.chi2r, 2)} (처음 ${f(r.est.chi2r0 || r.est.chi2r, 1)}) · 더한 바닥 σₐ ${f((r.est.sigAdd || 0) * 1e12, 1)} ps</span></div>
+   <table><tr><th>국 2 위치 보정</th><th>추정 mm</th><th>σ mm</th><th>참 mm</th><th>차/σ</th></tr>
+   ${['동', '북', '높이'].map((n, i) => { const sd = Math.sqrt(r.est.Cenu[i][i]) * 1e3, e = r.est.enu[i] * 1e3, t = r.enuTrue[i] * 1e3; return `<tr><td class="n">${n}</td><td>${sg(e, 1)}</td><td>${f(sd, 1)}</td><td>${sg(t, 1)}</td><td class="${Math.abs(e - t) < 2 * sd ? 'good' : 'warn'}">${sg((e - t) / sd, 2)}</td></tr>`; }).join('')}</table>
+   <div class="box kv"><span>기선 길이 선험(VEX)</span><b>${f(r.Lap, 4)} m</b><span>추정</span><b>${f(r.Lest, 4)} m ± ${f(r.sL * 1e3, 1)} mm</b><span>참</span><b>${f(r.truth.L, 4)} m · 차 ${sg((r.Lest - r.truth.L) * 1e3, 1)} mm</b>
+    <span>시계 c₀ · c₁</span><b>${f(r.est.p[3], 3)} ns (참 ${f(cfg().c0 * 1e9, 1)}) · ${sg(r.est.p[4], 4)} ns/h (참 ${sg(cfg().c1 * 3600 * 1e9, 4)})</b>
+    <span>관측 · 미지수</span><b>${r.est.n} 스캔 · ${r.est.np}개 · 반복 ${r.est.hist.length}</b></div>
+   <canvas class="plot" id="g6b"></canvas><div class="leg"><span><i style="background:var(--x)"></i>세종 ZWD 추정</span><span><i style="background:var(--s)"></i>${RUN.st2.id} 추정</span><span>점선 = 참</span></div>` : '<div class="note">▶ 전 과정 실행 뒤 해석 결과가 나옵니다.</div>'}`);
+  if (!r) return;
+  const t0 = r.obs[0].t, xs = r.est.res.map((q) => (q.t - t0) / 3600);
+  plot('g6a', [{ x: xs, y: r.est.res.map((q) => q.v * 1e12), e: r.est.res.map((q) => q.sig * 1e12), c: '#5fe3ff', dots: 1, r: 2.2 }], { title: '사후 잔차(ps) — 스캔마다', hline: 0, xf: (v) => v.toFixed(0) + 'h', yf: (v) => v.toFixed(0), xl: '세션 시작부터' });
+  const nz = r.est.nodes.length, zx = r.est.nodes.map((t) => (t - t0) / 3600), z1 = r.est.p.slice(6, 6 + nz).map((v) => v * 100), z2 = r.est.p.slice(6 + nz, 6 + 2 * nz).map((v) => v * 100);
+  const tx = [], t1 = [], t2 = []; for (let k = 0; k <= 96; k++) { const t = r.obs[0].t + k * (r.obs[r.obs.length - 1].t - r.obs[0].t) / 96; tx.push((t - t0) / 3600); t1.push(r.truth.zwd1(t) * 100); t2.push(r.truth.zwd2(t) * 100); }
+  plot('g6b', [{ x: tx, y: t1, c: 'rgba(95,227,255,.45)', lw: 1 }, { x: tx, y: t2, c: 'rgba(255,180,76,.45)', lw: 1 }, { x: zx, y: z1, c: '#5fe3ff' }, { x: zx, y: z2, c: '#ffb44c' }],
+    { title: '천정 습윤 지연(cm) — 2시간 꺾은선 추정 대 참', xf: (v) => v.toFixed(0) + 'h', yf: (v) => v.toFixed(1), xl: '세션 시작부터' });
+}
+
+// ───── 실행 ─────
+async function runSignal(band, seed, quiet) {
+  const m = RUN.m, c = cfg(), b = BND[band], sc = m.sc;
+  const g = VS.simCorr({ band: b, truthAt: m.truthAt, modelAt: m.modelAt, rho1: sc.flux * c.flux / RUN.st1.sefd[band], rho2: sc.flux * c.flux / RUN.st2.sefd[band], T: sc.T, K: c.K, N: c.N, Nfft: 128, noise: c.th, seed });
+  let r; const t = performance.now();
+  for (;;) { r = g.next(); if (r.done) break; if (!quiet) { $('pbar').style.width = ((band === 'X' ? 0 : 50) + 50 * (r.value.k + 1) / r.value.K) + '%'; $('cntA').textContent = `${band} 대역 AP ${r.value.k + 1}/${r.value.K} — 신호 생성 · 2비트 · FFT · X₁·X₂*`; } if (performance.now() - t > 30) await new Promise((q) => setTimeout(q, 0)); }
+  const fr = VS.fringe(r.value), fm = b.fmean;
+  const want = VS.groupAt(m.truthAt(0), b.feff) - m.modelAt(0).nd;
+  return { cr: r.value, fr, want, model: m.modelAt(0).nd, snrT: VS.snr(sc.flux * c.flux, RUN.st1.sefd[band], RUN.st2.sefd[band], b.bw, sc.T, b.ch.length), ms: performance.now() - t };
+}
+function runSession(seed) {
+  const c = cfg(), sc = RUN.scans;
+  const r = VS.session({ st1: RUN.st1, st2: RUN.st2, bands: BND, scans: sc.map((s) => Object.assign({}, s, { flux: s.flux })), t0: sc[0].t, t1: sc[sc.length - 1].t, tref: (sc[0].t + sc[sc.length - 1].t) / 2,
+    dx2: c.dx, clk: [c.c0, c.c1, 0], zwd1: c.z1, zwd2: c.z2, vtec1: c.t1, vtec2: c.t2, fluxScale: c.flux, noise: c.th, maser: c.ma, tropoVar: c.tr, zwdMode: c.zm, reweight: c.rw, seed });
+  const Rm = VS.enuMat(RUN.st2.xyz); r.enuTrue = [0, 1, 2].map((i) => VS.dot(Rm[i], c.dx));
+  const Bh = VS.scl(r.Best, 1 / r.Lest); let s2 = 0; for (let p = 0; p < 3; p++) for (let q = 0; q < 3; q++) s2 += Bh[p] * r.est.Cxyz[p][q] * Bh[q]; r.sL = Math.sqrt(s2);
+  return r;
+}
+$('bRun').onclick = async () => {
+  if (busy || !D) return; busy = true; $('bRun').disabled = $('bCheck').disabled = true; RUN.res = {}; setScan();
+  const done = (n) => document.querySelector(`#steps button[data-s="${n}"]`).classList.add('done');
+  document.querySelectorAll('#steps button').forEach((b) => b.classList.remove('done'));
+  try {
+    showStep(1); $('cntA').textContent = '1 기하 — 지구 자전 · 전파원 방향 · 방위·고도'; await sleep(2600); done(1);
+    showStep(2); $('cntA').textContent = '2 지연 — 파면이 두 국에 닿는 시각 차'; await sleep(4200); done(2);
+    showStep(3); $('cntA').textContent = '3 기록 — 신호 사슬'; await sleep(1500);
+    RUN.res.X = await runSignal('X', cfg().seed * 31 + 1); RUN.res.S = await runSignal('S', cfg().seed * 31 + 2);
+    showStep(3); done(3); await sleep(2200);
+    showStep(4); done(4); await sleep(3000);
+    const X = RUN.res.X, S = RUN.res.S, fr = VS.ionFree(X.fr.mbd, S.fr.mbd, BND.X, BND.S, X.fr.sigma, S.fr.sigma);
+    const d = RUN.m.truthAt(0);
+    RUN.res.IF = { tau: fr.tau, sig: fr.sig, want: d.nd - RUN.m.modelAt(0).nd, tec: fr.A * VS.C / (VS.KION * 1e16), tecT: d.A * VS.C / (VS.KION * 1e16) };
+    if (V3) V3.setFringe(X.fr);
+    showStep(5); done(5); await sleep(3200);
+    $('cntA').textContent = '6 기선 해석 — 세션 전체 최소제곱'; RUN.res.sess = runSession(cfg().seed);
+    if (V3) V3.setSolution({ enu: RUN.res.sess.est.enu, enuTrue: RUN.res.sess.enuTrue, Cenu: RUN.res.sess.est.Cenu });
+    showStep(6); done(6); $('pbar').style.width = '100%';
+    const r = RUN.res.sess; $('cntA').textContent = `끝 — 기선 길이 차 ${sg((r.Lest - r.truth.L) * 1e3, 1)} mm (σ ${f(r.sL * 1e3, 1)})`;
+    $('status').innerHTML = `<b>끝</b> · X MBD 차 ${sg((X.fr.mbd - X.want) * 1e12, 1)} ps (σ ${f(X.fr.sigma * 1e12, 1)}) · SNR ${f(X.fr.SNR, 0)} · 기선 ${f(r.Lest / 1e3, 6)} km · 3D 분홍 = 위치 오차 타원체(가장 큰 σ 를 1 칸으로), 파랑 = 추정 보정, 노랑 = 참`;
+  } catch (e) { $('cntA').textContent = '오류: ' + e.message; console.error(e); }
+  busy = false; $('bRun').disabled = $('bCheck').disabled = false;
+};
+$('bCheck').onclick = async () => {
+  if (busy || !D) return; busy = true; $('bRun').disabled = $('bCheck').disabled = true;
+  const N1 = 10, N2 = 30, eX = [], sX = [], snr = [];
+  try {
+    for (let i = 0; i < N1; i++) { const r = await runSignal('X', 9000 + i, true); eX.push(r.fr.mbd - r.want); sX.push(r.fr.sigma); snr.push(r.fr.SNR); $('pbar').style.width = (60 * (i + 1) / N1) + '%'; $('cntA').textContent = `검산 1 — X 신호부터 ${i + 1}/${N1}판`; await new Promise((q) => setTimeout(q, 0)); }
+    const eL = [], sL = []; for (let i = 0; i < N2; i++) { const r = runSession(5000 + i); eL.push(r.Lest - r.truth.L); sL.push(r.sL); if (i % 5 === 4) { $('pbar').style.width = (60 + 40 * (i + 1) / N2) + '%'; $('cntA').textContent = `검산 2 — 세션 ${i + 1}/${N2}판`; await new Promise((q) => setTimeout(q, 0)); } }
+    const st = (a) => { const m = a.reduce((x, y) => x + y, 0) / a.length; return [m, Math.sqrt(a.reduce((x, y) => x + (y - m) ** 2, 0) / (a.length - 1))]; };
+    const [m1, s1] = st(eX), mg = sX.reduce((a, b) => a + b, 0) / N1, ms = snr.reduce((a, b) => a + b, 0) / N1, [m2, s2] = st(eL), mL = sL.reduce((a, b) => a + b, 0) / N2;
+    const snrT = VS.snr(RUN.m.sc.flux * cfg().flux, RUN.st1.sefd.X, RUN.st2.sefd.X, BND.X.bw, RUN.m.sc.T, BND.X.ch.length);
+    showStep(5);
+    body(`<div class="box"><b>검산(몬테카를로)</b><table><tr><th>항목</th><th>흩어짐</th><th>이론·형식</th><th>비</th></tr>
+      <tr><td class="n">X MBD(신호부터 ${N1}판)</td><td>${f(s1 * 1e12, 1)} ps</td><td>${f(mg * 1e12, 1)} ps</td><td>${f(s1 / mg, 2)}</td></tr>
+      <tr><td class="n">X SNR 평균</td><td>${f(ms, 1)}</td><td>${f(snrT, 1)}</td><td>${f(ms / snrT, 2)}</td></tr>
+      <tr><td class="n">기선 길이(세션 ${N2}판)</td><td>${f(s2 * 1e3, 2)} mm</td><td>${f(mL * 1e3, 2)} mm</td><td>${f(s2 / mL, 2)}</td></tr></table>
+      <div class="note">비가 1 가까우면 σ 식(1/(2π·SNR·Δf_rms))과 최소제곱 형식 오차가 실제 흩어짐을 맞게 말한다는 뜻. 평균 오차: MBD ${sg(m1 * 1e12, 1)} ps · 기선 ${sg(m2 * 1e3, 2)} mm.</div></div>`);
+    $('cntA').textContent = '검산 끝'; $('pbar').style.width = '100%';
+  } catch (e) { $('cntA').textContent = '오류: ' + e.message; }
+  busy = false; $('bRun').disabled = $('bCheck').disabled = false;
+};
+
+function theory() {
+  $('pThe').innerHTML = `<h2>무엇을 실제대로 했나</h2>
+  <ol><li><b>자료</b> — IVS 스케줄 VEX(r41279·kvr0930)의 관측국 ITRF 좌표, ICRF(J2000) 전파원 적경·적위, 스캔 시각·기록 길이, 주파수(chan_def — X 8·S 6 위측파대, 8 MHz, 16 Ms/s), DBBC3 BBC·LO(GEOSX-R1.SX). <span class="tag">${D ? D.src.join(' · ') : ''}</span></li>
+  <li><b>기하·지연</b> — ERA(IERS 2010)로 지구 자전, τg = −B·ŝ/c 에 역행 기선 보정, Saastamoinen ZHD·Niell 계수 Herring 사상함수, 얇은 껍질 전리층(군 +·위상 −), 시계 다항식과 수소메이저 백색 FM 잡음(1000 s 에서 1·10⁻¹⁵).</li>
+  <li><b>신호·기록</b> — 같은 하늘 잡음(상관 성분)을 두 국에 넣고 국 2 에는 하늘 주파수마다 위상 지연과 지연률(도플러)을, 각 국에는 독립 시스템 잡음(SEFD)을 더한 뒤 최적 문턱 2비트로 표본화.</li>
+  <li><b>상관(FX)</b> — 정수 지연은 읽는 자리, 표본마다 프린지 회전, FFT(128 점 → 125 kHz), 분수 지연 위상, X₁·X₂* 누적과 자기상관 정규화(DiFX 와 같은 순서).</li>
+  <li><b>프린지</b> — 채널 지연 스펙트럼(SBD) → 지연 × 지연률 2D 탐색(MBD, AP 축 FFT) → 봉우리 보간·SNR·잔여 위상(HOPS fourfit 순서). S/X 결합으로 전리층 제거.</li>
+  <li><b>기선 해석</b> — 가중 최소제곱(가우스-뉴턴): 국 2 위치 3 · 시계 2차 · 천정 습윤 지연(2시간 꺾은선 + 제약) · 재가중. 세종 고정.</li></ol>
+  <h2>정확도와 한계 <small>참값과 모형에서 같이 빠져 모의 안에서는 자기 일관</small></h2>
+  <ol><li>세차·장동·극운동·UT1−UTC, 연주 광행차·중력 지연, 고체 조석·해양 하중·대기 하중, 안테나 축 오프셋·열변형, 구조 지연(전파원 크기)은 넣지 않았다. 실제 해석(IERS 2010 합의 모형, nuSolve·VieVS)은 모두 넣는다.</li>
+  <li>아래측파대 채널(BBC01·BBC08 의 L)과 대역 통과 모양·위상 교정(pcal), 2비트 반 블렉(Van Vleck) 보정은 뺐다 — 2비트는 효율 0.88 로만 든다.</li>
+  <li>신호 수준은 시간 압축(AP 마다 수 ms 만 만들고 상관 계수를 키움)이라 SNR·지연·지연률은 실제 스캔과 같지만 자료량은 수천 배 적다. 세션 해석은 스캔마다 신호부터 돌리지 않고 같은 σ 식으로 관측 지연을 만든다(검산 단추로 두 수준이 맞는지 본다).</li>
+  <li>SEFD 는 세종만 실측(2026-10 십자 스캔: X 3,200 · S 9,000 Jy), 나머지 국·전파원 세기는 대략값이다.</li></ol>
+  <h2>검산(자동 시험 vlbisim_check.js)</h2>
+  <div class="note">잡음 없으면 MBD 가 참 잔여 지연을 X 0.2 · S 0.1 ps 안, 지연률을 0.1 % 안에서 되찾고, 세션 해석은 기선을 0.003 mm 안에서 되찾는다. 잡음 넣은 몬테카를로: MBD 흩어짐/이론 σ ≈ 0.8~0.9, 잰 SNR/감도식 ≈ 0.95, 기선 길이 흩어짐/형식 σ ≈ 0.7~0.8(SEJONG–KATH12M 86 스캔 기준).</div>
+  <h2>출처</h2><div class="note">지구 무늬: Natural Earth II(공개 자료 · Cesium 동봉 타일). 3D 자산: 블렌더 4.2(models/vlbisim/build_vlbisim_assets.py), 세종 22 m 는 제작사 조립도 치수 모형.</div>`;
+}
+})();
+</script>
+</body>
+</html>
