@@ -200,7 +200,7 @@
   .tsm-pcrows{margin-top:4px}.tsm-pcr{display:flex;gap:7px;align-items:baseline;font-size:11px;padding:3px 0;border-bottom:1px solid var(--line)}
   .tsm-3dm{padding:7px 10px 6px;font:600 11px "Malgun Gothic",sans-serif;color:#dbe7f5;border-bottom:1px solid rgba(120,190,255,.18);background:rgba(6,12,24,.45)}
   .tsm-3dc{position:relative;height:290px}
-  .tsm-flow{position:relative;height:200px;border-radius:10px;overflow:hidden;margin-top:6px;border:1px solid rgba(88,166,255,.32);box-shadow:inset 0 0 22px rgba(88,166,255,.12)}
+  .tsm-flow{position:relative;height:270px;border-radius:10px;overflow:hidden;margin-top:6px;border:1px solid rgba(88,166,255,.32);box-shadow:inset 0 0 22px rgba(88,166,255,.12)}
   .tsf-w{position:absolute;inset:0;display:flex;flex-direction:column}.tsf-cv{flex:1 1 auto;width:100%;min-height:0;display:block;touch-action:pan-y}
   .tsm-flow .fl-labels{position:relative;height:30px;flex:none}.tsm-flow .fl-labels.narrow{height:42px}
   .tsm-flow .fl-labels.narrow .fl-lab:nth-child(even){top:15px}
@@ -211,6 +211,11 @@
   .tsm-flow .fl-lab[data-k="bonn"] span,.tsm-flow .fl-lab[data-k="waco"] span,.tsm-flow .fl-lab.st-bad span{display:block}
   .tsm-flow .fl-lab.st-ok b::before{background:#3fdcb4;box-shadow:0 0 5px #3fdcb4}.tsm-flow .fl-lab.st-idle b::before{background:#6c86a8}
   .tsm-flow .fl-lab.st-off b{color:#5d6d82}.tsm-flow .fl-lab.st-bad b{color:#ff7b72}.tsm-flow .fl-lab.st-bad b::before{background:#f85149;box-shadow:0 0 6px #f85149}
+  .tsm-flow .fl-lab.st-warn b::before{background:#ffaa2a;box-shadow:0 0 5px #ffaa2a}.tsm-flow .fl-lab.hov b,.tsm-flow .fl-lab.foc b{color:#fff}
+  .tsm-flow .fl-detail{flex:none;height:30px;padding:0 8px;font:11px/15px "Malgun Gothic",sans-serif;color:#8ea2ba;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .tsm-flow .fl-detail b{color:#e6eef6;margin-right:5px}.tsm-flow .fl-detail em{font-style:normal;font-family:var(--mono,monospace);color:#b9cbe0;margin-right:6px}
+  .tsm-flow .fl-detail i{font-style:normal;font-weight:700;margin-right:6px}.tsm-flow .fl-detail i.st-ok{color:#35e07a}.tsm-flow .fl-detail i.st-idle{color:#7ea7dc}
+  .tsm-flow .fl-detail i.st-warn{color:#ffaa2a}.tsm-flow .fl-detail i.st-bad{color:#ff7b72}.tsm-flow .fl-detail i.st-off{color:#5d6d82}
   .tsm-badge.bad{background:rgba(248,81,73,.16);color:#ff7b72}
   .tsm-ant3d{height:250px;border-radius:10px;margin:6px 0 8px;border:1px solid color-mix(in srgb,var(--navy) 35%,var(--line));
     background:radial-gradient(130% 95% at 50% 14%,#1b2a45 0%,#0d1728 52%,#0a1220 100%)}
@@ -315,7 +320,7 @@
 <script>
 const TG=window.Telegram?.WebApp; TG?.ready(); TG?.expand();
 const GIST_ID=(new URLSearchParams(location.search).get("g")||"5404bef7f8d5b9f4e8d2824515fc8728");
-const REV="p10052144";
+const REV="p10060332";
 let GLOBECODE="";      // 지구본 세션 선택(선택기 → postMessage)
 const BODY={};
 async function loadBody(name){
