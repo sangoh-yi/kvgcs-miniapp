@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>ThreeStar 방해전파 역추적</title>
+<!-- GPS 방해전파 실시간 역추적망 모의(2026-10-05). 계산 jamsim_core.js · 3D·흐름 jamsim.js · 자료 models/jamsim/(준비 jamsim_prep.py · 자산 build_jamsim_assets.py · 검산 jamsim_check.js) -->
+<style>
+:root{--bg:#0a1120;--panel:#0f1a2c;--panel2:#13223a;--line:#1f3150;--tx:#dbe7f5;--dim:#8ea3c0;--ac:#37e8cf;--warn:#f0b44c;--bad:#ff6b8a;--mono:ui-monospace,"Cascadia Mono",Consolas,monospace}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:13px/1.5 "Noto Sans KR","Malgun Gothic",system-ui,sans-serif}
+header{display:flex;align-items:center;gap:12px;height:50px;padding:0 14px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0f1b30,#0b1424)}
+.rank{display:inline-flex;gap:2px;padding:3px 6px;border:1px solid #c9a13c;border-radius:4px;color:#f2c94c;font-size:12px;letter-spacing:1px}
+.brand{font-weight:800;font-size:15px}.brand span{color:var(--warn)}
+h1{font-size:14px;font-weight:700;margin:0 0 0 4px;white-space:nowrap}
+.chips{display:flex;gap:6px;flex-wrap:wrap;overflow:hidden;max-height:26px}
+.chip{padding:2px 8px;border:1px solid var(--line);border-radius:999px;color:var(--dim);font-size:11.5px;white-space:nowrap}
+.chip b{color:var(--tx);font-family:var(--mono);font-weight:600}
+.back{margin-left:auto;color:var(--tx);text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:12px;white-space:nowrap}
+.back:hover{border-color:var(--ac)}
+main{display:grid;grid-template-columns:minmax(0,1fr) 440px;height:calc(100% - 50px)}
+.view{position:relative;display:flex;flex-direction:column;min-width:0;min-height:0}
+#cv{flex:1 1 auto;width:100%;min-height:0;display:block;cursor:grab;touch-action:none;background:#070c16}
+#cv:active{cursor:grabbing}
+.vbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:6px 10px;border-top:1px solid var(--line);background:var(--panel)}
+.vbar button,.seg button{background:var(--panel2);color:var(--tx);border:1px solid var(--line);border-radius:7px;padding:4px 9px;font:inherit;font-size:12px;cursor:pointer}
+.vbar button.on,.seg button.on{border-color:var(--ac);color:var(--ac)}
+.vbar .sep{width:1px;height:18px;background:var(--line);margin:0 2px}
+.tbar{display:flex;gap:8px;align-items:center;padding:6px 10px;border-top:1px solid var(--line);background:#0b1528}
+.tbar input[type=range]{flex:1;accent-color:var(--ac)}
+.tbar .t{font-family:var(--mono);color:var(--ac);min-width:96px;text-align:right;font-size:12px}
+.tbar button{background:var(--panel2);color:var(--tx);border:1px solid var(--line);border-radius:7px;padding:4px 10px;font:inherit;font-size:12px;cursor:pointer}
+.tbar button.pri{border-color:var(--ac);color:var(--ac)}
+.status{padding:5px 10px;border-top:1px solid var(--line);background:#0b1528;color:var(--dim);font-size:12px;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:27px}
+.status b{color:var(--ac);font-weight:600}
+.legend{display:flex;gap:10px;flex-wrap:wrap;padding:4px 10px;border-top:1px solid var(--line);background:var(--panel);font-size:11px;color:var(--dim)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
+aside{border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
+.tabs{display:flex;border-bottom:1px solid var(--line)}
+.tabs button{flex:1;background:none;border:0;border-bottom:2px solid transparent;color:var(--dim);font:inherit;font-weight:700;padding:10px 0;cursor:pointer}
+.tabs button.on{color:var(--tx);border-bottom-color:var(--ac)}
+.pane{flex:1 1 auto;overflow:auto;padding:12px 14px 18px;display:none}
+.pane.on{display:block}
+h2{font-size:12.5px;margin:14px 0 6px;color:var(--tx);display:flex;align-items:baseline;gap:6px}
+h2:first-child{margin-top:2px}
+h2 small{color:var(--dim);font-weight:400;font-size:11px}
+h2 .n{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:rgba(55,232,207,.14);color:var(--ac);font-size:11px;font-weight:800}
+table{width:100%;border-collapse:collapse;font-size:11.5px}
+th{color:var(--dim);font-weight:600;font-size:10.5px;text-align:right;padding:3px 4px;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+td{padding:3px 4px;border-bottom:1px solid rgba(31,49,80,.55);text-align:right;font-family:var(--mono);white-space:nowrap}
+td.n{font-family:inherit;font-weight:700}
+.note{color:var(--dim);font-size:11.5px;line-height:1.55;margin:6px 0}
+.eq{font-family:var(--mono);font-size:11.5px;background:#0b1528;border:1px solid var(--line);border-radius:8px;padding:7px 9px;margin:6px 0;color:#cfe3ff;white-space:pre-wrap;line-height:1.6}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:12px}
+.kv span{color:var(--dim)}.kv b{font-family:var(--mono);font-weight:600;text-align:right}
+.ctl{display:grid;grid-template-columns:128px 1fr;gap:7px 10px;align-items:center;font-size:12px}
+.ctl label{color:var(--dim)}
+select,input[type=number]{background:#0b1528;color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font:inherit;font-size:12px;width:100%}
+input[type=range]{width:100%;accent-color:var(--ac)}
+.good{color:var(--ac)}.warn{color:var(--warn)}.bad{color:var(--bad)}
+.log{font-size:11.5px;max-height:260px;overflow:auto;border:1px solid var(--line);border-radius:8px;background:#0b1528;padding:6px 8px}
+.log div{padding:2px 0;border-bottom:1px solid rgba(31,49,80,.5)}
+.log div b{font-family:var(--mono);color:var(--dim);font-weight:500;margin-right:6px}
+.log .jam{color:#ffb3a8}.log .det{color:#bfe9ff}.log .fix{color:var(--ac)}.log .alert{color:#ffe28a}.log .cg{color:#a9c6ff}.log .loss{color:var(--bad)}.log .degrade{color:var(--warn)}.log .ok{color:#9fe0b5}
+canvas.plot{width:100%;height:150px;display:block;background:#0b1528;border:1px solid var(--line);border-radius:8px;margin:6px 0}
+.go{display:flex;gap:6px;margin:8px 0}
+.go button{flex:1;padding:7px 0;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--tx);font:inherit;font-weight:700;cursor:pointer}
+.go button.pri{border-color:var(--ac);background:rgba(55,232,207,.12);color:var(--ac)}
+ul.src{margin:4px 0 0 16px;padding:0}ul.src li{margin:4px 0;color:var(--dim);font-size:11.5px}
+body.embed header .back{display:none}
+@media (max-width:900px){
+  main{grid-template-columns:1fr;grid-template-rows:58vh auto;height:auto}
+  aside{border-left:0;border-top:1px solid var(--line)}
+  .pane{overflow:visible}
+  h1{display:none}
+}
+</style>
+</head>
+<body>
+<header>
+  <span class="rank">★★★</span><b class="brand">Three<span>Star</span></b>
+  <h1>GPS 방해전파 역추적망 모의</h1>
+  <div class="chips" id="chips"></div>
+  <a class="back" href="/" id="back">← 운용 화면</a>
+</header>
+<main>
+  <section class="view">
+    <canvas id="cv"></canvas>
+    <div class="vbar">
+      <button data-v="all" class="on">전체</button><button data-v="jam">교란원</button><button data-v="est">추정 위치</button><button data-v="west">서해 5도</button><button data-v="air">인천공항</button>
+      <span class="sep"></span>
+      <span class="seg" id="layer"><button data-h="10" class="on" title="선박 안테나 높이 10 m 의 J/S">선박 10 m</button><button data-h="1000" title="항공기 1,000 m">항공 1 km</button><button data-h="3000" title="항공기 3,000 m">항공 3 km</button></span>
+      <button data-t="fp" class="on" title="영향 지도(J/S)">영향</button>
+      <button data-t="rays" class="on" title="교란원 → 감지 기준점(실선 = 가시선 · 점선 = 지형 회절)">경로</button>
+      <button data-t="hyp" class="on" title="TDOA 쌍곡선 — 기준점과 다른 점의 도착 시각 차가 같은 자리">쌍곡선</button>
+      <button data-t="lab" class="on">이름</button>
+    </div>
+    <div class="tbar">
+      <button class="pri" id="bPlay">▶ 재생</button><button id="bReset">↺</button>
+      <span class="seg" id="spd"><button data-k="1">1×</button><button data-k="10" class="on">10×</button><button data-k="60">60×</button></span>
+      <input type="range" id="tSl" min="0" max="900" step="1" value="0">
+      <span class="t" id="tLab">교란 +0 s</span>
+    </div>
+    <div class="legend">
+      <span><i style="background:#ff4646"></i>GNSS 끊김(J/S ≥ 30 dB)</span><span><i style="background:#ffbe3c"></i>저하(≥ 20 dB)</span>
+      <span><i style="background:#37e8cf"></i>감지 기준점</span><span><i style="background:#fff"></i>기준(가장 센 곳)</span><span><i style="background:#f0b44c"></i>GNSS 끊겨 유지 시계</span>
+      <span><i style="background:#ffe28a"></i>오차 타원 ×200</span><span><i style="background:#ff8080"></i>참 자리(모의)</span>
+    </div>
+    <div class="status" id="status">불러오는 중… · 끌어서 돌리기 · 휠 확대 · 오른쪽(또는 Shift) 끌기 이동 · 두 번 누르면 처음 시점 · 높이 6 배 과장 · 모형은 보이게 키웠다</div>
+  </section>
+  <aside>
+    <div class="tabs"><button class="on" data-p="flow">과정</button><button data-p="set">설정</button><button data-p="how">방법·출처</button></div>
+    <div class="pane on" id="p-flow">
+      <div class="note">화면 안에서만 도는 모의입니다 — <b>실제 장비 명령은 없습니다.</b> 교란원 자리·출력은 공개 보도에 기댄 <b>가상 시나리오</b>이고, 위성기준점 좌표·지형·위성영상은 실제 자료입니다.</div>
+      <div class="ctl"><label>시나리오</label><select id="scn"><option value="fixed">① 고정 지상 교란원 — 해주 일대(가상)</option><option value="ship">② 선박 탑재 이동 교란원 — 연평도 서쪽</option><option value="drone">③ 드론 교란원 — 인천공항 접근로</option></select></div>
+      <div id="flow"></div>
+    </div>
+    <div class="pane" id="p-set">
+      <div class="ctl">
+        <label>교란 출력 배율</label><div><input type="range" id="pw" min="-2" max="2" step="0.1" value="0"><div class="note" id="pwLab" style="margin:0"></div></div>
+        <label>SDR 대역</label><select id="sdr"><option value="2e6">2 MHz</option><option value="5e6" selected>5 MHz</option><option value="10e6">10 MHz</option><option value="20e6">20 MHz</option></select>
+        <label>상관 적분 T</label><select id="tint"><option value="0.1">0.1 s</option><option value="1" selected>1 s</option><option value="10">10 s</option></select>
+        <label>다중경로 오차</label><select id="mp"><option value="1">1 ns(0.3 m)</option><option value="5" selected>5 ns(1.5 m)</option><option value="20">20 ns(6 m)</option></select>
+        <label>기준점 유지 시계</label><select id="clk"><option value="ocxo" selected>OCXO(수정) — 지금 흔한 것</option><option value="rb">루비듐</option><option value="maser">수소메이저(VLBI)</option><option value="fiber">광섬유 시각(세종 메이저에서)</option></select>
+        <label>교란 지속(시계)</label><div><input type="range" id="hold" min="0" max="5" step="1" value="1"><div class="note" id="holdLab" style="margin:0"></div></div>
+        <label>시계 넘어감 반영</label><select id="aware"><option value="1" selected>안다 — 유지 시계 오차만큼 덜 믿고 푼다</option><option value="0">모른다 — 모두 GNSS 시각으로 믿고 푼다</option></select>
+        <label>측정 잡음</label><select id="noise"><option value="1" selected>넣는다</option><option value="0">뺀다(검산 — 참값을 되찾는지)</option></select>
+      </div>
+      <div class="go"><button id="bSeed">다시 뽑기(잡음)</button><button class="pri" id="bClk">시계별 비교 돌리기</button></div>
+      <canvas class="plot" id="clkPlot"></canvas>
+      <div class="note" id="clkNote">교란이 길어질수록 GNSS 시각을 잃은 기준점의 시계가 흐른다. 같은 교란을 유지 시계만 바꿔 풀어 수평 위치 오차를 비교한다(시계 넘어감을 모르고 풀 때 · 잡음 6 판 rms).</div>
+    </div>
+    <div class="pane" id="p-how"></div>
+  </aside>
+</main>
+<script src="./three.min.js"></script>
+<script src="./GLTFLoader.js"></script>
+<script src="jamsim_core.js"></script>
+<script src="jamsim.js"></script>
+<script>
+(function(){
+const $=id=>document.getElementById(id), QS=new URLSearchParams(location.search), JC=window.JamCore;
+if(QS.has('embed'))document.body.classList.add('embed');
+if(location.pathname.indexOf('/ts/')>=0)$('back').href='../';
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const f=(v,k)=>v==null||!isFinite(v)?'–':(+v).toFixed(k);
+const HOLD=[0,600,3600,6*3600,24*3600,7*86400], HOLDLAB=['0','10 분','1 시간','6 시간','하루','7 일'];
+let last=null, evq=[], lastR=0, rq=0;
+
+const S=window.__jam=JamSim.create($('cv'),{
+  onReady(d){ $('status').innerHTML='<b>준비</b> · 위성기준점 '+d.stations.length+' 곳 · 지형 '+d.region.nx+'×'+d.region.ny+' · ▶ 재생으로 교란을 시작 · 높이 6 배 과장 · 모형은 보이게 키웠다'; how(d); },
+  onUpdate(s){ last=s; const now=performance.now(); if(s.play&&now-lastR<400){ if(!rq)rq=setTimeout(()=>{rq=0;lastR=performance.now();render(last);},420); return; } lastR=now; render(s); },
+  onEvent(e){ if(!e){evq=[];} else evq.push(e); drawLog(); },
+  onError(e){ $('status').textContent='불러오지 못함 — '+e.message; },
+});
+
+// 화면 단추
+document.querySelectorAll('.vbar [data-v]').forEach(b=>b.onclick=()=>{document.querySelectorAll('.vbar [data-v]').forEach(x=>x.classList.toggle('on',x===b));S.view(b.dataset.v);});
+document.querySelectorAll('#layer button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#layer button').forEach(x=>x.classList.toggle('on',x===b));S.layer(+b.dataset.h);});
+document.querySelectorAll('.vbar [data-t]').forEach(b=>b.onclick=()=>{b.classList.toggle('on');S.toggle(b.dataset.t,b.classList.contains('on'));});
+document.querySelectorAll('#spd button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#spd button').forEach(x=>x.classList.toggle('on',x===b));S.speed(+b.dataset.k);});
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b));document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id==='p-'+b.dataset.p));});
+let playing=false;
+$('bPlay').onclick=()=>{playing=!playing; if(playing)S.play(); else S.pause(); $('bPlay').textContent=playing?'❚❚ 멈춤':'▶ 재생';};
+$('bReset').onclick=()=>{S.reset(); playing=false; S.pause(); $('bPlay').textContent='▶ 재생';};
+$('tSl').oninput=e=>S.seek(+e.target.value);
+$('scn').onchange=e=>{S.setScenario(e.target.value); playing=false; $('bPlay').textContent='▶ 재생'; pwLab();};
+const pwLab=()=>{const k=Math.pow(10,+$('pw').value), sc=JC.SCEN[$('scn').value]; $('pwLab').textContent='× '+f(k,k<1?2:1)+' → EIRP '+f(sc.eirpW*k,sc.eirpW*k<10?1:0)+' W';};
+$('pw').oninput=()=>{pwLab(); S.set('eirpScale',Math.pow(10,+$('pw').value));};
+$('sdr').onchange=e=>S.set('sdrBw',+e.target.value);
+$('tint').onchange=e=>S.set('T',+e.target.value);
+$('mp').onchange=e=>S.set('mpNs',+e.target.value);
+$('clk').onchange=e=>S.set('clock',e.target.value);
+const holdLab=()=>{$('holdLab').textContent='교란 '+HOLDLAB[+$('hold').value]+' 째(기준점이 GNSS 시각을 잃은 뒤 흐른 시간)';};
+$('hold').oninput=()=>{holdLab(); S.set('tHold',HOLD[+$('hold').value]);};
+$('aware').onchange=e=>S.set('clockAware',e.target.value==='1');
+$('noise').onchange=e=>S.set('noise',+e.target.value);
+$('bSeed').onclick=()=>S.set('seed',Math.floor(Math.random()*1e6));
+pwLab(); holdLab();
+
+// ── 과정 6 단계 ──
+let pairSel=null;
+function render(s){
+  const S0=s.S, sol=s.sol, j=s.jam;
+  $('tSl').value=Math.floor(s.t); $('tLab').textContent='교란 +'+Math.floor(s.t)+' s';
+  if(!s.play&&playing&&s.t>=s.dur){playing=false;$('bPlay').textContent='▶ 재생';}
+  const ok=sol&&sol.ok;
+  $('chips').innerHTML=[['시나리오',S0.name],['감지',sol&&sol.det?sol.det.length+' 곳':'—'],['위치 오차',ok?f(sol.err.h,1)+' m':'—'],['1σ',ok?f(Math.hypot(sol.sigma.e,sol.sigma.n),1)+' m':'—']].map(([a,b])=>`<span class="chip">${a} <b>${esc(b)}</b></span>`).join('');
+  const tr=s.traffic, nLoss=tr.filter(o=>o.state==='loss').length, nDeg=tr.filter(o=>o.state==='degrade').length;
+  let h='';
+  h+=`<h2><span class="n">1</span>교란 발생 <small>${esc(S0.where)}</small></h2>
+   <div class="kv"><span>종류</span><b>${S0.type==='chirp'?'처프(주파수 훑기)':'잡음'} · ${f(S0.bw/1e6,0)} MHz · L1 1575.42 MHz</b><span>등가 방사 전력</span><b>${f(j.eirpW,j.eirpW<10?1:0)} W (${f(JC.db(j.eirpW*1000),1)} dBm)</b>
+   <span>자리 · 높이</span><b>${f(j.lat,4)}° N · ${f(j.lon,4)}° E · 지상 ${S0.agl} m</b>${S0.fdoa?`<span>움직임</span><b>${f(Math.hypot(...j.vel)/JC.KN,1)} kn</b>`:''}</div>
+   <div class="note">${esc(S0.note)}</div>`;
+  h+=`<h2><span class="n">2</span>전파 · GNSS 영향 <small>${s.layer>500?'항공 '+s.layer/1000+' km':'선박 10 m'} 층</small></h2>
+   <div class="eq">수신 = EIRP − FSPL − 회절 + 안테나 이득
+FSPL = 20·log₁₀(4π·d/λ) · 지형 가시선(유효 지구 반지름 4/3)
+회절 J(ν) = 6.9 + 20·log₁₀(√((ν−0.1)²+1) + ν − 0.1)   (칼날, ITU-R P.526)
+J/S = 수신 교란(C/A 대역 몫) − GPS L1 −128.5 dBm</div>
+   <div class="kv"><span>끊김(J/S ≥ 30 dB) 넓이</span><b class="bad">${f(s.area?s.area.loss:null,0)} km²</b><span>저하(≥ 20 dB) 넓이</span><b class="warn">${f(s.area?s.area.degrade:null,0)} km²</b>
+   <span>선박·항공기</span><b><span class="bad">끊김 ${nLoss}</span> · <span class="warn">저하 ${nDeg}</span> / ${tr.length}</b></div>`;
+  // 3 감지
+  const rows=(sol&&sol.st?sol.st:[]).slice().sort((a,b)=>b.snrDb-a.snrDb).slice(0,12).map(x=>`<tr><td class="n">${x.id}${sol.ref===x.id?' ★':''}</td><td>${f(x.d/1000,0)}</td><td>${x.los?'가시':'회절'}</td><td>${f(x.pr,0)}</td><td>${f(x.snrDb,0)}</td><td>${x.corrSnr===Infinity?'기준':f(x.corrSnr,0)}</td><td class="${x.lost?'warn':''}">${x.lost?'끊김→'+({ocxo:'OCXO',rb:'Rb',maser:'메이저',fiber:'광섬유'}[x.clk]||x.clk):'정상'}</td></tr>`).join('');
+  h+=`<h2><span class="n">3</span>감지 — 위성기준점 SDR <small>상위 12 곳</small></h2>
+   <div class="note">기준점마다 L 대역 감시 안테나와 SDR(${f(s.p.sdrBw/1e6,0)} MHz)을 달아 기록을 세종 상관기로 보낸다. <b>표본 하나는 잡음보다 약해도(음수 dB)</b> 가장 센 곳과 상관을 쌓으면 잡힌다 — VLBI 와 같다.</div>
+   <table><tr><th>기준점</th><th>거리 km</th><th>경로</th><th>수신 dBm</th><th>표본 SNR dB</th><th>상관 SNR</th><th>자기 GNSS</th></tr>${rows}</table>`;
+  // 4 상관
+  const pr=ok?sol.pairs.slice().sort((a,b)=>b.snr-a.snr):[];
+  if(ok&&(!pairSel||!pr.find(p=>p.id===pairSel)))pairSel=pr.length?pr[0].id:null;
+  h+=`<h2><span class="n">4</span>상관 — VLBI 식 교차상관 → TDOA · FDOA</h2>
+   <div class="eq">R(τ) = Σ x₂[n]·x₁*[n−τ]   (FFT 로 X₂·X₁* → 역변환)
+ρ = √(s₁s₂ / ((1+s₁)(1+s₂))) · SNR = ρ·√(B·T)
+σ_τ = 1 / (2π·B_rms·SNR) · B_rms = B/√12 · σ_ν ≈ √3 / (π·T·SNR)
+지연률(위상 기울기) = 2π·도플러 차 → FDOA</div>
+   ${ok?`<div class="ctl"><label>쌍(기준 ${sol.ref} ↔)</label><select id="pairSel">${pr.map(p=>`<option value="${p.id}" ${p.id===pairSel?'selected':''}>${p.id} · SNR ${f(p.snr,0)} · σ_τ ${f(p.sigTau*1e9,2)} ns</option>`).join('')}</select></div>
+   <div class="go"><button class="pri" id="bCorr">이 쌍 기록 상관 돌리기(신호 수준)</button></div>
+   <canvas class="plot" id="corrPlot"></canvas><canvas class="plot" id="phPlot" style="height:110px"></canvas><div class="note" id="corrNote">단추를 누르면 두 기준점 기록(복소 기저대역)을 실제로 만들어 상관한다 — 봉우리 자리가 도착 시각 차, 위상 기울기가 도플러 차.</div>`:'<div class="note">교란을 1 s 넘게 쌓으면 상관 결과가 나온다.</div>'}`;
+  // 5 위치
+  h+=`<h2><span class="n">5</span>위치 결정 — 다변측량(가중 최소제곱)</h2>
+   <div class="eq">τᵢ₀ = (|p − rᵢ| − |p − r₀|)/c + (시계ᵢ − 시계₀)
+${S0.fdoa?'νᵢ₀ = −(d|p−rᵢ|/dt − d|p−r₀|/dt)/λ   (속도 v 도 미지수)\n':''}Δx = (AᵀWA)⁻¹AᵀW(관측 − 계산) · W = 공통 기준점 상관을 넣은 공분산의 역
+${S0.mode==='2d'?'높이는 그 자리 지형 + 안테나 '+S0.agl+' m 로 묶고 동·북을 푼다':'드론 — 높이까지 푼다(3차원)'}</div>
+   ${ok?`<div class="kv"><span>추정</span><b>${f(sol.est.lat,5)}° N · ${f(sol.est.lon,5)}° E${S0.mode==='3d'?' · 해발 '+f(sol.est.hAsl,0)+' m':''}</b>
+   <span>참값과 차(모의)</span><b class="${sol.err.h<3*Math.hypot(sol.sigma.e,sol.sigma.n)?'good':'bad'}">동 ${f(sol.err.e,1)} · 북 ${f(sol.err.n,1)}${S0.mode==='3d'?' · 위 '+f(sol.err.u,0):''} m</b>
+   <span>1σ(형식)</span><b>동 ${f(sol.sigma.e,1)} · 북 ${f(sol.sigma.n,1)}${S0.mode==='3d'?' · 위 '+f(sol.sigma.u,0):''} m</b>
+   <span>오차 타원</span><b>${f(sol.ellipse.a,1)} × ${f(sol.ellipse.b,1)} m</b><span>GDOP(수평)</span><b>${f(sol.gdop,2)}</b>
+   ${S0.fdoa?`<span>속도(추정 / 참)</span><b>${f(Math.hypot(sol.est.ve,sol.est.vn)/JC.KN,2)} / ${f(Math.hypot(sol.truth.ve,sol.truth.vn)/JC.KN,2)} kn</b>`:''}
+   <span>쓴 관측</span><b>TDOA ${sol.pairs.length}${S0.fdoa?' + FDOA '+sol.pairs.length:''} · 반복 ${sol.it}</b></div>`:`<div class="note">${esc(sol&&sol.fail||'아직 풀지 않음')}</div>`}
+   <div class="note">기준점이 GNSS 를 잃으면 유지 시계로 넘어간다 — 시계 오차가 곧 도착 시각 오차(1 ns = 30 cm). <b>VLBI 의 수소메이저·광섬유 시각</b>을 쓰면 교란이 길어도 위치가 흔들리지 않는다(설정 탭 '시계별 비교').</div>`;
+  // 6 경보
+  h+=`<h2><span class="n">6</span>경보 · 대응</h2>
+   <div class="kv">${s.cg.map(c=>`<span>${esc(c.name)}</span><b>${c.go?(c.dist!=null?'출동 · 남은 '+f(c.dist/1000,1)+' km':'출동'):'대기'}</b>`).join('')}</div>
+   <div class="log" id="log"></div>
+   <table style="margin-top:8px"><tr><th>선박·항공기</th><th>높이 m</th><th>J/S dB</th><th>GNSS</th></tr>${tr.map(o=>`<tr><td class="n">${esc(o.name)}</td><td>${o.kind==='air'?f(o.alt,0):'–'}</td><td>${f(o.js,0)}</td><td class="${o.state==='loss'?'bad':o.state==='degrade'?'warn':'good'}">${o.state==='loss'?'끊김':o.state==='degrade'?'저하':'정상'}</td></tr>`).join('')}</table>`;
+  $('flow').innerHTML=h; drawLog();
+  const ps=$('pairSel'); if(ps)ps.onchange=e=>{pairSel=e.target.value;};
+  const bc=$('bCorr'); if(bc)bc.onclick=()=>corr();
+  if(lastCorr&&$('corrPlot'))plotCorr(lastCorr);
+}
+function drawLog(){const L=$('log'); if(!L)return; L.innerHTML=evq.slice(-60).reverse().map(e=>`<div class="${e.kind}"><b>+${Math.floor(e.t)} s</b>${esc(e.msg)}</div>`).join('')||'<div style="color:var(--dim)">▶ 재생을 누르면 교란이 시작된다</div>';}
+
+// ── 상관 시연(신호 수준) ──
+let lastCorr=null;
+function corr(){
+  const s=last; if(!s||!s.sol||!s.sol.ok)return; const sol=s.sol, P=sol.pairs.find(p=>p.id===pairSel)||sol.pairs[0];
+  const A=sol.st.find(x=>x.id===sol.ref), B=sol.st.find(x=>x.id===P.id);
+  $('corrNote').textContent='계산 중…';
+  setTimeout(()=>{
+    const o=JC.corrDemo({type:s.S.type,tau:P.tdoa,dfHz:P.fdoa,snr1:Math.min(50,A.s),snr2:Math.min(50,B.s),bw:Math.min(s.S.bw,4e6),fs:4e6,N:16384,seed:Math.floor(s.t)+3});
+    o.pair=[sol.ref,P.id]; o.snr1s=P.snr; lastCorr=o; plotCorr(o);
+  },20);
+}
+function plotCorr(o){
+  const c=$('corrPlot'); if(!c)return; const w=c.width=c.clientWidth*devicePixelRatio, h=c.height=c.clientHeight*devicePixelRatio, g=c.getContext('2d'), d=devicePixelRatio;
+  g.fillStyle='#0b1528';g.fillRect(0,0,w,h); const mx=Math.max(...o.amp), L=o.lagAxis, x0=L[0], x1=L[L.length-1];
+  const X=v=>30*d+(v-x0)/(x1-x0)*(w-40*d), Y=v=>h-18*d-(v/mx)*(h-34*d);
+  g.strokeStyle='#5fd0ff';g.lineWidth=1.4*d;g.beginPath(); L.forEach((v,i)=>i?g.lineTo(X(v),Y(o.amp[i])):g.moveTo(X(v),Y(o.amp[i])));g.stroke();
+  g.strokeStyle='#ff8080';g.setLineDash([4*d,3*d]);g.beginPath();g.moveTo(X(o.tauTrue),14*d);g.lineTo(X(o.tauTrue),h-18*d);g.stroke();g.setLineDash([]);
+  g.fillStyle='#8ea3c0';g.font=`${10*d}px sans-serif`;g.fillText('|R(τ)| — 지연 τ(µs)',32*d,12*d);
+  for(const v of [x0,(x0+x1)/2,x1]){g.fillText((v*1e6).toFixed(1),X(v)-10*d,h-4*d);}
+  const p=$('phPlot'); if(p){const w2=p.width=p.clientWidth*d,h2=p.height=p.clientHeight*d,q=p.getContext('2d');q.fillStyle='#0b1528';q.fillRect(0,0,w2,h2);
+    const ph=o.phs,tt=o.phT,mn=Math.min(...ph),mxp=Math.max(...ph),r=Math.max(0.5,mxp-mn);
+    const XX=v=>30*d+v/tt[tt.length-1]*(w2-40*d), YY=v=>h2-16*d-((v-mn)/r)*(h2-30*d);
+    q.fillStyle='#ffcf5a';ph.forEach((v,i)=>{q.beginPath();q.arc(XX(tt[i]),YY(v),2.2*d,0,7);q.fill();});
+    q.fillStyle='#8ea3c0';q.font=`${10*d}px sans-serif`;q.fillText('토막별 상관 위상 φ(t) — 기울기 = 2π·도플러 차',32*d,11*d);}
+  $('corrNote').innerHTML=`쌍 ${o.pair[0]} ↔ ${o.pair[1]} · 지연 참 ${f(o.tauTrue*1e6,3)} µs → 찾음 <b>${f(o.tauEst*1e6,3)} µs</b>(4 ms 기록 봉우리 SNR ${f(o.peakSnr,0)} · 1 s 적분이면 ${f(o.snr1s,0)}) · 도플러 차 참 ${f(o.dfTrue,2)} Hz → <b>${f(o.dfEst,2)} Hz</b>(0.26 s · 32 토막)`;
+}
+
+// ── 시계별 비교 ──
+$('bClk').onclick=()=>{
+  const s=last; if(!s)return; const {D,F,data}=S.core(), sc=s.S, CK=['ocxo','rb','maser','fiber'], col={ocxo:'#ff6b8a',rb:'#f0b44c',maser:'#37e8cf',fiber:'#7cb8ff'};
+  const res={}; CK.forEach(k=>res[k]=[]); let i=0; const jobs=[]; for(const k of CK)for(const t of HOLD)jobs.push([k,t]);
+  $('clkNote').textContent='계산 중… 0 / '+jobs.length;
+  const step=()=>{
+    if(i>=jobs.length){plotClk(res,col);return;}
+    const [k,t]=jobs[i++], e=[];
+    for(let r=0;r<6;r++){const o=JC.solve({F,D,stations:data.stations,jam:s.jam,T:s.p.T,sdrBw:s.p.sdrBw,mpNs:s.p.mpNs,clock:k,tHold:t,clockAware:false,noise:1,seed:900+r,mode:sc.mode,useFdoa:sc.fdoa,hAssume:sc.agl}); if(o.ok)e.push(o.err.h);}
+    res[k].push(e.length?Math.sqrt(e.reduce((a,v)=>a+v*v,0)/e.length):null);
+    $('clkNote').textContent='계산 중… '+i+' / '+jobs.length; setTimeout(step,0);
+  }; step();
+};
+function plotClk(res,col){
+  const c=$('clkPlot'), d=devicePixelRatio, w=c.width=c.clientWidth*d, h=c.height=c.clientHeight*d, g=c.getContext('2d');
+  g.fillStyle='#0b1528';g.fillRect(0,0,w,h); const all=[].concat(...Object.values(res)).filter(v=>v>0), lo=Math.log10(Math.max(0.3,Math.min(...all))), hi=Math.log10(Math.max(...all))+0.2;
+  const X=i=>36*d+i/(HOLD.length-1)*(w-48*d), Y=v=>h-20*d-(Math.log10(Math.max(v,0.3))-lo)/(hi-lo)*(h-34*d);
+  g.strokeStyle='#1f3150';g.fillStyle='#8ea3c0';g.font=`${10*d}px sans-serif`;
+  for(let e=Math.ceil(lo);e<=hi;e++){g.beginPath();g.moveTo(36*d,Y(10**e));g.lineTo(w-8*d,Y(10**e));g.stroke();g.fillText((10**e>=1000?(10**e/1000)+' km':10**e+' m'),2*d,Y(10**e)+3*d);}
+  const fmt=v=>v==null?'–':v>=1000?f(v/1000,1)+' km':f(v,1)+' m';
+  HOLDLAB.forEach((l,i)=>g.fillText(l,X(i)-8*d,h-5*d));
+  for(const k in res){g.strokeStyle=col[k];g.lineWidth=2*d;g.beginPath();res[k].forEach((v,i)=>{if(v==null)return; i?g.lineTo(X(i),Y(v)):g.moveTo(X(i),Y(v));});g.stroke();}
+  const nm={ocxo:'OCXO',rb:'루비듐',maser:'수소메이저',fiber:'광섬유 시각'};
+  $('clkNote').innerHTML=Object.keys(res).map(k=>`<span style="color:${col[k]}">■</span> ${nm[k]} — 1 시간 ${fmt(res[k][2])} · 하루 ${fmt(res[k][4])} · 7 일 ${fmt(res[k][5])}`).join('<br>')+'<br>시계가 넘어간 것을 모르고 풀 때의 수평 오차(잡음 6 판 rms). 메이저·광섬유는 교란이 길어도 m 수준을 지킨다.';
+}
+
+// ── 방법·출처 ──
+function how(d){
+  $('p-how').innerHTML=`<h2>무엇을 보이나</h2><div class="note">교란이 시작되면 수도권·서해안 위성기준점 ${d.stations.length} 곳이 L1 대역 세기 상승을 잡고, 같은 시각에 맞춘 기록을 세종 상관기로 보낸다. 상관기는 VLBI 처럼 기준점 쌍의 교차상관으로 도착 시각 차(TDOA)와 도플러 차(FDOA)를 재고, 다변측량으로 교란원의 위치(와 속도)를 몇 초 안에 낸다. 영향 지도로 선박·항공기의 GNSS 저하·끊김을 판정하고 해경·관제에 알린다.</div>
+  <h2>식과 가정</h2><ul class="src">
+   <li>전파: 자유공간 손실 + 실제 지형(DEM) 가시선 · 유효 지구 반지름 4/3 · 가장 깊이 막는 한 점의 칼날 회절(ITU-R P.526). 바다 반사·덕팅·건물은 넣지 않았다.</li>
+   <li>GNSS 영향: GPS L1 C/A 수신 세기 −128.5 dBm, 저하 J/S 20 dB · 끊김 30 dB(상용 수신기 보고 범위 24~40 dB). 선박·위성기준점 GNSS 안테나는 지평 쪽 −3·−5 dBi, 항공기 0 dBi.</li>
+   <li>감지·상관: SDR 잡음 kT₀B·NF(2 dB). 상관 SNR = ρ√(B·T), σ_τ = 1/(2π·B_rms·SNR), σ_ν ≈ √3/(π·T·SNR) — VLBI 지연·지연률 정밀도와 같은 식. 감지 기준 상관 SNR 7.</li>
+   <li>위치: ECEF 직선 거리로 가우스-뉴턴 가중 최소제곱, 공통 기준점 때문에 쌍 사이가 상관된 공분산. 2차원은 높이를 그 자리 지형 + 안테나 높이로 묶는다. 처음 값은 지역 전체 3 km 격자.</li>
+   <li>시계: 기준점 자기 GNSS 의 J/S 가 30 dB 를 넘으면 유지 시계로 넘어간다고 본다. x(t) ≈ √((y₀t)² + (½at²)² + σ₁²t + 5 ns²) — OCXO y₀ 1·10⁻¹⁰, 루비듐 5·10⁻¹², 수소메이저 1·10⁻¹⁴, 광섬유 시각 0.1 ns.</li>
+   <li>드론(3차원): 위성기준점이 모두 땅 위 비슷한 높이라 높이는 위아래 거의 대칭으로만 정해진다 — 높이 형식 σ 가 수백 m 이고, 선형 근사라 수평 형식 σ 도 실제 흩어짐보다 크게 잡힌다(검산: 수평 흩어짐 ÷ 형식 σ ≈ 0.6). 높은 곳(산 위·건물 옥상) 감시점을 섞으면 나아진다.</li>
+   <li>지오이드고는 지역 평균 25 m 로 두었다(해발 = 타원체고 − 25). 대류권·전리층 지연 차(cm~m)는 넣지 않았다.</li>
+   <li>교란원 자리·출력·움직임, 선박·항공 교통은 <b>가상 시나리오</b>(공개 보도된 사례 지역을 본뜸)다. 실제 정보가 아니다.</li>
+   <li>파면은 보이게 느리게 그렸다(실제는 빛의 속도라 한순간). 모형은 보이게 키웠고 높이는 6 배 과장했다.</li></ul>
+  <h2>자료 출처</h2><ul class="src"><li>위성기준점: ${esc(d.src.stations)}</li><li>지형: ${esc(d.src.dem)}</li><li>위성영상: ${esc(d.src.map)}</li><li>지명: ${esc(d.src.places)}</li><li>3D 모형: 블렌더 4.2(build_jamsim_assets.py) — 위성기준점·SDR 함체·교란 차량·송신탑·드론·어선·여객선·해경 경비정·여객기</li></ul>
+  <div class="note">만든 때 ${esc(d.made)} · 검산 models/jamsim/jamsim_check.js(잡음 0 이면 참 위치를 그대로, 잡음이면 흩어짐 ≈ 형식 σ)</div>`;
+}
+})();
+</script>
+</body>
+</html>

@@ -313,7 +313,7 @@
 <script>
 const TG=window.Telegram?.WebApp; TG?.ready(); TG?.expand();
 const GIST_ID=(new URLSearchParams(location.search).get("g")||"5404bef7f8d5b9f4e8d2824515fc8728");
-const REV="p10051713";
+const REV="p10051819";
 let GLOBECODE="";      // 지구본 세션 선택(선택기 → postMessage)
 const BODY={};
 async function loadBody(name){
@@ -595,6 +595,34 @@ function tsVlbiSim(){
     <div class="dim" style="font-size:12px;line-height:1.6">세종 22 m 와 하와이 카우아이 Kokee Park 20 m(KOKEE·Kk)가 ICRF 전파원을 같은 시각에 기록하고, 상관기가 두 기록을 맞대 지연을 재고(FX·프린지·대역 합성), 여러 스캔으로 기선(약 6,746 km)을 푸는 전 과정을 화면 안에서 실제로 계산해 3D 로 보입니다(IVS R11275 스케줄 · 다른 세션·국도 고를 수 있음). DiFX 가 실제로 상관한 자료로 4·5단계를 돌려 보는 '실자료' 모드도 있습니다.</div>
     <div class="tsl-fil" style="margin-top:8px"><div class="on" onclick="tsVlbiSim.open()">3D 열기 · 전 과정 실행 ▶</div></div></div>`;
 }
+// 응용 모의 셋(10-05 센터장님 "1,2,5번 시뮬레이션 … 대시보드·미니앱 반영") — 운용 화면판을 ts/ 에서 전체 화면으로 연다(화면 안 계산뿐)
+function tsSimCard(id,page,title,sub,desc,btn){
+  tsSimCard.open=tsSimCard.open||function(id,page,title){
+    let w=document.getElementById(id);
+    if(!w){ w=document.createElement("div"); w.id=id;
+      Object.assign(w.style,{position:"fixed",inset:"0",zIndex:"9000",background:"#0a1120"});
+      const f=document.createElement("iframe"); f.src="./ts/"+page+"?embed=1&v="+REV; f.title=title; f.setAttribute("referrerpolicy","no-referrer");
+      Object.assign(f.style,{position:"absolute",inset:"0",width:"100%",height:"100%",border:"0"});
+      const x=document.createElement("button"); x.textContent="✕ 닫기"; x.onclick=()=>{w.style.display="none";};
+      Object.assign(x.style,{position:"absolute",right:"10px",top:"8px",zIndex:"2",background:"rgba(15,26,44,.92)",color:"#dbe7f5",border:"1px solid #37e8cf",borderRadius:"8px",padding:"6px 12px",font:"600 13px sans-serif"});
+      w.appendChild(f); w.appendChild(x); document.body.appendChild(w); }
+    w.style.display="block";
+  };
+  return `<div class="card tsm"><div class="tsm-h">${esc(title)} <span class="dim">${esc(sub)}</span></div>
+    <div class="dim" style="font-size:12px;line-height:1.6">${esc(desc)}</div>
+    <div class="tsl-fil" style="margin-top:8px"><div class="on" onclick="tsSimCard.open('${id}','${page}','${esc(title)}')">${esc(btn)}</div></div></div>`;
+}
+function tsAppSims(){
+  return tsSimCard("tsJamWrap","jamsim.html","GPS 방해전파 역추적망 모의","위성기준점 24곳 · VLBI 식 상관 · 가상 시나리오",
+      "서해·수도권 실제 지형 위에서 GPS 교란이 퍼지는 모습과 끊기는 구역을 보이고, 위성기준점 쌍마다 교차상관으로 도착 시각 차·도플러를 재 교란원 위치를 몇 초 안에 짚습니다. 교란 중 GNSS 시각을 잃어도 수소메이저·루비듐 유지 시계가 정확도를 지키는 것도 보입니다. 교란원 자리는 공개 보도에 기댄 가상 시나리오입니다.",
+      "3D 열기 · 교란 재생 ▶")
+   + tsSimCard("tsRcWrap","radiocam.html","전파 카메라 모의","숨긴 카메라·도청기 찾기",
+      "휴대폰에 붙인 위상 배열 안테나의 소자 쌍 교차상관과 개구 합성 영상으로, 객실·화장실·사무실에 숨긴 무선 카메라가 내는 전파를 화면 위 '전파 열화상'으로 보입니다. 간헐 송출도 긴 적분으로 잡고, 거울 반사 허상은 편파로 가릅니다.",
+      "3D 열기 · 점검 실행 ▶")
+   + tsSimCard("tsWxWrap","wxtomo.html","동네 소나기 10분 예보 모의","GNSS 수증기 단층 영상 · 세종시 읍면동",
+      "위성기준점과 조밀망(기지국·옥상 GNSS — 가정)의 경사 습윤 지연으로 대기 수증기를 3D 로 되살려, 10·20·30분 뒤 소나기를 읍면동·지하차도·둔치마다 알립니다(VLBI 대류권 추정과 같은 원리).",
+      "3D 열기 · 예보 실행 ▶");
+}
 function tsPcamp(t){
   const pc=t.pcamp; if(!pc) return "";
   const now=Date.now()/1000, run=pc.now&&pc.now.running, a=t.antenna||{}, P=pc.points||[];
@@ -781,6 +809,7 @@ function vTSL(){
     <div class="tsm-flow" id="tsFlowSlot"></div></div>`;
   h+=tsLocalTie();                                 // 연결측량(10-05)
   h+=tsVlbiSim();                                  // VLBI 전 과정 모의(10-05)
+  h+=tsAppSims();                                  // 응용 모의 셋 — 방해전파 역추적·전파 카메라·소나기 예보(10-05)
   // G. 십자 스캔
   const cf=t.cross_full; h+=`<div class="card tsm"><div class="tsm-h">십자 스캔 <span class="dim">신호·포인팅 점검</span>${cf?`<span class="tsm-badge run" style="margin-left:auto;background:rgba(47,217,130,.15);color:var(--ok)">${cf.ref?"최근 ":""}${esc(cf.verdict||"")}</span>`:""}</div>`;
   if(cf&&cf.channels){

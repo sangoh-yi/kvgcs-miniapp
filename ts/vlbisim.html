@@ -165,7 +165,11 @@ window.__VS = { get V3() { return V3; }, get RUN() { return RUN; } };     // 시
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms / SPEED));
 
 // ───── 자료 ─────
-fetch('models/vlbisim/vlbisim_data.json').then((r) => r.json()).then(init).catch((e) => { $('status').textContent = '자료를 못 읽음: ' + e; });
+// 잠금판(miniapp_lock)이면 자료도 암호문 — TSX 로 풀어 읽는다(10-05). 아니면 주소 그대로
+const getJSON = (u) => (window.TSX && TSX.has && TSX.has(u))
+  ? TSX.text(new URL(u, location.href).href.split('?')[0].slice(TSX.base.length)).then((t) => JSON.parse(t))
+  : fetch(u).then((r) => (r.ok ? r.json() : Promise.reject(new Error(u + ' ' + r.status))));
+getJSON('models/vlbisim/vlbisim_data.json').then(init).catch((e) => { $('status').textContent = '자료를 못 읽음: ' + e; });
 function stLabel(st) { return st.label || `${st.name} · ${st.id}`; }
 function stShort(st) { return (st.short || st.name) + ' ' + st.id; }
 function init(d) {
@@ -183,7 +187,7 @@ function init(d) {
     onerror: (e) => { $('status').textContent = '3D 자산을 못 읽음: ' + e; } });
   new ResizeObserver(() => V3 && V3.resize()).observe($('cv'));
   setScan(); showStep(1); theory();
-  fetch('models/vlbisim/realdata.json').then((r) => r.json()).then((j) => { RD = j; if (CUR.step >= 4) showStep(CUR.step); }).catch(() => { RD = { err: 1 }; });
+  getJSON('models/vlbisim/realdata.json').then((j) => { RD = j; if (CUR.step >= 4) showStep(CUR.step); }).catch(() => { RD = { err: 1 }; });
 }
 function fillSt2(fromSess) {
   const sess = $('sSess').value, s1 = D.stations.SEJONG, opts = [];
@@ -511,12 +515,21 @@ function finishSession(r) {
   return r;
 }
 function runSession(seed) { return finishSession(VS.session(sessCfg(seed))); }
+// 잠금판(miniapp_lock)이면 워커 원문도 암호문이라 주소로는 못 띄운다 — 풀어서 Blob 주소로 바꿔 둔다(10-05). 아니면 파일 그대로
+let WURL = 'vlbisim_worker.js';
+(async () => {
+  if (!(window.TSX && TSX.has && TSX.has(WURL))) return;
+  const rel = (f) => new URL(f, location.href).href.split('?')[0].slice(TSX.base.length);
+  const rd = async (f) => new TextDecoder().decode(await TSX.fetch(rel(f)));
+  const src = (await rd('vlbisim_core.js')) + '\n' + (await rd(WURL)).replace(/importScripts\([^)]*\);?/, '');
+  WURL = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+})().catch(() => {});
 // 신호 수준 — 웹 워커가 스캔마다 신호 → 2비트 → 상관 → 프린지(X·S)를 돌리고, 같은 씨앗으로 여기서 푼다
 function runSessionSignal(seed) {
   return new Promise((ok, no) => {
     const c = cfg(), [K, N] = c.lvK, C0 = sessCfg(seed);
     const wcfg = Object.assign({}, C0); delete wcfg.obs;
-    if (WK) WK.terminate(); WK = new Worker('vlbisim_worker.js');
+    if (WK) WK.terminate(); WK = new Worker(WURL);
     $('bStop').hidden = false;
     WK.onmessage = (e) => {
       const m = e.data;

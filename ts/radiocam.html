@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>ThreeStar 전파 카메라</title>
+<!-- 전파 카메라 모의(2026-10-05): 숨긴 무선 카메라·도청기를 손에 든 위상 배열로 '보는' 과정 — VLBI·전파 간섭계 방법(교차상관 → 개구 합성 영상 → CLEAN
+     → 자세를 바꿔 넓히는 합성 → 3차원 위치)을 그대로 쓴다. 계산 radiocam_core.js(웹 워커 radiocam_worker.js) · 3D radiocam.js ·
+     모형 models/radiocam/(블렌더 build_radiocam.py ← radiocam_scenes.json). 화면 안 모의뿐 — 장비 명령 없음 -->
+<style>
+:root{--bg:#0a1120;--panel:#0f1a2c;--panel2:#13223a;--line:#1f3150;--tx:#dbe7f5;--dim:#8ea3c0;--ac:#37e8cf;--warn:#f0b44c;--bad:#ff6b8a;--ok:#3ddc97;
+  --b24:#ffb44c;--b58:#5fe3ff;--mono:ui-monospace,"Cascadia Mono",Consolas,monospace}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:13px/1.5 "Noto Sans KR","Malgun Gothic",system-ui,sans-serif}
+header{display:flex;align-items:center;gap:12px;height:50px;padding:0 14px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0f1b30,#0b1424)}
+.rank{display:inline-flex;gap:2px;padding:3px 6px;border:1px solid #c9a13c;border-radius:4px;color:#f2c94c;font-size:12px;letter-spacing:1px}
+.brand{font-weight:800;font-size:15px}.brand span{color:var(--warn)}
+h1{font-size:14px;font-weight:700;margin:0 0 0 4px;white-space:nowrap}
+.chips{display:flex;gap:6px;flex-wrap:wrap;overflow:hidden;max-height:26px}
+.chip{padding:2px 8px;border:1px solid var(--line);border-radius:999px;color:var(--dim);font-size:11.5px;white-space:nowrap}
+.chip b{color:var(--tx);font-family:var(--mono);font-weight:600}
+.back{margin-left:auto;color:var(--tx);text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:12px;white-space:nowrap}
+.back:hover{border-color:var(--ac)}
+body.embed header .back{display:none}
+main{display:grid;grid-template-columns:minmax(0,1fr) 480px;height:calc(100% - 50px)}
+.view{position:relative;display:flex;flex-direction:column;min-width:0;min-height:0}
+#cv{flex:1 1 auto;width:100%;min-height:0;display:block;cursor:grab;touch-action:none;background:#050a14}
+#cv:active{cursor:grabbing}
+.vbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:6px 10px;border-top:1px solid var(--line);background:var(--panel)}
+button{font:inherit}
+.vbar button,.seg button{background:var(--panel2);color:var(--tx);border:1px solid var(--line);border-radius:7px;padding:4px 9px;font-size:12px;cursor:pointer}
+.vbar button.on,.seg button.on{border-color:var(--ac);color:var(--ac)}
+.vbar .sep{width:1px;height:18px;background:var(--line);margin:0 2px}
+.status{padding:5px 10px;border-top:1px solid var(--line);background:#0b1528;color:var(--dim);font-size:12px;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:27px}
+.status b{color:var(--ac);font-weight:600}
+aside{border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
+.phone{padding:10px 12px 6px;border-bottom:1px solid var(--line);background:#0b1426}
+.ph-frame{position:relative;border:6px solid #1a1d22;border-radius:16px;background:#000;overflow:hidden;box-shadow:0 0 0 1px #2c3440,0 8px 24px rgba(0,0,0,.45);aspect-ratio:4/3}
+.ph-frame canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.ph-read{display:flex;justify-content:space-between;gap:8px;margin-top:6px;font-family:var(--mono);font-size:11.5px;color:var(--dim)}
+.ph-read b{color:var(--tx);font-weight:600}
+.ph-leg{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim);margin-top:4px}
+.ph-leg i{display:inline-block;height:8px;width:120px;border-radius:4px;background:linear-gradient(90deg,#30123b,#4662d7,#36aaf9,#1ae4b6,#72fe5e,#c8ef34,#faba39,#f66b19,#ca2a04)}
+.tabs{display:flex;border-bottom:1px solid var(--line)}
+.tabs button{flex:1;background:none;border:0;border-bottom:2px solid transparent;color:var(--dim);font-weight:700;padding:9px 0;cursor:pointer}
+.tabs button.on{color:var(--tx);border-bottom-color:var(--ac)}
+.pane{flex:1 1 auto;overflow:auto;padding:10px 14px 18px;display:none}
+.pane.on{display:block}
+.go{display:flex;gap:6px;margin:6px 0 8px}
+.go button{flex:1;padding:8px 0;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--tx);font-weight:700;cursor:pointer}
+.go button.pri{border-color:var(--ac);background:rgba(55,232,207,.12);color:var(--ac)}
+.go button:disabled{opacity:.45;cursor:default}
+.bar{position:relative;height:8px;border-radius:4px;background:#0b1528;border:1px solid var(--line);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--ac),#5fb8ff);transition:width .2s}
+.ticks{display:flex;justify-content:space-between;margin-top:3px}
+.ticks span{width:8px;height:8px;border-radius:50%;background:#26354f;cursor:pointer}
+.ticks span.done{background:var(--ac)}.ticks span.cur{outline:2px solid #fff}
+.cnt{display:flex;justify-content:space-between;color:var(--dim);font-size:11.5px;margin:4px 0 8px;font-family:var(--mono)}
+.scn{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin:2px 0 6px}
+.scn button{padding:7px 0;border-radius:8px;border:1px solid var(--line);background:#0b1528;color:var(--dim);font-weight:700;cursor:pointer;font-size:12px}
+.scn button.on{border-color:var(--ac);color:var(--ac);background:rgba(55,232,207,.08)}
+h2{font-size:13px;margin:10px 0 4px;display:flex;align-items:baseline;gap:6px}
+h2 small{color:var(--dim);font-weight:400;font-size:11px}
+.note{color:var(--dim);font-size:11.8px;line-height:1.6;margin:4px 0}
+.eq{font-family:var(--mono);font-size:11.5px;color:#cfe4ff;background:#0b1528;border:1px solid var(--line);border-radius:7px;padding:6px 8px;margin:6px 0;white-space:pre-wrap;line-height:1.55}
+table{width:100%;border-collapse:collapse;font-size:11.8px}
+th,td{text-align:left;padding:3px 4px;border-bottom:1px solid #18263f;vertical-align:top}
+th{color:var(--dim);font-weight:600;font-size:11px}
+td.n,th.n{text-align:right;font-family:var(--mono)}
+tr.sel td{background:rgba(55,232,207,.08)}
+.res tr{cursor:pointer}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:0}
+.k-sus{background:var(--bad)}.k-leg{background:var(--ok)}.k-gh{background:#9aa8bd}
+.b24{color:var(--b24)}.b58{color:var(--b58)}
+.row{display:flex;align-items:center;gap:8px;margin:5px 0;flex-wrap:wrap}
+.row label{color:var(--dim);font-size:12px;min-width:92px}
+.seg{display:inline-flex;gap:4px;flex-wrap:wrap}
+.devs label{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--tx);margin:2px 0}
+.devs small{color:var(--dim)}
+.sum{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:6px 0}
+.sum div{background:#0b1528;border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+.sum b{display:block;font-family:var(--mono);font-size:16px}
+.sum span{font-size:11px;color:var(--dim)}
+.ok{color:var(--ok)}.bad{color:var(--bad)}.dimc{color:var(--dim)}
+@media (max-width:900px){
+  main{display:block;height:auto}
+  .view{height:48vh}
+  aside{border-left:0;border-top:1px solid var(--line)}
+  .pane{overflow:visible}
+  header{height:auto;min-height:50px;flex-wrap:wrap;padding:6px 10px}
+  .chips{max-height:none}
+}
+</style>
+</head>
+<body>
+<header>
+  <span class="rank">★★★</span><span class="brand">Three<span>Star</span></span>
+  <h1>전파 카메라 모의</h1>
+  <div class="chips">
+    <span class="chip">장소 <b id="cSc">—</b></span>
+    <span class="chip">배열 <b id="cArr">8×8</b></span>
+    <span class="chip">띠 <b>2.4 · 5.8 GHz</b></span>
+    <span class="chip">버스트 동기 <b id="cGate">켬</b></span>
+  </div>
+  <a class="back" href="/" id="back">← 운용 화면</a>
+</header>
+<main>
+  <section class="view">
+    <canvas id="cv"></canvas>
+    <div class="vbar">
+      <button id="vReset">처음 시점</button>
+      <span class="sep"></span>
+      <button id="tRays" class="on">검출 광선</button>
+      <button id="tRes" class="on">결과 표지</button>
+      <button id="tTruth">정답 보기</button>
+      <button id="tPath">전파 경로</button>
+      <button id="tCov">공유기 세기 지도</button>
+      <span class="sep"></span>
+      <span class="dimc" style="font-size:11.5px"><span class="b24">━ 2.4 GHz</span> · <span class="b58">━ 5.8 GHz</span> · <span class="dot k-sus"></span>의심 <span class="dot k-leg"></span>등록 <span class="dot k-gh"></span>허상</span>
+    </div>
+    <div class="status" id="status">불러오는 중…</div>
+  </section>
+  <aside>
+    <div class="phone">
+      <div class="ph-frame"><canvas id="pcv"></canvas><canvas id="hcv"></canvas></div>
+      <div class="ph-read"><span>자세 <b id="rCap">—</b></span><span>검출 <b id="rDet">—</b></span><span>가장 센 것 <b id="rMax">—</b></span></div>
+      <div class="ph-leg"><span>전파 세기</span><i></i><span>봉우리 대비 −20 → 0 dB</span></div>
+    </div>
+    <div class="tabs"><button class="on" data-t="run">점검</button><button data-t="set">설정</button><button data-t="phy">물리</button><button data-t="chk">검산</button></div>
+    <div class="pane on" id="p-run">
+      <div class="scn" id="scn"></div>
+      <div class="note" id="scInfo"></div>
+      <div class="go"><button class="pri" id="bRun">▶ 점검 시작</button><button id="bPause" disabled>❚❚ 멈춤</button><button id="bReset">↺ 처음</button></div>
+      <div class="row"><label>재생 속도</label><span class="seg" id="spd"><button data-v="0.5">0.5×</button><button data-v="1" class="on">1×</button><button data-v="2">2×</button><button data-v="4">4×</button></span></div>
+      <div class="bar"><i id="prog"></i></div>
+      <div class="ticks" id="ticks"></div>
+      <div class="cnt"><span id="pTxt">대기</span><span id="pMs"></span></div>
+      <div class="sum" id="sum" style="display:none"><div><b id="sSus" class="bad">0</b><span>의심 기기</span></div><div><b id="sLeg" class="ok">0</b><span>등록 기기</span></div><div><b id="sGh">0</b><span>반사 허상</span></div></div>
+      <h2>찾은 것 <small>줄을 누르면 3D 에서 그 점과 전파 경로를 밝힌다</small></h2>
+      <table class="res"><thead><tr><th>판정</th><th>띠</th><th class="n">위치 x·y·z m</th><th class="n">자세</th><th class="n">세기</th><th id="thTruth" style="display:none">정답 대조</th></tr></thead><tbody id="resB"><tr><td colspan="6" class="dimc">점검을 시작하면 자세마다 영상을 찍고, 끝에 3차원 점으로 모아 가른다.</td></tr></tbody></table>
+      <div class="note" id="resNote"></div>
+    </div>
+    <div class="pane" id="p-set">
+      <div class="row"><label>위상 배열</label><span class="seg" id="sArr"><button data-v="8" class="on">8×8 (20.7 cm)</button><button data-v="16">16×16 (41.5 cm)</button></span></div>
+      <div class="row"><label>적분 시간</label><span class="seg" id="sT"><button data-v="0.1">0.1 s</button><button data-v="0.3">0.3 s</button><button data-v="1" class="on">1 s</button><button data-v="3">3 s</button></span></div>
+      <div class="row"><label>버스트 동기</label><span class="seg" id="sGate"><button data-v="1" class="on">켬(기기별)</button><button data-v="0">끔(한데 쌓기)</button></span></div>
+      <div class="row"><label>반사 차수</label><span class="seg" id="sOrd"><button data-v="0">직접파만</button><button data-v="1">1차</button><button data-v="2" class="on">2차</button></span></div>
+      <div class="row"><label>동적 범위</label><span class="seg" id="sDyn"><button data-v="0.1">−10 dB</button><button data-v="0.025" class="on">−16 dB</button><button data-v="0.01">−20 dB</button></span></div>
+      <div class="row"><label>송신 세기 보정</label><span class="seg" id="sPtx"><button data-v="-20">−20 dB</button><button data-v="-10">−10 dB</button><button data-v="0" class="on">그대로</button><button data-v="10">+10 dB</button></span></div>
+      <div class="row"><label>수신 잡음 지수</label><span class="seg" id="sNf"><button data-v="3">3 dB</button><button data-v="6" class="on">6 dB</button><button data-v="10">10 dB</button></span></div>
+      <h2>기기 켜고 끄기 <small>숨긴 기기 · 등록 기기 — 바꾸면 다시 점검</small></h2>
+      <div class="devs" id="devs"></div>
+      <div class="note">설정을 바꾸면 결과를 지우고 다시 점검해야 한다. 계산은 이 화면(웹 워커)에서 실제로 돈다.</div>
+    </div>
+    <div class="pane" id="p-phy">
+      <h2>무엇을 하나</h2>
+      <div class="note">숨긴 무선 카메라·도청기는 영상·소리를 내보내려고 전파(Wi-Fi 2.4·5.8 GHz)를 낸다. 휴대폰 뒤에 붙인 작은 안테나 판(위상 배열)이 그 전파를 받아, <b>VLBI·전파 간섭계가 하늘을 찍는 방법 그대로</b> 전파의 '사진'을 만들고 휴대폰 카메라 화면에 열화상처럼 겹친다. 자세를 바꿔 여러 번 찍으면 광선이 모이는 곳이 기기 자리다.</div>
+      <h2>1 전파 경로 <small>영상법</small></h2>
+      <div class="eq">수신 진폭  a = √Pt · Γ₁Γ₂… · τ · g(θ) · λ/(4πL) · e^(−j2πL/λ)
+L = |소자 − 영상점| (거울상: 벽 x=a 에 대해 x' = 2a − x)
+직접파 + 1차(벽 6) + 2차(벽 쌍) · 벽 Γ(벽지 0.45~0.5 · 타일 0.55~0.6 · 거울 0.95)
+칸막이 투과 τ(석고보드 0.75·0.65 · HPL 0.7·0.6 · 유리 0.85·0.8) — ITU-R P.2040 범위 대략값
+같은 기기의 경로끼리 맞물림 ρ = sinc(B·ΔL/c)  (B = 20 MHz, ΔL 15 m 면 0)</div>
+      <h2>2 상관 <small>VLBI 가시도와 같다</small></h2>
+      <div class="eq">V_ij = ⟨x_i · x_j*⟩ (소자 쌍 교차상관)
+추정 잡음 σ(V_ij) = √(R_ii R_jj / M),  M = B·T 표본
+간헐 송출(듀티 d): 한데 쌓기 → 신호 d·P, 표본 B·T
+                   버스트 동기 → 신호 P, 표본 B·T·d  → 영상 SNR 이득 1/√d (d = 1 % 면 10 배)</div>
+      <h2>3 영상 <small>개구 합성 · CLEAN</small></h2>
+      <div class="eq">같은 간격 Δ 의 쌍을 모아 W(Δ) → 2차원 FFT
+I(l, m) = Σ_Δ W(Δ) · e^(+j2π d(Δx l + Δy m)/λ)   (l, m = 방향 코사인)
+점 퍼짐 함수 = 같은 식에 W = 쌍의 수 · Högbom CLEAN(이득 0.25, 5σ, 동적 범위 −16 dB)
+분해능 ≈ λ/D  · 근거리 보정 e^(+jk(|ρ_i|²−|ρ_j|²)/(2R)), R = 2.5 m</div>
+      <div id="phyNum"></div>
+      <h2>4 위치 · 가르기 <small>자세를 바꿔 넓힌다 — 지구 자전 합성과 같은 생각</small></h2>
+      <div class="eq">자세마다 검출 → 광선(점검 기기 → 방향)
+다른 자세의 두 광선 최근접점 모으기 → 가장 붐비는 곳부터 최소제곱 점(광선 하나는 한 점에만)
+재투영 검증: 보여야 할 자세의 절반 넘게 실제로 검출돼야 점
+방 밖(벽·거울 뒤 30 cm 넘게) = 반사 허상 · 편파(원편파 손잡이)가 뒤집히면 홀수 번 반사
+버스트 동기면 갈래 하나 = 송신기 하나 → 방 안 점은 가장 잘 받쳐진 하나만 기기
+등록 기기(공유기·비상벨 등) 45 cm 안이면 '등록'</div>
+      <h2>한계</h2>
+      <div class="note">가구 산란·회절은 넣지 않았고 칸막이는 투과만 한다. 영상은 원거리 근사(+ 2.5 m 초점 보정)이고, 2.4 GHz 는 판이 작아(0.21 λ 간격, 8×8 이면 D = 1.7 λ) 빔이 34° 로 넓어 반사가 섞이면 위치가 수십 cm 흔들린다. <b>녹화만 하고 전파를 내지 않는 카메라는 이 방법으로 못 찾는다</b> — 렌즈 반사(적외선 LED) 탐지와 함께 써야 한다. 실제 기기는 소자 교정·위상 잡음이 동적 범위를 정한다(여기선 −16 dB 로 두었다).</div>
+      <div id="homeExp"></div>
+    </div>
+    <div class="pane" id="p-chk">
+      <h2>검산 <small>radiocam_check.js(Node) 결과</small></h2>
+      <div class="eq" id="chkTxt">불러오는 중…</div>
+      <div class="go"><button class="pri" id="bChk">지금 설정으로 네 장소 점검</button></div>
+      <table><thead><tr><th>장소</th><th class="n">시간</th><th>찾음</th><th class="n">허상</th><th class="n">거짓 경보</th></tr></thead><tbody id="chkB"></tbody></table>
+    </div>
+  </aside>
+</main>
+<script src="./three.min.js"></script>
+<script src="./GLTFLoader.js"></script>
+<script src="radiocam_core.js"></script>
+<script src="radiocam.js"></script>
+<script>
+'use strict';
+(function () {
+  const $ = (id) => document.getElementById(id), R = window.RCCore, BASE = 'models/radiocam/';
+  const QS = new URLSearchParams(location.search); if (QS.has('embed')) document.body.classList.add('embed');
+  const HF = 66, VF = 52, D2R = Math.PI / 180;
+  let J = null, SC = null, EM = null, V3 = null, WK = null, RUN = 0;
+  const S = { n: 8, T: 1, gate: true, order: 2, dyn: 0.025, ptx: 0, nf: 6 };
+  let CAPS = [], RES = null, cur = -1, shown = -1, play = false, speed = 1, anim = null, selPt = null, truthOn = false, raysOn = true, resOn = true, pathOn = false, covOn = false;
+  const devOn = {};
+  const fmt = (v, d) => (v == null || !isFinite(v) ? '—' : v.toFixed(d));
+
+  function status(s) { $('status').innerHTML = s; }
+  // ── 탭·버튼 ──
+  document.querySelectorAll('.tabs button').forEach((b) => b.onclick = () => {
+    document.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('on', x === b));
+    document.querySelectorAll('.pane').forEach((p) => p.classList.toggle('on', p.id === 'p-' + b.dataset.t));
+    if (b.dataset.t === 'phy') physics();
+  });
+  function seg(id, fn) {
+    const el = $(id); el.querySelectorAll('button').forEach((b) => b.onclick = () => { el.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); fn(b.dataset.v); });
+  }
+  seg('spd', (v) => { speed = +v; });
+  const reset = () => { stop(); clearAll(); };
+  seg('sArr', (v) => { S.n = +v; $('cArr').textContent = v + '×' + v; if (V3) V3.setArray(S.n); reset(); physics(); });
+  seg('sT', (v) => { S.T = +v; reset(); physics(); });
+  seg('sGate', (v) => { S.gate = v === '1'; $('cGate').textContent = S.gate ? '켬' : '끔'; reset(); physics(); });
+  seg('sOrd', (v) => { S.order = +v; reset(); });
+  seg('sDyn', (v) => { S.dyn = +v; reset(); });
+  seg('sPtx', (v) => { S.ptx = +v; reset(); physics(); });
+  seg('sNf', (v) => { S.nf = +v; reset(); physics(); });
+
+  // ── 3D ──
+  V3 = window.RC3D.create($('cv'), $('pcv'), { base: BASE, n: S.n, hfov: HF, vfov: VF, onPhone: () => drawOverlay() });
+  $('vReset').onclick = () => V3.resetView();
+  const tog = (id, get, set) => { $(id).onclick = () => { set(!get()); $(id).classList.toggle('on', get()); }; };
+  tog('tRays', () => raysOn, (v) => { raysOn = v; refreshRays(); });
+  tog('tRes', () => resOn, (v) => { resOn = v; V3.setResults(resOn && RES ? RES.pts : []); });
+  tog('tTruth', () => truthOn, (v) => { truthOn = v; V3.setTruth(v, SC.devices.map((d) => Object.assign({}, d, { on: devOn[d.id] }))); renderRes(); });
+  tog('tPath', () => pathOn, (v) => { pathOn = v; showPathFor(selPt); });
+  tog('tCov', () => covOn, (v) => { covOn = v; coverage(); });
+
+  // ── 장소 ──
+  // 잠금판이면 자료도 암호문 — TSX 로 풀어 읽는다(10-05)
+  const getText = (u) => (window.TSX && TSX.has && TSX.has(u)) ? TSX.text(new URL(u, location.href).href.split('?')[0].slice(TSX.base.length))
+    : fetch(u).then((r) => (r.ok ? r.text() : Promise.reject(new Error(u + ' ' + r.status))));
+  getText(BASE + 'radiocam_scenes.json').then((t) => JSON.parse(t)).then((j) => {
+    J = j; EM = j.em;
+    $('scn').innerHTML = j.scenes.map((s) => `<button data-id="${s.id}">${s.short}</button>`).join('');
+    $('scn').querySelectorAll('button').forEach((b) => b.onclick = () => pick(b.dataset.id));
+    pick(QS.get('sc') || 'hotel');
+  }).catch((e) => status('장소 자료를 못 읽었다: ' + e));
+  getText(BASE + 'radiocam_check.txt').catch(() => '').then((t) => { $('chkTxt').textContent = t || '아직 없음'; }).catch(() => { $('chkTxt').textContent = '아직 없음'; });
+
+  function pick(id) {
+    stop();
+    SC = J.scenes.find((s) => s.id === id) || J.scenes[0];
+    $('scn').querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.id === SC.id));
+    $('cSc').textContent = SC.name; $('scInfo').textContent = SC.info;
+    $('tCov').style.display = SC.devices.some((d) => d.model === 'router') ? '' : 'none';
+    SC.devices.forEach((d) => { devOn[d.id] = true; });
+    $('devs').innerHTML = SC.devices.map((d) => `<label><input type="checkbox" data-id="${d.id}" checked> <span class="${d.band > 4 ? 'b58' : 'b24'}">●</span> ${d.name} <small>${d.band} GHz · ${d.ptx_dbm} dBm · 송출 ${(d.duty * 100).toFixed(d.duty < 0.1 ? 0 : 0)} %${d.note ? ' · ' + d.note : ''}</small></label>`).join('');
+    $('devs').querySelectorAll('input').forEach((c) => c.onchange = () => { devOn[c.dataset.id] = c.checked; V3.setDevVisible(c.dataset.id, true); reset(); });
+    clearAll();
+    status('블렌더 모형 불러오는 중…');
+    V3.loadScene(SC, BASE + 'rc_' + SC.id + '.glb').then(() => {
+      const poses = SC.captures.map((c) => R.pose(c));
+      V3.setCaps(poses, 0); V3.setPhone(poses[0]); V3.renderPhone();
+      ticks(); status(`<b>${SC.name}</b> · 점검 자세 ${SC.captures.length} · 기기 ${SC.devices.length}(등록 ${SC.devices.filter((d) => d.legit).length}) — ▶ 점검 시작`);
+      coverage(); physics();
+    }).catch((e) => status('모형을 못 불러왔다: ' + e));
+  }
+  function clearAll() {
+    CAPS = []; RES = null; cur = -1; shown = -1; selPt = null;
+    if (!V3) return;
+    V3.clearRays(); V3.setResults([]); V3.showPaths(null); V3.highlight(null);
+    $('prog').style.width = '0'; $('pTxt').textContent = '대기'; $('pMs').textContent = ''; $('sum').style.display = 'none';
+    $('resB').innerHTML = '<tr><td colspan="6" class="dimc">점검을 시작하면 자세마다 영상을 찍고, 끝에 3차원 점으로 모아 가른다.</td></tr>'; $('resNote').textContent = '';
+    $('bRun').disabled = false; $('bPause').disabled = true; $('bRun').textContent = '▶ 점검 시작';
+    if (SC) { V3.setCaps(SC.captures.map((c) => R.pose(c)), 0); ticks(); }
+    drawOverlay();
+  }
+  function ticks() {
+    $('ticks').innerHTML = SC.captures.map((_, i) => `<span data-i="${i}" class="${i < CAPS.filter(Boolean).length ? 'done' : ''}${i === shown ? ' cur' : ''}"></span>`).join('');
+    $('ticks').querySelectorAll('span').forEach((s) => s.onclick = () => { const i = +s.dataset.i; if (CAPS[i]) { stop(); showCap(i, true); } });
+  }
+
+  // ── 점검(워커) ──
+  // 잠금판(miniapp_lock)이면 워커 원문도 암호문이라 주소로는 못 띄운다 — 풀어서 Blob 주소로 바꿔 둔다(10-05). 아니면 파일 그대로
+  let WURL = 'radiocam_worker.js';
+  (async () => {
+    if (!(window.TSX && TSX.has && TSX.has(WURL))) return;
+    const rel = (f) => new URL(f, location.href).href.split('?')[0].slice(TSX.base.length);
+    const rd = async (f) => new TextDecoder().decode(await TSX.fetch(rel(f)));
+    const src = (await rd('radiocam_core.js')) + '\n' + (await rd(WURL)).replace(/importScripts\([^)]*\);?/, '');
+    WURL = URL.createObjectURL(new Blob([src], { type: 'text/javascript' }));
+  })().catch(() => {});
+  function scForRun() { return Object.assign({}, SC, { devices: SC.devices.map((d) => Object.assign({}, d, { on: devOn[d.id] })) }); }
+  function setFor() { return { n: S.n, T: S.T, gate: S.gate, order: S.order, dyn: S.dyn, ptx: S.ptx, nf: S.nf, seed: 11 }; }
+  $('bRun').onclick = () => {
+    if (CAPS.length && !RES && WK) { play = true; $('bPause').disabled = false; return; }
+    clearAll();
+    if (WK) WK.terminate();
+    WK = new Worker(WURL);
+    const id = ++RUN, t0 = performance.now();
+    WK.onmessage = (ev) => {
+      const m = ev.data; if (m.id !== id) return;
+      if (m.type === 'cap') { CAPS[m.cap.ci] = m.cap; ticks(); }
+      else if (m.type === 'done') { RES = m; $('pMs').textContent = `계산 ${(m.ms / 1000).toFixed(1)} s · 광선 ${m.nrays}`; if (cur >= SC.captures.length - 1 && !anim) finish(); }
+      else if (m.type === 'err') status('계산 오류: ' + m.error);
+    };
+    WK.postMessage({ cmd: 'inspect', id, sc: scForRun(), em: EM, set: setFor() });
+    play = true; cur = -1; $('bRun').disabled = true; $('bPause').disabled = false; $('bPause').textContent = '❚❚ 멈춤';
+    next();
+  };
+  $('bPause').onclick = () => { play = !play; $('bPause').textContent = play ? '❚❚ 멈춤' : '▶ 이어서'; if (play && !anim) next(); };
+  $('bReset').onclick = () => { if (WK) WK.terminate(); WK = null; reset(); if (SC) { const P = R.pose(SC.captures[0]); V3.setPhone(P); V3.renderPhone(); } };
+  function stop() { play = false; if (anim) { cancelAnimationFrame(anim); anim = null; } }
+
+  // 자세 사이를 움직이고(1.4 s) 그 자리에서 찍은 영상을 보인다(1.6 s) — 속도 배율
+  function lerpPose(A, B, t) {
+    const k = t * t * (3 - 2 * t), mix = (a, b) => a.map((v, i) => v + (b[i] - v) * k);
+    return R.pose({ pos: mix(A.o, B.o), look: R.add(mix(A.o, B.o), mix(A.f, B.f)) });
+  }
+  function next() {
+    if (!play) return;
+    const n = SC.captures.length;
+    if (cur >= n - 1) { if (RES) finish(); else { status('3차원 점으로 모으는 중…'); setTimeout(next, 200); } return; }
+    const from = cur < 0 ? R.pose(SC.captures[0]) : R.pose(SC.captures[cur]), to = R.pose(SC.captures[cur + 1]);
+    const dur = (cur < 0 ? 400 : 1400) / speed, t0 = performance.now();
+    shown = -1; drawOverlay();
+    const step = (t) => {
+      const k = Math.min(1, (t - t0) / dur);
+      V3.setPhone(lerpPose(from, to, k)); V3.renderPhone();
+      if (k < 1) { anim = requestAnimationFrame(step); return; }
+      anim = null; cur++;
+      const wait = () => {
+        if (!play) return;
+        if (!CAPS[cur]) { status(`자세 ${cur + 1}/${n} 계산 기다리는 중…`); setTimeout(wait, 120); return; }
+        showCap(cur, false);
+        setTimeout(next, 1600 / speed);
+      };
+      wait();
+    };
+    anim = requestAnimationFrame(step);
+  }
+  function showCap(i, jump) {
+    const c = CAPS[i]; if (!c) return;
+    shown = i; V3.setPhone(c.pose); V3.renderPhone();
+    if (raysOn && !jump) V3.addRays(c, 4.2);
+    V3.setCaps(SC.captures.map((cc) => R.pose(cc)), CAPS.filter(Boolean).length);
+    const n = SC.captures.length;
+    $('prog').style.width = ((i + 1) / n * 100) + '%'; $('pTxt').textContent = `자세 ${i + 1} / ${n}`; ticks();
+    const dets = c.bands.flatMap((b) => b.classes.flatMap((k) => k.dets.map((t) => Object.assign({ band: b.band }, t))));
+    $('rCap').textContent = `${i + 1}/${n}`; $('rDet').textContent = dets.length;
+    const mx = dets.sort((a, b) => b.dbm - a.dbm)[0]; $('rMax').textContent = mx ? `${mx.dbm.toFixed(1)} dBm · ${mx.band}` : '—';
+    status(`자세 ${i + 1}/${n} · 영상 ${c.bands.filter((b) => b.disp).length}대역 · 검출 ${dets.length} — 광선을 쌓는 중`);
+  }
+  function refreshRays() {
+    V3.clearRays(); if (!raysOn) return;
+    for (const c of CAPS) if (c && c.ci <= Math.max(cur, shown)) V3.addRays(c, 4.2);
+    if (RES) V3.fadeRays(0.45);
+  }
+  function finish() {
+    play = false; $('bPause').disabled = true; $('bRun').disabled = false; $('bRun').textContent = '▶ 다시 점검';
+    V3.fadeRays(0.45);
+    if (resOn) V3.setResults(RES.pts);
+    const ns = RES.pts.filter((p) => p.kind === 'suspect').length, nl = RES.pts.filter((p) => p.kind === 'legit').length, ng = RES.pts.filter((p) => p.kind === 'ghost').length;
+    $('sSus').textContent = ns; $('sLeg').textContent = nl; $('sGh').textContent = ng; $('sum').style.display = '';
+    renderRes();
+    status(`끝 · 의심 <b>${ns}</b> · 등록 ${nl} · 허상 ${ng} · 검증 탈락 ${RES.dropped} — 정답 보기로 대조`);
+  }
+  function renderRes() {
+    if (!RES) return;
+    $('thTruth').style.display = truthOn ? '' : 'none';
+    const ord = { suspect: 0, legit: 1, ghost: 2 }, pts = RES.pts.slice().sort((a, b) => ord[a.kind] - ord[b.kind] || b.dbm - a.dbm);
+    $('resB').innerHTML = pts.map((p, i) => {
+      const k = p.kind === 'suspect' ? 'k-sus' : p.kind === 'legit' ? 'k-leg' : 'k-gh';
+      const why = p.kind === 'ghost' ? (p.what + (p.polflip ? ' · 편파 뒤집힘(홀수 반사)' : '')) : p.kind === 'legit' ? p.what : '방 안 · 등록 목록에 없음';
+      let tr = '';
+      if (truthOn) {
+        const near = SC.devices.filter((d) => devOn[d.id] && d.band === p.band).map((d) => ({ d, e: R.norm(R.sub(d.pos, p.p)) })).sort((a, b) => a.e - b.e)[0];
+        tr = `<td>${near && near.e < 0.5 && p.kind !== 'ghost' ? `<span class="ok">✓</span> ${near.d.name} ${(near.e * 100).toFixed(0)} cm` : p.kind === 'ghost' ? '<span class="dimc">허상</span>' : '<span class="bad">✗ 정답 없음</span>'}</td>`;
+      }
+      return `<tr data-i="${RES.pts.indexOf(p)}"${selPt === p ? ' class="sel"' : ''}><td><span class="dot ${k}"></span>${p.ko}<br><small class="dimc">${why}</small></td><td class="${p.band > 4 ? 'b58' : 'b24'}">${p.band}</td><td class="n">${p.p.map((v) => v.toFixed(2)).join(' · ')}</td><td class="n">${p.ncap} (${p.hit}/${p.expect})</td><td class="n">${p.dbm.toFixed(1)}</td>${tr}</tr>`;
+    }).join('') || '<tr><td colspan="6" class="dimc">찾은 점이 없다</td></tr>';
+    $('resB').querySelectorAll('tr[data-i]').forEach((r) => r.onclick = () => { selPt = RES.pts[+r.dataset.i]; renderRes(); showPathFor(selPt); });
+    if (truthOn) {
+      const t = RES.truth, miss = t.filter((x) => !x.found);
+      $('resNote').innerHTML = `정답 대조 — 찾음 <b class="ok">${t.filter((x) => x.found).length}</b> / ${t.length}` + (miss.length ? ` · 놓침 <span class="bad">${miss.map((x) => x.name).join(', ')}</span>` : '') + ` · 거짓 경보 ${RES.falseAlarms}`;
+    } else $('resNote').textContent = '';
+  }
+  function showPathFor(p) {
+    if (!pathOn || !p) { V3.showPaths(null); V3.highlight(null); if (raysOn) refreshRays(); return; }
+    V3.fadeRays(0.25);
+    const P = shown >= 0 && CAPS[shown] ? CAPS[shown].pose : R.pose(SC.captures[0]);
+    const src = p.kind === 'ghost' ? (RES.pts.find((q) => q.kind !== 'ghost' && q.band === p.band && q.cls === p.cls) || p).p : p.p;
+    V3.showPaths(R.paths(SC, EM, src, P.o, p.band, 2), p.band);
+    const near = SC.devices.find((d) => R.norm(R.sub(d.pos, src)) < 0.5); V3.highlight(near ? [near.id] : null);
+  }
+
+  // ── 휴대폰 화면 열화상 겹침 ──
+  function drawOverlay() {
+    const c = $('hcv'), w = c.clientWidth, h = c.clientHeight; if (!w || !h) return;
+    if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+    const g = c.getContext('2d'); g.clearRect(0, 0, w, h);
+    const cp = shown >= 0 ? CAPS[shown] : null;
+    // 조준선(카메라 화면 효과)
+    g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 1; g.beginPath(); g.moveTo(w / 2 - 12, h / 2); g.lineTo(w / 2 + 12, h / 2); g.moveTo(w / 2, h / 2 - 12); g.lineTo(w / 2, h / 2 + 12); g.stroke();
+    if (!cp) return;
+    const tx = Math.tan(HF / 2 * D2R), ty = Math.tan(VF / 2 * D2R), sw = Math.ceil(w / 3), sh = Math.ceil(h / 3);
+    const img = g.createImageData(sw, sh), N = R.NFFT;
+    let vmax = 0;
+    for (const b of cp.bands) if (b.disp) for (let i = 0; i < b.disp.length; i++) if (b.disp[i] > vmax) vmax = b.disp[i];
+    if (vmax <= 0) return;
+    for (let y = 0; y < sh; y++) for (let x = 0; x < sw; x++) {
+      const dx = tx * (2 * (x + 0.5) / sw - 1), dy = ty * (1 - 2 * (y + 0.5) / sh), nn = Math.sqrt(1 + dx * dx + dy * dy), l = dx / nn, m = dy / nn;
+      let v = 0;
+      for (const b of cp.bands) {                     // 쌍선형으로 읽는다(계단 무늬 없게)
+        if (!b.disp) continue;
+        const fx = l / b.lstep + N / 2, fy = m / b.lstep + N / 2, ix = Math.floor(fx), iy = Math.floor(fy), ax = fx - ix, ay = fy - iy;
+        if (ix < 0 || iy < 0 || ix >= N - 1 || iy >= N - 1) continue;
+        const d = b.disp, q = d[iy * N + ix] * (1 - ax) * (1 - ay) + d[iy * N + ix + 1] * ax * (1 - ay) + d[(iy + 1) * N + ix] * (1 - ax) * ay + d[(iy + 1) * N + ix + 1] * ax * ay;
+        v = Math.max(v, q);
+      }
+      const db = 10 * Math.log10(Math.max(v, 1e-30) / vmax), t = Math.max(0, Math.min(1, (db + 20) / 20));
+      if (t <= 0) continue;
+      const col = V3.turbo(t), o = (y * sw + x) * 4;
+      img.data[o] = col[0]; img.data[o + 1] = col[1]; img.data[o + 2] = col[2]; img.data[o + 3] = Math.round(235 * Math.pow(t, 1.4));
+    }
+    const tc = document.createElement('canvas'); tc.width = sw; tc.height = sh; tc.getContext('2d').putImageData(img, 0, 0);
+    g.imageSmoothingEnabled = true; g.drawImage(tc, 0, 0, w, h);
+    // 검출 표지(동그라미만 — 글은 화면 아래 띠에)
+    for (const b of cp.bands) for (const k of b.classes) for (const t of k.dets) {
+      const n = Math.sqrt(Math.max(1e-6, 1 - t.l * t.l - t.m * t.m)), u = 0.5 + 0.5 * (t.l / n) / tx, v = 0.5 - 0.5 * (t.m / n) / ty;
+      if (u < 0 || u > 1 || v < 0 || v > 1) continue;
+      g.strokeStyle = b.band > 4 ? '#5fe3ff' : '#ffb44c'; g.lineWidth = 1.6; g.beginPath(); g.arc(u * w, v * h, 9, 0, 2 * Math.PI); g.stroke();
+    }
+  }
+  new ResizeObserver(() => { V3.resize(); drawOverlay(); }).observe($('pcv'));
+
+  // ── 공유기 세기 지도(가정·객실) ──
+  function coverage() {
+    if (!SC || !covOn) { V3.setCoverage(null); $('homeExp').innerHTML = ''; return; }
+    const rt = SC.devices.find((d) => d.model === 'router'); if (!rt) { V3.setCoverage(null); return; }
+    const cov = R.coverage(SC, EM, rt, 1.0, 0.1), arr = Array.from(cov.map).filter(isFinite);
+    const hi = Math.max(...arr), lo = hi - 40;
+    V3.setCoverage(cov, 0.03, lo, hi);
+    const emax = Math.max(...cov.ex);
+    $('homeExp').innerHTML = `<h2>공유기 세기 지도 <small>${rt.name} · 높이 1 m · 10 cm 격자</small></h2><div class="note">바닥 위 색 = 받는 세기(봉우리 ${hi.toFixed(0)} dBm → 그보다 40 dB 낮은 곳까지). 방 안 가장 센 전력 밀도 ${emax.toExponential(2)} W/m² = 인체 보호 기준(일반인 2~300 GHz, 10 W/m²)의 ${(emax / 10 * 100).toFixed(3)} %.</div>`;
+  }
+
+  // ── 물리 탭 수치 ──
+  function physics() {
+    if (!SC) return;
+    const rows = [];
+    for (const b of [2.4, 5.8]) {
+      const lam = R.C / R.BANDS[b].f, bw = R.beamwidth(S.n, lam) / D2R;
+      rows.push(`<tr><td class="${b > 4 ? 'b58' : 'b24'}">${b} GHz</td><td class="n">${(lam * 100).toFixed(2)} cm</td><td class="n">${(R.D_EL / lam).toFixed(2)} λ</td><td class="n">${(S.n * R.D_EL * 100).toFixed(1)} cm</td><td class="n">${bw.toFixed(1)}°</td></tr>`);
+    }
+    const dev = SC.devices.map((d) => {
+      const ld = R.link(d, 3, Object.assign({}, S, { gate: S.gate })), lu = R.link(d, 3, Object.assign({}, S, { gate: false })), lg = R.link(d, 3, Object.assign({}, S, { gate: true }));
+      const rg = R.detectRange(d, Object.assign({}, S, { gate: true })), ru = R.detectRange(d, Object.assign({}, S, { gate: false }));
+      return `<tr><td>${d.name}</td><td class="n">${(d.duty * 100).toFixed(0)} %</td><td class="n">${ld.prx_dbm.toFixed(0)}</td><td class="n">${lu.snrImg.toExponential(1)}</td><td class="n">${lg.snrImg.toExponential(1)}</td><td class="n">${ru > 1500 ? '1 km+' : ru.toFixed(0) + ' m'} / ${rg > 1500 ? '1 km+' : rg.toFixed(0) + ' m'}</td></tr>`;
+    }).join('');
+    const sn = R.w2dbm(1.380649e-23 * 290 * 20e6 * Math.pow(10, S.nf / 10)), M = 20e6 * S.T;
+    $('phyNum').innerHTML = `<h3 style="font-size:12px;margin:8px 0 4px">지금 설정 — ${S.n}×${S.n} · 소자 간격 ${(R.D_EL * 100).toFixed(2)} cm · 적분 ${S.T} s</h3>
+      <table><thead><tr><th>띠</th><th class="n">λ</th><th class="n">간격</th><th class="n">판 D</th><th class="n">빔폭 λ/D</th></tr></thead><tbody>${rows.join('')}</tbody></table>
+      <div class="note">수신 잡음 ${sn.toFixed(1)} dBm(20 MHz · 잡음 지수 ${S.nf} dB) · 상관 표본 M = B·T = ${M.toExponential(1)} → √M = ${(10 * Math.log10(Math.sqrt(M))).toFixed(0)} dB 의 상관 이득 · 소자 쌍 ${S.n * S.n * (S.n * S.n - 1) / 2}</div>
+      <table><thead><tr><th>기기</th><th class="n">송출</th><th class="n">3 m 수신 dBm</th><th class="n">영상 SNR 끔</th><th class="n">켬</th><th class="n">감지 거리 끔/켬</th></tr></thead><tbody>${dev}</tbody></table>
+      <div class="note">감지 거리 = 자유공간에서 영상 SNR 5 가 되는 거리(벽 손실 없음). 실제로는 동적 범위(봉우리 대비 −16 dB)와 다중경로가 먼저 한계를 정한다.</div>`;
+  }
+
+  // ── 검산(워커) ──
+  $('bChk').onclick = () => {
+    $('chkB').innerHTML = '<tr><td colspan="5" class="dimc">도는 중…</td></tr>';
+    const w = new Worker(WURL), rows = [];
+    w.onmessage = (ev) => {
+      const m = ev.data;
+      if (m.type === 'chk') { rows.push(`<tr><td>${m.name}</td><td class="n">${(m.ms / 1000).toFixed(1)} s</td><td>${m.truth.map((t) => `<span class="${t.found ? 'ok' : 'bad'}">${t.found ? '✓' : '✗'}</span>${t.id}${t.err != null && t.found ? ' ' + (t.err * 100).toFixed(0) : ''}`).join(' ')}</td><td class="n">${m.ghosts}</td><td class="n">${m.falseAlarms}</td></tr>`); $('chkB').innerHTML = rows.join(''); }
+      if (m.type === 'chkdone' || m.type === 'err') w.terminate();
+    };
+    w.postMessage({ cmd: 'check', id: 1, scenes: J.scenes, em: EM, set: setFor() });
+  };
+})();
+</script>
+</body>
+</html>

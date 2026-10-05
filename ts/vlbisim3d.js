@@ -166,7 +166,11 @@
     function ramp(a) { const s = [[0.02, 0.05, 0.2], [0.05, 0.35, 0.7], [0.15, 0.8, 0.85], [0.95, 0.85, 0.35], [1, 1, 0.95]]; const x = Math.max(0, Math.min(0.999, a)) * (s.length - 1), i = Math.floor(x), f = x - i; return [0, 1, 2].map((k) => s[i][k] + (s[i + 1][k] - s[i][k]) * f); }
 
     // ── 자산 ──
-    if (T.GLTFLoader) new T.GLTFLoader().load(o.assetsUrl, (g) => {
+    // 잠금판이면 GLB 도 암호문 — TSX 로 풀어 parse(10-05)
+    const glbLoad = (L, url, ok, _p, no) => (window.TSX && TSX.has && TSX.has(url))
+      ? TSX.fetch(new URL(url, location.href).href.split('?')[0].slice(TSX.base.length)).then((b) => L.parse(b, '', ok, no || (() => {})), no || (() => {}))
+      : L.load(url, ok, undefined, no);
+    if (T.GLTFLoader) glbLoad(new T.GLTFLoader(), o.assetsUrl, (g) => {
       assets = g.scene;
       const e = assets.getObjectByName('Earth');
       if (e) { const ec = e.clone(true); ec.scale.setScalar(RE); ec.traverse((m) => { if (m.isMesh && m.material) { m.material.envMapIntensity = 0; if (m.material.map) m.material.map.encoding = T.sRGBEncoding; m.material.roughness = 0.9; } }); earthG.add(ec); }
