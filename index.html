@@ -313,7 +313,7 @@
 <script>
 const TG=window.Telegram?.WebApp; TG?.ready(); TG?.expand();
 const GIST_ID=(new URLSearchParams(location.search).get("g")||"5404bef7f8d5b9f4e8d2824515fc8728");
-const REV="p10051551";
+const REV="p10051713";
 let GLOBECODE="";      // 지구본 세션 선택(선택기 → postMessage)
 const BODY={};
 async function loadBody(name){
@@ -591,8 +591,8 @@ function tsVlbiSim(){
       w.appendChild(f); w.appendChild(x); document.body.appendChild(w); }
     w.style.display="block";
   };
-  return `<div class="card tsm"><div class="tsm-h">VLBI 전 과정 모의 <span class="dim">관측 → 상관 → 기선 해석</span></div>
-    <div class="dim" style="font-size:12px;line-height:1.6">세종과 상대국이 ICRF 전파원을 같은 시각에 기록하고, 상관기가 두 기록을 맞대 지연을 재고(FX·프린지·대역 합성), 여러 스캔으로 기선을 푸는 전 과정을 화면 안에서 실제로 계산해 3D 로 보입니다(IVS R41279 스케줄).</div>
+  return `<div class="card tsm"><div class="tsm-h">VLBI 전 과정 모의 <span class="dim">세종–코키 파크(하와이) · 관측 → 상관 → 기선 해석</span></div>
+    <div class="dim" style="font-size:12px;line-height:1.6">세종 22 m 와 하와이 카우아이 Kokee Park 20 m(KOKEE·Kk)가 ICRF 전파원을 같은 시각에 기록하고, 상관기가 두 기록을 맞대 지연을 재고(FX·프린지·대역 합성), 여러 스캔으로 기선(약 6,746 km)을 푸는 전 과정을 화면 안에서 실제로 계산해 3D 로 보입니다(IVS R11275 스케줄 · 다른 세션·국도 고를 수 있음). DiFX 가 실제로 상관한 자료로 4·5단계를 돌려 보는 '실자료' 모드도 있습니다.</div>
     <div class="tsl-fil" style="margin-top:8px"><div class="on" onclick="tsVlbiSim.open()">3D 열기 · 전 과정 실행 ▶</div></div></div>`;
 }
 function tsPcamp(t){

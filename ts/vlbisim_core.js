@@ -35,13 +35,15 @@
   }
 
   // ── 시간·지구 자전 — 지구 자전각 ERA(IERS 2010 식 5.15), UT1 ≈ UTC ──
-  function era(unix) {
-    const Tu = unix / 86400 + 2440587.5 - 2451545.0;
-    let f = 0.7790572732640 + 1.00273781191135448 * Tu; f -= Math.floor(f);
+  function era(unix, dut) {
+    // 정밀도: Tᵤ 를 날수(정수)와 그날 초로 나눠 더한다 — unix/86400 + 2440587.5 로 한 번에 하면 배정밀도에서 약 40 μs 씩 끊긴다(0.13.1 UT1 모의에서 찾음)
+    const s0 = unix - 946728000, days = Math.floor(s0 / 86400), sec = (s0 - days * 86400) + (dut || 0);
+    const Tu = days + sec / 86400;
+    let f = 0.7790572732640 + 0.00273781191135448 * Tu; f -= Math.floor(f); f += sec / 86400; f -= Math.floor(f);
     return 2 * Math.PI * f;
   }
   const s_crs = (ra, dec) => [Math.cos(dec) * Math.cos(ra), Math.cos(dec) * Math.sin(ra), Math.sin(dec)];
-  function crs2trs(v, unix) { const th = era(unix), c = Math.cos(th), s = Math.sin(th); return [c * v[0] + s * v[1], -s * v[0] + c * v[1], v[2]]; }
+  function crs2trs(v, unix, dut) { const th = era(unix, dut), c = Math.cos(th), s = Math.sin(th); return [c * v[0] + s * v[1], -s * v[0] + c * v[1], v[2]]; }
 
   // ── 측지(GRS80) ──
   const A_E = 6378137, F_E = 1 / 298.257222101, E2 = F_E * (2 - F_E);
@@ -74,7 +76,7 @@
   // ── 지연 모형 — P: {x1, x2, clk(t), zhd1, zhd2, zwd1(t), zwd2(t), vtec1(t), vtec2(t)} · t 는 세션 기준 시각에서 s ──
   const val = (v, t) => (typeof v === 'function' ? v(t) : (v || 0));
   function delay(P, src, unix, t) {
-    const s = crs2trs(s_crs(src.ra, src.dec), unix);
+    const s = crs2trs(s_crs(src.ra, src.dec), unix, P.dut1 || 0);   // P.dut1 = UT1−UTC 가 모형에 든 값(s) — 지구 자전각이 그만큼 앞선다
     const x1 = P.x1, x2 = P.x2, B = sub(x2, x1);
     const v2 = [-OMEGA * x2[1], OMEGA * x2[0], 0];
     const tg0 = -dot(B, s) / C, tg = tg0 / (1 + dot(v2, s) / C);
@@ -147,7 +149,10 @@
     // o: {band, truthAt(t)→delay obj, modelAt(t)→delay obj, rho1, rho2 (스캔 실제 값), T, K, N, Nfft, noise(bool), seed}
     const b = o.band, fs = b.sr, K = o.K || 32, N = o.N || 4096, NF = o.Nfft || 128, NB = NF / 2, R = rng(o.seed || 1);
     const comp = Math.sqrt(2 * b.bw * o.T / (K * N));
-    let r1 = Math.min(0.9, o.rho1 * comp), r2 = Math.min(0.9, o.rho2 * comp);
+    // 키운 상관 성분은 두 국에 똑같이(기하 평균) 나눈다 — 곱 r₁r₂(= SNR²)는 같고, 한 국(예: 코키 S SEFD 750 Jy)만 0.9 가까이 커져
+    //   2비트 비선형으로 지연이 치우치는 것을 막는다(10-05 검산에서 S −1.5σ 치우침을 찾음)
+    const gm = Math.sqrt(o.rho1 * o.rho2) * comp;
+    let r1 = Math.min(0.9, gm), r2 = r1;
     if (!o.noise) { r1 = 0.999; r2 = 0.999; }
     const V = [], A1 = [], A2 = [], tap = [], fb = new Float64Array(NB); let snap = null;
     for (let j = 0; j < NB; j++) fb[j] = j * fs / NF;
@@ -264,7 +269,7 @@
     const ampAt = (tau, q) => { let sr = 0, si = 0; for (let k = 0; k < K; k++) { let ar = 0, ai = 0; for (let c = 0; c < NCH; c++) { const p = -2 * Math.PI * df[c] * tau, cs = Math.cos(p), sn = Math.sin(p); ar += W[k][c][0] * cs - W[k][c][1] * sn; ai += W[k][c][0] * sn + W[k][c][1] * cs; } const p2 = -2 * Math.PI * nu(q) * (cr.tap[k] - cr.tap[0]), c2 = Math.cos(p2), s2 = Math.sin(p2); sr += ar * c2 - ai * s2; si += ar * s2 + ai * c2; } return Math.hypot(sr, si); };
     const tau0 = sbd - span / 2 + best.it * step;
     const fa = ampAt(tau0 - step, best.q), fb0 = best.a, fc = ampAt(tau0 + step, best.q);
-    const mbd = tau0 + step * 0.5 * (fa - fc) / (fa - 2 * fb0 + fc || 1);
+    const mbd = NCH === 1 ? sbd : tau0 + step * 0.5 * (fa - fc) / (fa - 2 * fb0 + fc || 1);   // 채널 하나면 대역 합성이 없다 — fourfit 처럼 MBD = SBD
     const qa = ampAt(tau0, (best.q - 1 + RP) % RP), qc = ampAt(tau0, (best.q + 1) % RP);
     const nuB = nu(best.q) + (1 / (RP * dt)) * 0.5 * (qa - qc) / (qa - 2 * fb0 + qc || 1);
     const rate = nuB / b.fmean;                          // 채널마다 f·τ̇ 로 도는 위상을 한 ν 로 모았으니 대역 평균 주파수로 나눈다
@@ -281,7 +286,8 @@
     let gr0 = 0, gi0 = 0; for (const r of resid) { gr0 += r.re; gi0 += r.im; }
     const ph0 = Math.atan2(gi0, gr0);
     for (const r of resid) { let p = Math.atan2(r.im, r.re) - ph0; while (p > Math.PI) p -= 2 * Math.PI; while (p < -Math.PI) p += 2 * Math.PI; r.ph = p; delete r.re; delete r.im; }
-    return { sbd, mbd, rate, amp, SNR, sigma: sigTau(SNR, b), amb, fref, map, span, step, nuRes: 1 / (RP * dt), RP, dt, lag: Array.from(lag), dF, PAD, resid, phase: ph0, q: best.q, nu: nuB, tau0 };
+    const tmid = (cr.tap[0] + cr.tap[K - 1]) / 2, phaseMid = ph0 + 2 * Math.PI * nuB * (tmid - cr.tap[0]);
+    return { sbd, mbd, rate, amp, SNR, sigma: sigTau(SNR, b), amb, fref, map, span, step, phaseMid: Math.atan2(Math.sin(phaseMid), Math.cos(phaseMid)), nuRes: 1 / (RP * dt), RP, dt, lag: Array.from(lag), dF, PAD, resid, phase: ph0, q: best.q, nu: nuB, tau0 };
   }
   function gcd(a, b) { a = Math.abs(a); b = Math.abs(b); while (b) { const t = a % b; a = b; b = t; } return a; }   // gcd(0, x) = x
   function gcd0(arr) { let g = 0; for (const v of arr) g = gcd(g, v); return g || 1; }
@@ -295,10 +301,9 @@
   /* ── 세션 모의(관측량 수준) + 기선 해석(가중 최소제곱, 가우스-뉴턴) ──
    *  스캔마다 참 지연(X·S 군지연)에 SNR 이론 σ 만큼 잡음을 더해 '관측 지연' 을 만든다(신호 수준 모의는 한 스캔에서 이 σ 를 검산).
    *  미지수: 국 2 위치 보정 3 · 시계 c₀ c₁ c₂ · 국별 천정 습윤 지연(세션 상수 또는 꺾은선 + 느슨한 제약). 국 1(세종)은 고정 — 기준점. */
-  function session(cfg) {
-    const R = rng(cfg.seed || 7), st1 = cfg.st1, st2 = cfg.st2, bX = cfg.bands.X, bS = cfg.bands.S;
-    const tref = cfg.tref, H = 3600;
-    // 참값
+  // ── 세션 참값(씨앗 고정) — 메인 화면과 웹 워커가 같은 씨앗으로 같은 참값을 만든다(0.13.1) ──
+  function sessionPrep(cfg) {
+    const R = rng(cfg.seed || 7), st1 = cfg.st1, st2 = cfg.st2, tref = cfg.tref;
     const dxTrue = cfg.dx2 || [0.02, -0.03, 0.015];
     const x2T = add(st2.xyz, dxTrue);
     const clk = cfg.clk || [3.2e-7, 1.5e-14, 0];       // s, s/s, s/s²
@@ -307,28 +312,58 @@
     const lin = (pts) => (t) => { const u = t; if (u <= pts[0][0]) return pts[0][1]; for (let i = 1; i < pts.length; i++) if (u <= pts[i][0]) { const a = pts[i - 1], b = pts[i], w = (u - a[0]) / (b[0] - a[0]); return a[1] + w * (b[1] - a[1]); } return pts[pts.length - 1][1]; };
     const z1T = lin(zwdWalk(cfg.zwdWalk ?? 0.006, cfg.zwd1 ?? 0.15)), z2T = lin(zwdWalk(cfg.zwdWalk ?? 0.006, cfg.zwd2 ?? 0.12));
     const vt = (v0) => (t) => v0 * (0.55 + 0.45 * Math.cos(2 * Math.PI * (t / 86400 - 0.6)));
-    const PT = { x1: st1.xyz, x2: x2T, clk: (t) => clk[0] + clk[1] * (t - tref) + clk[2] * (t - tref) ** 2 + maserAt(t),
-      zhd1: zhd(st1.xyz), zhd2: zhd(x2T), zwd1: z1T, zwd2: z2T, vtec1: vt(cfg.vtec1 ?? 18), vtec2: vt(cfg.vtec2 ?? 25) };
     // 메이저 잡음 — 백색 FM → 시각 오차는 걸음(10 s 걸음)
     const mpts = []; { let x = 0, tt = cfg.t0 - 120; while (tt < cfg.t1 + 120) { mpts.push([tt, x]); x += maserSig * Math.sqrt(10) * R.g(); tt += 10; } }
-    function maserAt(t) { if (!maserSig) return 0; return lin(mpts)(t); }
-    // 관측(전리층이 섞인 X·S 군지연에 잡음) → 전리층 없는 결합
-    const obs = [];
-    for (const sc of cfg.scans) {
-      const t = sc.t, d = delay(PT, sc.src, t, t);
-      if (d.el1 < 5 * D2R || d.el2 < 5 * D2R) continue;
-      const sX = snr(sc.flux * (cfg.fluxScale || 1), st1.sefd.X, st2.sefd.X, bX.bw, sc.T, bX.ch.length);
-      const sS = snr(sc.flux * (cfg.fluxScale || 1), st1.sefd.S, st2.sefd.S, bS.bw, sc.T, bS.ch.length);
-      const sigX = Math.hypot(sigTau(sX, bX), cfg.floor ?? 4e-12), sigS = Math.hypot(sigTau(sS, bS), cfg.floor ?? 4e-12);
-      const nz = cfg.noise === false ? 0 : 1;
-      const tX = groupAt(d, bX.feff) + nz * sigX * R.g(), tS = groupAt(d, bS.feff) + nz * sigS * R.g();
-      const fr = ionFree(tX, tS, bX, bS, sigX, sigS);
-      obs.push({ t, src: sc.src, name: sc.name, T: sc.T, tX, tS, tau: fr.tau, sig: fr.sig, snrX: sX, snrS: sS, sigX, sigS, truth: d, ionA: fr.A });
+    const maserAt = (t) => (maserSig ? lin(mpts)(t) : 0);
+    const PT = { x1: st1.xyz, x2: x2T, clk: (t) => clk[0] + clk[1] * (t - tref) + clk[2] * (t - tref) ** 2 + maserAt(t),
+      zhd1: zhd(st1.xyz), zhd2: zhd(x2T), zwd1: z1T, zwd2: z2T, vtec1: vt(cfg.vtec1 ?? 18), vtec2: vt(cfg.vtec2 ?? 25) };
+    const PM = { x1: st1.xyz, x2: st2.xyz, clk: 0, zhd1: zhd(st1.xyz), zhd2: zhd(st2.xyz), zwd1: 0, zwd2: 0, vtec1: 0, vtec2: 0 };   // 상관기 선험 모형
+    return { R, PT, PM, x2T, dxTrue, clk, z1T, z2T };
+  }
+  const fluxOf = (sc, band, cfg) => (sc['flux' + band] ?? sc.flux) * (cfg.fluxScale || 1);
+  // 관측량 수준 — 지연에 σ = 1/(2π·SNR·Δf_rms) 만큼 잡음(기본, 빠르다)
+  function obsTheory(cfg, prep, sc) {
+    const st1 = cfg.st1, st2 = cfg.st2, bX = cfg.bands.X, bS = cfg.bands.S, R = prep.R, t = sc.t, d = delay(prep.PT, sc.src, t, t);
+    if (d.el1 < 5 * D2R || d.el2 < 5 * D2R) return null;
+    const sX = snr(fluxOf(sc, 'X', cfg), st1.sefd.X, st2.sefd.X, bX.bw, sc.T, bX.ch.length);
+    const sS = snr(fluxOf(sc, 'S', cfg), st1.sefd.S, st2.sefd.S, bS.bw, sc.T, bS.ch.length);
+    const sigX = Math.hypot(sigTau(sX, bX), cfg.floor ?? 4e-12), sigS = Math.hypot(sigTau(sS, bS), cfg.floor ?? 4e-12);
+    const nz = cfg.noise === false ? 0 : 1;
+    const tX = groupAt(d, bX.feff) + nz * sigX * R.g(), tS = groupAt(d, bS.feff) + nz * sigS * R.g();
+    const fr = ionFree(tX, tS, bX, bS, sigX, sigS);
+    return { t, src: sc.src, name: sc.name, T: sc.T, tX, tS, tau: fr.tau, sig: fr.sig, snrX: sX, snrS: sS, sigX, sigS, truth: d, ionA: fr.A, level: 'obs' };
+  }
+  // 신호 수준 — 그 스캔을 신호부터 만들어 2비트 · 상관(FX) · 프린지 탐색까지 돌린 지연(느리다 — 웹 워커에서)
+  function obsSignal(cfg, prep, sc, o) {
+    o = o || {};
+    const st1 = cfg.st1, st2 = cfg.st2, t = sc.t, d = delay(prep.PT, sc.src, t, t);
+    if (d.el1 < 5 * D2R || d.el2 < 5 * D2R) return null;
+    const truthAt = (dt) => delay(prep.PT, sc.src, t + dt, t + dt), modelAt = (dt) => delay(prep.PM, sc.src, t + dt, t + dt);
+    const m0 = modelAt(0).nd, out = {};
+    for (const band of ['X', 'S']) {
+      const b = cfg.bands[band], S = fluxOf(sc, band, cfg);
+      const g = simCorr({ band: b, truthAt, modelAt, rho1: S / st1.sefd[band], rho2: S / st2.sefd[band], T: sc.T, K: o.K || 16, N: o.N || 2048, Nfft: 128, noise: cfg.noise !== false, seed: (((o.seed || 1) * 7919 + Math.round(t)) * 2 + (band === 'X' ? 0 : 1)) >>> 0 });   // 스캔마다 다른 잡음(시각으로 씨앗)
+      let r; do { r = g.next(); } while (!r.done);
+      const fr = fringe(r.value);
+      out[band] = { tau: m0 + fr.mbd, sig: Math.hypot(fr.sigma, cfg.floor ?? 4e-12), snr: fr.SNR, sbd: fr.sbd, rate: fr.rate,
+        snrT: snr(S, st1.sefd[band], st2.sefd[band], b.bw, sc.T, b.ch.length), err: fr.mbd - (groupAt(truthAt(0), b.feff) - m0) };
     }
-    // 해석
+    if (out.X.snr < (o.minSnr ?? 7) || out.S.snr < (o.minSnr ?? 7)) return { drop: true, name: sc.name, t, snrX: out.X.snr, snrS: out.S.snr };
+    const fr = ionFree(out.X.tau, out.S.tau, cfg.bands.X, cfg.bands.S, out.X.sig, out.S.sig);
+    return { t, src: sc.src, name: sc.name, T: sc.T, tX: out.X.tau, tS: out.S.tau, tau: fr.tau, sig: fr.sig, snrX: out.X.snr, snrS: out.S.snr, sigX: out.X.sig, sigS: out.S.sig,
+      snrXT: out.X.snrT, snrST: out.S.snrT, errX: out.X.err, errS: out.S.err, truth: d, ionA: fr.A, level: 'signal' };
+  }
+  /* ── 세션 모의 + 기선 해석(가중 최소제곱, 가우스-뉴턴) ──
+   *  기본은 관측량 수준(obsTheory). cfg.obs 를 주면(웹 워커가 신호 수준으로 만든 것) 그것으로 푼다 — 같은 씨앗이라 참값이 같다.
+   *  미지수: 국 2 위치 보정 3 · 시계 c₀ c₁ c₂ · 국별 천정 습윤 지연(세션 상수 또는 꺾은선 + 느슨한 제약). 국 1(세종)은 고정 — 기준점. */
+  function session(cfg) {
+    const st1 = cfg.st1, st2 = cfg.st2, tref = cfg.tref, H = 3600;
+    const prep = sessionPrep(cfg);
+    const obs = cfg.obs ? cfg.obs.filter((o) => o && !o.drop) : cfg.scans.map((sc) => obsTheory(cfg, prep, sc)).filter(Boolean);
     const est = lsq(obs, { st1, st2, tref, zwdMode: cfg.zwdMode || 'pwl', zwdStep: cfg.zwdStep || 2 * H, zwdCon: cfg.zwdCon ?? 0.015, reweight: cfg.reweight, t0: cfg.t0, t1: cfg.t1 });
-    const Btrue = sub(x2T, st1.xyz), Bap = sub(st2.xyz, st1.xyz), Best = sub(add(st2.xyz, est.dx), st1.xyz);
-    return { obs, est, truth: { dx: dxTrue, clk, B: Btrue, L: nrm(Btrue), zwd1: z1T, zwd2: z2T }, Bap, Lap: nrm(Bap), Best, Lest: nrm(Best), PT };
+    const Btrue = sub(prep.x2T, st1.xyz), Bap = sub(st2.xyz, st1.xyz), Best = sub(add(st2.xyz, est.dx), st1.xyz);
+    return { obs, est, truth: { dx: prep.dxTrue, clk: prep.clk, B: Btrue, L: nrm(Btrue), zwd1: prep.z1T, zwd2: prep.z2T }, Bap, Lap: nrm(Bap), Best, Lest: nrm(Best), PT: prep.PT,
+      level: cfg.obs ? 'signal' : 'obs', dropped: cfg.obs ? cfg.obs.filter((o) => o && o.drop).length : 0 };
   }
 
   // 재가중 — χ²/자유도가 1 이 되게 잡음 바닥 σₐ 를 제곱합으로 더해 다시 푼다(nuSolve·Calc/Solve 의 기선 재가중과 같은 생각)
@@ -418,17 +453,143 @@
   }
 
   // ── 스케줄 — VEX 스캔 중 두 국이 함께 든 것(기록 길이는 둘 중 짧은 것) ──
-  function commonScans(data, sess, id1, id2) {
+  // 전파원 세기(Jy) — sked $FLUX 모형: B = [b₀, S₀, b₁, S₁, …, bₙ](기선 길이 km 구간마다 세기) · M = 가우스 성분 [S, 장축 mas, 축비, …]
+  //   M 은 기선 길이 그대로(투영 없이 — 근사) 가시도 exp(−(πθρ)²/(4 ln2)), ρ = L/λ. 모형이 없으면 대략값 flux
+  function fluxAt(src, band, Lkm) {
+    const ms = src.fm && src.fm[band]; if (!ms) return src.flux;
+    const lam = C / (band === 'X' ? 8.6e9 : 2.3e9); let S = 0;
+    for (const m of ms) {
+      if (m[0] === 'B') { const v = m.slice(1); let f = v[1]; for (let i = 0; i + 2 < v.length; i += 2) if (Lkm >= v[i] && Lkm < v[i + 2]) { f = v[i + 1]; break; } S += f; }
+      else if (m[0] === 'M') { const th = m[2] * 4.8481368e-9, rho = Lkm * 1e3 / lam; S += m[1] * Math.exp(-((Math.PI * th * rho) ** 2) / (4 * Math.LN2)); }
+    }
+    return S;
+  }
+  function commonScans(data, sess, id1, id2, Lkm) {
     const S = data.sessions[sess], out = [];
     for (const [t, src, st] of S.scans) {
       const m = {}; for (const x of st.matchAll(/([A-Z][a-z])(\d+)/g)) m[x[1]] = +x[2];
-      if (m[id1] && m[id2] && data.sources[src]) out.push({ t: S.t0 + t + Math.min(m[id1], m[id2]) / 2, t_start: S.t0 + t, T: Math.min(m[id1], m[id2]), name: src, src: data.sources[src], flux: data.sources[src].flux });
+      const so = data.sources[src];
+      if (m[id1] && m[id2] && so) {
+        const fx = Lkm ? fluxAt(so, 'X', Lkm) : so.flux, fs = Lkm ? fluxAt(so, 'S', Lkm) : so.flux;
+        out.push({ t: S.t0 + t + Math.min(m[id1], m[id2]) / 2, t_start: S.t0 + t, T: Math.min(m[id1], m[id2]), name: src, src: so, flux: fx, fluxX: fx, fluxS: fs });
+      }
     }
     return out;
   }
+  // 세션의 관측국 — 선험 위치는 그 세션 시각의 ITRF2020-u2024(자료에 있으면), 스케줄 파일 위치는 xyzSched 로 남긴다
+  function stationFor(data, sess, name) {
+    const st = data.stations[name], S = data.sessions[sess], p = S && S.pos && S.pos[name];
+    if (!p && st.itrf && S) {                          // 그 세션에 없던 국 — ITRF2020-u2024 를 세션 시각으로
+      const dt = S.epoch - st.itrf.epoch, x = st.itrf.X0.map((v, k) => v + st.itrf.V[k] * dt);
+      return Object.assign({}, st, { name, xyz: x, xyzSched: st.xyz, posSrc: 'ITRF2020-u2024' });
+    }
+    return Object.assign({}, st, { name, xyz: p ? p.xyz : st.xyz, xyzSched: p ? p.sched : st.xyz, posSrc: p ? p.src : '카탈로그' });
+  }
+  // 측지 위경도(°)·높이(m) → ITRF XYZ(GRS80)
+  function geo2xyz(latd, lond, h) {
+    const la = latd * D2R, lo = lond * D2R, N = A_E / Math.sqrt(1 - E2 * Math.sin(la) ** 2);
+    return [(N + h) * Math.cos(la) * Math.cos(lo), (N + h) * Math.cos(la) * Math.sin(lo), (N * (1 - E2) + h) * Math.sin(la)];
+  }
+
+  /* ── UT1 Intensive(0.13.1, 10-05 센터장님) — 1시간 · 기선 하나 · UT1−UTC 추정 ──
+   *  일정: 두 국이 다 10° 위로 보는 전파원 가운데 하늘을 고르게(지금까지 고른 방향과 가장 먼 것 + 세기) 고른다. 선회는 방위 2°/s·고도 1°/s + 정착 10 s,
+   *        기록 길이는 X SNR 25·S SNR 12 가 되게(30~180 s). 실제 IVS Intensive(INT1 Kk–Wz · 18:30 UT) 처럼 1시간에 20~30 스캔.
+   *  미지수: dUT1(μs) · 시계 c₀(ns)·c₁(ns/h) · 국별 천정 습윤 지연(상수, 약한 선험 0.1 ± 0.5 m). 관측국 위치·극운동·장동은 고정(모의에서 참값과 같다).
+   *  ∂τ/∂UT1 = 수치 미분(1 μs). 감도 상한 = ω·B_eq/c(B_eq = 기선 적도면 성분, ω = 7.2921·10⁻⁵ rad/s) — 1 μs 마다 ps. */
+  function intSchedule(cfg) {
+    const st1 = cfg.st1, st2 = cfg.st2, L = nrm(sub(st2.xyz, st1.xyz)) / 1e3, out = [];
+    const cand = Object.entries(cfg.sources).map(([name, so]) => ({ name, src: so, fx: fluxAt(so, 'X', L), fs: fluxAt(so, 'S', L) })).filter((c) => c.fx >= (cfg.minFlux ?? 0.25) && c.fs >= 0.1);
+    let t = cfg.t0, prev = null; const used = [];
+    const P0 = { x1: st1.xyz, x2: st2.xyz, clk: 0, zhd1: 0, zhd2: 0, zwd1: 0, zwd2: 0 };
+    while (t < cfg.t0 + (cfg.dur || 3600)) {
+      let best = null;
+      for (const c of cand) {
+        const d = delay(P0, c.src, t, t); if (d.el1 < 10 * D2R || d.el2 < 10 * D2R) continue;
+        const v = [Math.cos(d.el1) * Math.sin(d.az1), Math.cos(d.el1) * Math.cos(d.az1), Math.sin(d.el1)];
+        let md = 2; for (const u of used.slice(-8)) md = Math.min(md, Math.acos(Math.max(-1, Math.min(1, dot(u.v, v)))));   // 최근 8 스캔 방향과 가장 먼 것
+        const again = prev && prev.name === c.name;
+        const slew = prev ? Math.max(Math.abs(shortAz(d.az1 - prev.az1)) / D2R / 2 + Math.abs(d.el1 - prev.el1) / D2R / 1, Math.abs(shortAz(d.az2 - prev.az2)) / D2R / 2 + Math.abs(d.el2 - prev.el2) / D2R / 1) + 10 : 0;
+        const score = md + 0.08 * Math.log(c.fx) - slew / 400 - (again ? 9 : 0);
+        if (!best || score > best.score) best = { c, d, v, score, slew };
+      }
+      if (!best) { t += 60; continue; }
+      const c = best.c, ts = t + best.slew;
+      const need = (snr0, tgt) => (tgt / snr0) ** 2;    // SNR ∝ √T
+      const sX1 = snr(c.fx * (cfg.fluxScale || 1), st1.sefd.X, st2.sefd.X, cfg.bands.X.bw, 1, cfg.bands.X.ch.length), sS1 = snr(c.fs * (cfg.fluxScale || 1), st1.sefd.S, st2.sefd.S, cfg.bands.S.bw, 1, cfg.bands.S.ch.length);
+      const T = Math.round(Math.max(30, Math.min(180, Math.max(need(sX1, 25), need(sS1, 12)))));
+      if (ts + T > cfg.t0 + (cfg.dur || 3600)) break;
+      const d = delay(P0, c.src, ts + T / 2, ts + T / 2);
+      out.push({ t: ts + T / 2, t_start: ts, T, name: c.name, src: c.src, flux: c.fx, fluxX: c.fx, fluxS: c.fs, az1: d.az1, el1: d.el1, az2: d.az2, el2: d.el2 });
+      used.push({ v: best.v }); prev = { name: c.name, az1: d.az1, el1: d.el1, az2: d.az2, el2: d.el2 }; t = ts + T;
+    }
+    return out;
+  }
+  const shortAz = (a) => { let x = a % (2 * Math.PI); if (x > Math.PI) x -= 2 * Math.PI; if (x < -Math.PI) x += 2 * Math.PI; return x; };
+  function intensive(cfg) {
+    const R = rng(cfg.seed || 11), st1 = cfg.st1, st2 = cfg.st2, bX = cfg.bands.X, bS = cfg.bands.S;
+    const scans = cfg.scans || intSchedule(cfg), tref = scans.length ? (scans[0].t + scans[scans.length - 1].t) / 2 : cfg.t0;
+    const dutT = (cfg.dut1 ?? 30) * 1e-6, clk = cfg.clk || [2.3e-7, 1.2e-14];
+    const PT = { x1: st1.xyz, x2: st2.xyz, dut1: dutT, clk: (t) => clk[0] + clk[1] * (t - tref), zhd1: zhd(st1.xyz), zhd2: zhd(st2.xyz),
+      zwd1: (t) => (cfg.zwd1 ?? 0.15) + (cfg.tropoVar === false ? 0 : 0.01 * Math.sin((t - tref) / 2400)), zwd2: (t) => (cfg.zwd2 ?? 0.12) + (cfg.tropoVar === false ? 0 : 0.008 * Math.cos((t - tref) / 3000)),
+      vtec1: cfg.vtec1 ?? 18, vtec2: cfg.vtec2 ?? 25 };
+    const obs = [];
+    for (const sc of scans) {
+      const d = delay(PT, sc.src, sc.t, sc.t);
+      const sX = snr(sc.fluxX * (cfg.fluxScale || 1), st1.sefd.X, st2.sefd.X, bX.bw, sc.T, bX.ch.length), sS = snr(sc.fluxS * (cfg.fluxScale || 1), st1.sefd.S, st2.sefd.S, bS.bw, sc.T, bS.ch.length);
+      const sigX = Math.hypot(sigTau(sX, bX), cfg.floor ?? 4e-12), sigS = Math.hypot(sigTau(sS, bS), cfg.floor ?? 4e-12), nz = cfg.noise === false ? 0 : 1;
+      const fr = ionFree(groupAt(d, bX.feff) + nz * sigX * R.g(), groupAt(d, bS.feff) + nz * sigS * R.g(), bX, bS, sigX, sigS);
+      obs.push({ t: sc.t, src: sc.src, name: sc.name, T: sc.T, tau: fr.tau, sig: fr.sig, snrX: sX, snrS: sS, el1: d.el1, el2: d.el2 });
+    }
+    const est = intSolve(obs, { st1, st2, tref, dut1Ap: (cfg.dut1Ap ?? 0) * 1e-6, zwd: cfg.zwdEst !== false, reweight: cfg.reweight });
+    const B = sub(st2.xyz, st1.xyz), Beq = Math.hypot(B[0], B[1]);
+    return { scans, obs, est, truth: { dut1_us: dutT * 1e6, clk }, B, L: nrm(B), Beq, sensMax: OMEGA * Beq / C * 1e-6, tref };   // sensMax: s/μs
+  }
+  function intSolve(obs, o) {
+    const H = 3600, np = o.zwd ? 5 : 3, names = ['dUT1 μs', '시계 c₀ ns', '시계 c₁ ns/h', 'ZWD₁ m', 'ZWD₂ m'].slice(0, np);
+    let p = new Float64Array(np); p[0] = o.dut1Ap * 1e6; let res = [], Q = null, chi2 = 0, sa = 0, part = [];
+    const model = (pp, ob) => {
+      const P = { x1: o.st1.xyz, x2: o.st2.xyz, dut1: pp[0] * 1e-6, clk: (t) => pp[1] * 1e-9 + pp[2] * 1e-9 * (t - o.tref) / H, zhd1: zhd(o.st1.xyz), zhd2: zhd(o.st2.xyz), zwd1: np > 3 ? pp[3] : 0, zwd2: np > 3 ? pp[4] : 0, vtec1: 0, vtec2: 0 };
+      return delay(P, ob.src, ob.t, ob.t);
+    };
+    const pass = (sa2) => {
+      for (let it = 0; it < 6; it++) {
+        const N = Array.from({ length: np }, () => new Float64Array(np)), rhs = new Float64Array(np); res = []; chi2 = 0; part = [];
+        for (const ob of obs) {
+          const d = model(p, ob), y = ob.tau - d.nd, w = 1 / (ob.sig * ob.sig + sa2), pu = Array.from(p); pu[0] += 1;
+          const a = new Float64Array(np); a[0] = model(pu, ob).nd - d.nd; a[1] = 1e-9; a[2] = 1e-9 * (ob.t - o.tref) / H;
+          if (np > 3) { a[3] = -mapW(d.el1) / C; a[4] = mapW(d.el2) / C; }
+          for (let i = 0; i < np; i++) { rhs[i] += a[i] * w * y; for (let j = 0; j < np; j++) N[i][j] += a[i] * w * a[j]; }
+          res.push({ t: ob.t, v: y, sig: Math.sqrt(ob.sig * ob.sig + sa2), sig0: ob.sig, name: ob.name }); chi2 += y * y * w; part.push(a[0]);
+        }
+        if (np > 3) for (const i of [3, 4]) { N[i][i] += 1 / 0.25; rhs[i] += (0.1 - p[i]) / 0.25; }
+        Q = inv(N); if (!Q) return;
+        let mx = 0; for (let i = 0; i < np; i++) { let s2 = 0; for (let j = 0; j < np; j++) s2 += Q[i][j] * rhs[j]; p[i] += s2; mx = Math.max(mx, Math.abs(s2)); }
+        if (mx < 1e-6) break;
+      }
+    };
+    pass(0);
+    const dof = Math.max(1, obs.length - np); let chi2r = chi2 / dof; const chi2r0 = chi2r;
+    if (o.reweight !== false && chi2r > 1.05) {
+      for (let k = 0; k < 4; k++) { const f = (x) => res.reduce((a2, q) => a2 + q.v * q.v / (q.sig0 * q.sig0 + x * x), 0) - dof; let lo = 0, hi = 2e-9; for (let i = 0; i < 60; i++) { const m = (lo + hi) / 2; if (f(m) > 0) lo = m; else hi = m; } sa = (lo + hi) / 2; pass(sa * sa); chi2r = chi2 / dof; if (Math.abs(chi2r - 1) < 0.02) break; }
+    }
+    const sc = Math.sqrt(Math.max(1, chi2r)), sig = Q ? Array.from({ length: np }, (_, i) => Math.sqrt(Math.max(0, Q[i][i])) * sc) : null;
+    const corr = Q ? Q[0].map((v, j) => v / Math.sqrt(Q[0][0] * Q[j][j])) : null;
+    return { p: Array.from(p), sig, names, res, chi2r, chi2r0, dof, sigAdd: sa, n: obs.length, np, wrms: wrms(res), part, corr };
+  }
+
+
+  // 실자료(DiFX 가 상관한 가시도 — realdata.json 의 한 묶음)를 fringe() 가 읽는 모양으로
+  function realCorr(set) {
+    const NB = set.nb, bw = set.bw, K = set.nap, ch = set.ch.map((c) => ({ f: c.f, id: c.id }));
+    const fc = set.ch.map((c) => c.f + bw / 2), fm = fc.reduce((a, b) => a + b, 0) / fc.length;
+    const band = { name: set.band, ch, bw, sr: 2 * bw, fmean: fm, frms: Math.sqrt(fc.reduce((a, v) => a + (v - fm) ** 2, 0) / fc.length + bw * bw / 12) };
+    const fb = new Float64Array(NB); for (let j = 0; j < NB; j++) fb[j] = j * bw / NB;
+    const tap = set.tap || Array.from({ length: K }, (_, k) => k * set.ap), wsum = set.w.reduce((a, b) => a + b, 0);
+    return { V: set.V.map((row) => row.map((a) => Float64Array.from(a))), tap, fb, band, K, NF: 2 * NB, nsamp: 2 * bw * set.ap * wsum * ch.length, real: true };
+  }
 
   const API = { C, OMEGA, D2R, KION, era, s_crs, crs2trs, geod, enuMat, azel, mapH, mapW, mapIon, zhd, delay, groupAt, fft, bands, snr, sigTau, Q2, ETA2BIT,
-    simCorr, fringe, ionFree, session, lsq, commonScans, rng, dot, sub, add, scl, nrm };
+    simCorr, fringe, ionFree, session, sessionPrep, obsTheory, obsSignal, lsq, commonScans, fluxAt, realCorr, stationFor, geo2xyz, intSchedule, intensive, intSolve, rng, dot, sub, add, scl, nrm };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   G.VSCore = API;
 })(typeof self !== 'undefined' ? self : this);

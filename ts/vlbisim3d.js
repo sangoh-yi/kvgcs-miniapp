@@ -103,7 +103,7 @@
     function ant12(st) {
       if (!assets || !st.pending) return;
       const src = assets.getObjectByName('Ant12'); if (!src) return;
-      const a = src.clone(true); a.scale.setScalar(AK); st.g.add(a); st.pending = false;
+      const a = src.clone(true); a.scale.setScalar(AK * (o.dish2 || 12) / 12); st.g.add(a); st.pending = false;   // 12 m 일반형을 상대국 지름으로(코키 파크 20 m)
       const AZ = a.getObjectByName('Ant12_AZ'), EL = a.getObjectByName('Ant12_EL');
       st.ant = { place(az, el) { if (AZ) AZ.rotation.y = (180 - az) * D2R; if (EL) EL.rotation.x = (90 - el) * D2R; } };
       if (st.azel) st.ant.place(st.azel[0], st.azel[1]);
@@ -229,18 +229,46 @@
       return { val: [a[0][0], a[1][1], a[2][2]].map((x) => Math.max(x, 0)), vec: [0, 1, 2].map((j) => [v[0][j], v[1][j], v[2][j]]) };
     }
 
+    // ── UT1 Intensive(0.13.1) — 자전축 · 적도면 · 기선의 적도면 투영 · 추정한 자전각 차(크게 키워) ──
+    const ut1G = new T.Group(); G.sky.add(ut1G); ut1G.visible = false; let UT = null;
+    function setUT1(u) {
+      UT = u; while (ut1G.children.length) ut1G.remove(ut1G.children[0]);
+      if (!u || !ST[0].g) return;
+      const axisM = new T.LineBasicMaterial({ color: 0x9fd0ff, transparent: true, opacity: 0.85, toneMapped: false });
+      ut1G.add(new T.Line(new T.BufferGeometry().setFromPoints([new T.Vector3(0, -RE * 1.6, 0), new T.Vector3(0, RE * 1.6, 0)]), axisM));
+      const np = txt(T, '자전축(북극)', '#9fd0ff', 0.55); np.position.set(0, RE * 1.68, 0); ut1G.add(np);
+      const ring = new T.Mesh(new T.RingGeometry(RE * 1.0, RE * 1.012, 160), ADD(0x5fb8ff, 0.5)); ring.rotation.x = -Math.PI / 2; ut1G.add(ring);
+      const p1 = stationWorld(0), p2 = stationWorld(1), q1 = new T.Vector3(p1.x, 0, p1.z), q2 = new T.Vector3(p2.x, 0, p2.z);
+      const line = (a, b, c, op, r) => { const m = rodBetween(T, a, b, r || 0.05, new T.MeshBasicMaterial({ color: c, transparent: true, opacity: op, depthTest: false, toneMapped: false })); ut1G.add(m); return m; };
+      line(p1, q1, 0x6b86a8, 0.6, 0.02); line(p2, q2, 0x6b86a8, 0.6, 0.02);
+      line(q1, q2, 0xffffff, 0.9, 0.06);                                       // 기선의 적도면 투영 B_eq
+      const rot = (v, a) => new T.Vector3(v.x * Math.cos(a) + v.z * Math.sin(a), 0, -v.x * Math.sin(a) + v.z * Math.cos(a));
+      const K = u.exag;
+      line(rot(q1, u.dthTrue * K), rot(q2, u.dthTrue * K), 0xffc34d, 0.95, 0.05);   // 참 자전각
+      line(rot(q1, u.dthEst * K), rot(q2, u.dthEst * K), 0x5fe3ff, 0.95, 0.05);     // 추정 자전각
+      // ±σ 부채꼴(기선 가운데 둘레)
+      const mid = q1.clone().add(q2).multiplyScalar(0.5), r = mid.length(), a0 = Math.atan2(mid.x, mid.z), w = Math.max(u.dthSig * K, 0.004);
+      const sh = new T.Shape(); sh.moveTo(0, 0); for (let k = 0; k <= 24; k++) { const a = a0 - w + 2 * w * k / 24; sh.lineTo(r * 1.08 * Math.sin(a), r * 1.08 * Math.cos(a)); } sh.lineTo(0, 0);
+      const fan = new T.Mesh(new T.ShapeGeometry(sh), ADD(0x5fe3ff, 0.16)); fan.rotation.x = Math.PI / 2; fan.rotation.y = 0; fan.position.y = 0.02;
+      fan.geometry.rotateX(0); ut1G.add(fan);
+      dirty = true;
+    }
+
     // ── 사진기(끌어 돌리기 · 휠) ──
-    const CAM = { sky: { r: 40, th: 1.15, ph: 0.6, tgt: [0, 0, 0] }, chain: { r: 14.5, th: 1.1, ph: Math.PI / 2 + 0.22, tgt: [-1.3, 0.8, 0] }, corr: { r: 10.5, th: 1.05, ph: Math.PI / 2 + 0.35, tgt: [2.0, 1.4, 0] }, base: { r: 30, th: 1.0, ph: 0.6, tgt: [0, 0, 0] } };
+    const CAM = { sky: { r: 40, th: 1.15, ph: 0.6, tgt: [0, 0, 0] }, chain: { r: 14.5, th: 1.1, ph: Math.PI / 2 + 0.22, tgt: [-1.3, 0.8, 0] }, corr: { r: 10.5, th: 1.05, ph: Math.PI / 2 + 0.35, tgt: [2.0, 1.4, 0] }, base: { r: 30, th: 1.0, ph: 0.6, tgt: [0, 0, 0] }, ut1: { r: 36, th: 0.42, ph: 0.6, tgt: [0, 0, 0] } };
     const cur = { r: 40, th: 1.15, ph: 0.6, tgt: new T.Vector3() }; let want = CAM.sky, drag = null;
     cv.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY }; cv.setPointerCapture(e.pointerId); });
     cv.addEventListener('pointerup', () => { drag = null; });
     cv.addEventListener('pointermove', (e) => { if (!drag) return; want = Object.assign({}, want, { ph: want.ph - (e.clientX - drag.x) * 0.006, th: Math.max(0.15, Math.min(2.95, want.th - (e.clientY - drag.y) * 0.006)) }); drag = { x: e.clientX, y: e.clientY }; dirty = true; });
     cv.addEventListener('wheel', (e) => { e.preventDefault(); want = Object.assign({}, want, { r: Math.max(2, Math.min(220, want.r * (1 + e.deltaY * 0.0012))) }); dirty = true; }, { passive: false });
     function setMode(m) {
-      mode = m; G.sky.visible = m === 'sky' || m === 'base'; G.chain.visible = m === 'chain'; G.corr.visible = m === 'corr';
-      solG.visible = m === 'base'; for (const w of WF) w.visible = m === 'sky';
+      mode = m; G.sky.visible = m === 'sky' || m === 'base' || m === 'ut1'; G.chain.visible = m === 'chain'; G.corr.visible = m === 'corr';
+      solG.visible = m === 'base'; ut1G.visible = m === 'ut1'; for (const w of WF) w.visible = m === 'sky';
+      if (beamLine) beamLine.visible = m !== 'ut1'; srcG.visible = m !== 'ut1';
       let c = CAM[m];
-      if ((m === 'sky' || m === 'base') && ST[0].g) {               // 두 국 가운데를 앞에 — 전파원 쪽에서 비스듬히
+      if (m === 'ut1' && ST[0].g) {                          // 북극 위에서 비스듬히 — 기선 가운데 쪽
+        const p1 = stationWorld(0), p2 = stationWorld(1), mid = p1.clone().add(p2); c = Object.assign({}, c, { ph: Math.atan2(mid.z, mid.x) });
+      } else if ((m === 'sky' || m === 'base') && ST[0].g) {               // 두 국 가운데를 앞에 — 전파원 쪽에서 비스듬히
         const p1 = stationWorld(0), p2 = stationWorld(1), mid = p1.clone().add(p2).normalize(), sh = S ? v3(S.sC).normalize() : mid;
         const d = mid.clone().multiplyScalar(0.55).add(sh.clone().multiplyScalar(0.45)).normalize();
         c = Object.assign({}, c, { th: Math.acos(Math.max(-1, Math.min(1, d.y))), ph: Math.atan2(d.z, d.x) });
@@ -285,7 +313,7 @@
     function resize() { const w = cv.clientWidth || 600, h = cv.clientHeight || 400; rn.setSize(w, h, false); cam.aspect = w / h; cam.updateProjectionMatrix(); dirty = true; }
     resize();
     const debug = () => ({ mode, wf: WF.map((w) => [w.visible, +w.material.opacity.toFixed(2), w.position.toArray().map((v) => +v.toFixed(1))]), cam: cam.position.toArray().map((v) => +v.toFixed(1)), stations: !!ST[0].g });
-    return { debug, setMode, setScan, setFringe, setSolution, resize, setSpeed: (v) => { speed = v; }, get mode() { return mode; }, dispose() { cancelAnimationFrame(raf); rn.dispose(); } };
+    return { debug, setMode, setScan, setFringe, setSolution, setUT1, resize, setSpeed: (v) => { speed = v; }, get mode() { return mode; }, dispose() { cancelAnimationFrame(raf); rn.dispose(); } };
   }
   window.VS3D = { create };
 })();
