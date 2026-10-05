@@ -206,6 +206,7 @@
       pend: glowTex(T, 'rgba(200,220,245,.9)', 'rgba(88,130,190,.35)'),     // 세션 — 예정 스캔(10-05)
       next: glowTex(T, 'rgba(255,240,200,1)', 'rgba(227,179,65,.8)'),       //        다음 스캔
       now: glowTex(T, 'rgba(240,255,255,1)', 'rgba(55,232,207,.9)'),        //        지금 스캔
+      wht: glowTex(T, 'rgba(255,255,255,1)', 'rgba(255,255,255,.5)'),       //        미리 보기 — 시작 순 색 띠(색을 입힌다)
     };
     for (const t of Object.values(TEX)) t.keep = true;        // 다시 그릴 때 버리지 않는다(같이 쓰는 무늬)
     function build() {
@@ -236,14 +237,17 @@
         }
       }
       // 세션 스캔 자리(10-05) — 끝난 것은 결과 색으로 옅게, 예정은 희미하게, 다음은 호박색, 지금은 밝게(고리가 퍼진다)
-      const KTEX = { ok: 'ok', late: 'ok', suspect: 'old', failed: 'bad', skipped: 'old', pending: 'pend', running: 'now', now: 'now', next: 'next' };
+      //   미리 보기(0.14.3): plan = 예정(시작 순 색 띠 col) · past = 기준 시각 전(같은 색, 옅게)
+      const KTEX = { ok: 'ok', late: 'ok', suspect: 'old', failed: 'bad', skipped: 'old', pending: 'pend', running: 'now', now: 'now', next: 'next', plan: 'pend', past: 'pend' };
       for (const q of model.scans || []) {
         if (q.az == null || q.el == null || q.el < 0) continue;
-        const d = dir(T, q.az, q.el, 1.001), k = KTEX[q.k] || 'pend';
-        const done = !['pending', 'next', 'now', 'running'].includes(q.k);
-        const sp = new T.Sprite(new T.SpriteMaterial({ map: TEX[k], transparent: true, depthWrite: false, blending: T.AdditiveBlending,
-          opacity: q.k === 'pending' ? 0.45 : done ? 0.6 : 1 }));
-        const sz = k === 'now' ? 0.13 : k === 'next' ? 0.085 : done ? 0.06 : 0.045; sp.scale.set(sz, sz, 1); sp.position.copy(d); data.add(sp);
+        const d = dir(T, q.az, q.el, 1.001), k = KTEX[q.k] || 'pend', tint = q.col != null && (q.k === 'plan' || q.k === 'past');
+        const done = !['pending', 'next', 'now', 'running', 'plan'].includes(q.k);
+        const mat = new T.SpriteMaterial({ map: tint ? TEX.wht : TEX[k], transparent: true, depthWrite: false, blending: T.AdditiveBlending,
+          opacity: q.k === 'past' ? 0.28 : q.k === 'plan' ? 0.85 : q.k === 'pending' ? 0.45 : done ? 0.6 : 1 });
+        if (tint) mat.color.setHex(q.col);
+        const sp = new T.Sprite(mat);
+        const sz = k === 'now' ? 0.13 : k === 'next' ? 0.085 : q.k === 'plan' ? 0.055 : done ? 0.06 : 0.045; sp.scale.set(sz, sz, 1); sp.position.copy(d); data.add(sp);
         if (k === 'now') latest = { d, color: 0x37e8cf };
       }
       // 측정점(빛 구슬) + X 대역 오프셋 화살(크게 늘림)
@@ -311,7 +315,7 @@
     return {
       set(m) {
         const s = JSON.stringify([m.points, m.tracks && m.tracks.map((t) => [t.src, t.pts.length, t.now && t.now.map((v) => Math.round(v)), t.w, t.label, t.lab && t.lab.map((v) => Math.round(v))]),
-          m.scale, m.scans && m.scans.map((q) => q.k[0] + Math.round(q.az) + ',' + Math.round(q.el)).join(' ')]);
+          m.scale, m.scans && m.scans.map((q) => q.k.slice(0, 2) + Math.round(q.az) + ',' + Math.round(q.el)).join(' ')]);
         model = m;
         if (s !== sig) { sig = s; build(); }
         placeAnt();
