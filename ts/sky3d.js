@@ -63,7 +63,7 @@
     const ELL = opts.elLim != null ? opts.elLim : 20;          // 고도 하한 — 지향 측정 20° · 관측 세션은 안테나 하한(5°, 10-05)
     const rn = new T.WebGLRenderer({ canvas, antialias: true, alpha: true });
     rn.setClearColor(0x000000, 0);
-    rn.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    rn.setPixelRatio(Math.min(window.devicePixelRatio || 1, (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? 1.5 : 2)));   // 휴대폰 1.5(10-06)
     const scene = new T.Scene(), cam = new T.PerspectiveCamera(30, 2, 0.05, 60);
     scene.add(new T.HemisphereLight(0xdfe8ff, 0x101828, 0.9));
     const key = new T.DirectionalLight(0xffffff, 0.8); key.position.set(-1.5, 3, 2.5); scene.add(key);
@@ -180,6 +180,7 @@
     nextM.renderOrder = 5; scene.add(nextM);
 
     let model = null, raf = 0, dirty = true, visible = true, drag = false, px = 0, py = 0, lastUser = -1e9, lastT = 0, latest = null;
+    canvas.addEventListener('webglcontextrestored', () => { dirty = true; }, false);   // 맥락이 이어지면 다시 그린다(10-06)
     const touch = () => { lastUser = performance.now(); };
     canvas.addEventListener('pointerdown', (e) => { drag = true; px = e.clientX; py = e.clientY; touch(); canvas.setPointerCapture(e.pointerId); });
     canvas.addEventListener('pointerup', () => { drag = false; touch(); });

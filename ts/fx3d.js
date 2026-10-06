@@ -45,7 +45,7 @@
   function create(o) {
     const T = window.THREE;
     if (!T || !o || !o.canvas) throw new Error('three.js 없음');
-    const DPR = Math.min(window.devicePixelRatio || 1, 2);
+    const DPR = Math.min(window.devicePixelRatio || 1, /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? 1 : 2);   // 화면 전체 배경 효과 — 휴대폰은 1(GPU 메모리를 3D 칸에 양보, 10-06)
     const mkR = (cv) => { const r = new T.WebGLRenderer({ canvas: cv, antialias: false, alpha: true }); r.setClearColor(0x000000, 0); r.setPixelRatio(DPR); return r; };
     const rnB = mkR(o.canvas), rnF = o.overlay ? mkR(o.overlay) : null;
     const bg = new T.Scene(), fg = new T.Scene(), cam = new T.OrthographicCamera(0, 10, 0, -10, -10, 10);

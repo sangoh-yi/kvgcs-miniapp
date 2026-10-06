@@ -1,5 +1,5 @@
 <!doctype html><html lang="ko"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%23161b22'/%3E%3Cpath d='M5 14.5a7.5 7.5 0 0 0 10.6 0L5.6 4.5A7.5 7.5 0 0 0 5 14.5z' fill='none' stroke='%2358a6ff' stroke-width='2'/%3E%3C/svg%3E">
 <title>세종 22m 안테나 3D — 가상·실제 추종</title>
 <!-- ThreeStar 판: 저장소 루트 antenna3d.html(운영 콘솔 대시보드)을 복사해 고친 것. 3D 모형은 원본 그대로,
@@ -58,6 +58,20 @@ body.bare{background:transparent}
 #mini .mb{margin-top:5px}
 #foot{display:none;position:fixed;right:10px;bottom:9px;font-family:var(--mono);font-size:10px;color:#5c718a}
 body.embed #foot{display:block}
+/* ===== 걷기(10-06) — 1인칭. 판·이름표는 감추고 나침반만. 휴대폰은 왼쪽 아래 둥근 막대 ===== */
+#wgo{display:none;position:fixed;top:9px;right:10px;z-index:5;padding:5px 11px;border-radius:999px;border:1.5px solid rgba(55,232,207,.55);
+ background:rgba(10,18,30,.72);color:#37e8cf;font-weight:800;font-size:12px;cursor:pointer;touch-action:manipulation}
+body.embed #wgo{display:block} body.bare #wgo,body.walk #wgo{display:none!important}
+body.walk #hud,body.walk #src,body.walk #ctl,body.walk #lbls,body.walk #mini,body.walk #foot,body.walk .jog{display:none!important}
+#wbar{display:none;position:fixed;top:10px;right:10px;z-index:6;align-items:center;gap:8px}
+body.walk #wbar{display:flex}
+#wbar .wh{font-size:11px;color:#9fb4c8;background:rgba(10,16,24,.62);padding:5px 9px;border-radius:8px;transition:opacity 1.2s}
+#wbar button{padding:7px 13px;border-radius:999px;border:1.5px solid rgba(255,140,110,.7);background:rgba(16,14,20,.78);color:#ffb39b;font-weight:800;font-size:12px;cursor:pointer}
+#wjoy{display:none;position:fixed;left:18px;bottom:22px;z-index:6;width:124px;height:124px;border-radius:50%;touch-action:none;
+ background:radial-gradient(circle,rgba(55,232,207,.10),rgba(10,20,34,.38));border:2px solid rgba(55,232,207,.45)}
+#wjoy i{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;
+ background:rgba(55,232,207,.32);border:2px solid rgba(160,255,240,.7);pointer-events:none}
+body.walk.touch #wjoy{display:block}
 /* ===== ThreeStar 보탬 ===== */
 .modebtn{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .mt{font-family:var(--sans);font-size:10.5px;font-weight:800;padding:1px 7px;border-radius:5px;letter-spacing:.02em;vertical-align:2px}
@@ -81,7 +95,7 @@ body.embed #foot{display:block}
 #cmp .nArrow{fill:#ff5f6d}#cmp .sArrow{fill:#9aa6b5}
 </style></head>
 <body>
-<canvas id="c"></canvas>
+<canvas id="c" style="touch-action:none"></canvas>
 <div id="cmp" title="나침반 — 빨간 쪽이 북쪽(방위 0°)"><svg viewBox="-40 -40 80 80"><g id="cmpRose">
   <circle class="ring" r="37"/>
   <line class="tick" x1="0" y1="-37" x2="0" y2="-31"/><line class="tick" x1="37" y1="0" x2="31" y2="0"/>
@@ -98,6 +112,9 @@ body.embed #foot{display:block}
  <div class="mb"><span class="badge b-idle" id="mi-on">—</span></div>
 </div>
 <div id="foot">세종 22m · —</div>
+<button id="wgo" onclick="walkMode(true)" title="안테나 아래를 걸어 다니며 본다(1인칭)">🚶 걷기</button>
+<div id="wbar"><span class="wh" id="whint"></span><button onclick="walkMode(false)">나가기 ✕</button></div>
+<div id="wjoy" title="끌면 그쪽으로 걷는다"><i></i></div>
 
 <!-- 전체페이지 HUD -->
 <div class="pnl" id="hud">
@@ -147,7 +164,7 @@ body.embed #foot{display:block}
  </div>
  <div class="note" id="src-note">가상 추종: 가상 관측소 ACU 실측(/api/state, 1 s). 실제 추종: 운영 콘솔 캐시의 실측(/api/live, 5 s — 콘솔이 읽은 값만, 장비에 묻지 않는다). 적경적위: RA/Dec→LST→HA→Az/El 항성시 추적. 수동: 화면 안에서만 움직인다(장비 명령 없음).</div>
 </div>
-<div id="ctl" class="pnl"><button class="btn" id="b-ter" onclick="toggleTer()" title="관측소 디지털 트윈 — 국토지리정보원 정사영상(2024)·지형 높이·건물·필라·GNSS 기둥(관측소 둘레 590 m). 누르면 끄고 켠다">지형</button><button class="btn" onclick="toggleLbl()">부품명</button><a class="btn" href="/">← 운용 화면</a></div>
+<div id="ctl" class="pnl"><button class="btn" id="b-ter" onclick="toggleTer()" title="관측소 디지털 트윈 — 국토지리정보원 정사영상(2024)·지형 높이·건물·필라·GNSS 기둥(관측소 둘레 590 m). 누르면 끄고 켠다">지형</button><button class="btn" onclick="toggleLbl()">부품명</button><button class="btn" id="b-walk" onclick="walkMode(true)" title="안테나 아래를 걸어 다니며 본다 — W A S D·화살표로 걷고 끌어서 둘러본다(Shift 달리기 · Esc 나가기)">🚶 걷기</button><a class="btn" href="/">← 운용 화면</a></div>
 <div id="lbls">
  <span data-p="feed">피드(고어텍스 창)</span><span data-p="sub">부반사경</span><span data-p="hexa">헥사포드</span><span data-p="dish">주반사면 22 m</span>
  <span data-p="quad">다리(Quadrapod)</span><span data-p="bus">BUS 피복</span><span data-p="rx">수신기실</span><span data-p="wheel">고도 바퀴</span><span data-p="cw">평형추</span>
@@ -169,13 +186,15 @@ const FEEDURL=QS.get('feed')||'';                       // 미니앱(10-02): 엔
 if(EMBED)document.body.classList.add('embed');
 // ?bare=1 — 글 띠·나침반 없이 3D 만(상황실 화면 wall.html 이 지형 쌍둥이를 띄울 때) · ?orbit=1 — 천천히 둘레를 돈다(10-04)
 const BARE=QS.has('bare'), ORBIT=QS.has('orbit');
+const MOB=!!FEEDURL||/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);   // 휴대폰·미니앱 — 메모리를 아낀다(10-06)
 if(BARE)document.body.classList.add('embed','bare');
 const $=id=>document.getElementById(id);
 var dirty=true;                                         // 다시 그릴 때(3D 모형 쪽 이벤트도 쓴다)
 if($('h-site'))$('h-site').textContent=LAT.toFixed(3)+'N '+LON.toFixed(3)+'E';
 
 // ===================== 3D 모형 — 원본 그대로(WebGL 이 없으면 건너뛰고 글만 갱신) =====================
-function hasGL(){try{const c=document.createElement('canvas');return !!(window.WebGLRenderingContext&&(c.getContext('webgl2')||c.getContext('webgl')));}catch(e){return false;}}
+function hasGL(){try{const c=document.createElement('canvas'), g=window.WebGLRenderingContext&&(c.getContext('webgl2')||c.getContext('webgl'));
+ if(g){const x=g.getExtension('WEBGL_lose_context'); if(x)x.loseContext();} return !!g;}catch(e){return false;}}   // 시험 맥락은 바로 놓는다(휴대폰 맥락·메모리)
 let A3D=null;
 if(T&&hasGL()){try{A3D=(function(){
   // ===================== 씬 / 렌더러 =====================
@@ -183,7 +202,7 @@ if(T&&hasGL()){try{A3D=(function(){
   if(!EMBED)scene.fog=new T.Fog(0x0a1120,240,560);
   const cam=new T.PerspectiveCamera(38, innerWidth/innerHeight, 0.5, 1200);
   const rn=new T.WebGLRenderer({canvas:$('c'),antialias:true,alpha:true});
-  rn.setSize(innerWidth,innerHeight); rn.setPixelRatio(Math.min(devicePixelRatio,2));
+  rn.setSize(innerWidth,innerHeight); rn.setPixelRatio(Math.min(devicePixelRatio,MOB?1.5:2));   // 휴대폰은 1.5 — 그리기 버퍼가 GPU 메모리를 덜 쓴다(10-06)
   rn.setClearColor(0x000000,0);
   rn.shadowMap.enabled=true; rn.shadowMap.type=T.PCFSoftShadowMap;
   if('outputEncoding' in rn)rn.outputEncoding=T.sRGBEncoding;
@@ -194,7 +213,7 @@ if(T&&hasGL()){try{A3D=(function(){
   // 조명: 하늘/지면 반구광 + 주광(그림자) + 냉색 보조광 + 림광
   scene.add(new T.HemisphereLight(0xcadcf2,0x1a2431,0.62));
   const sun=new T.DirectionalLight(0xfff4e0,1.35); sun.position.set(46,72,34); sun.castShadow=true;
-  sun.shadow.mapSize.set(2048,2048); sun.shadow.bias=-0.0004;
+  sun.shadow.mapSize.set(MOB?1024:2048,MOB?1024:2048); sun.shadow.bias=-0.0004;
   Object.assign(sun.shadow.camera,{left:-70,right:70,top:70,bottom:-70,near:1,far:320}); sun.shadow.camera.updateProjectionMatrix();
   scene.add(sun); scene.add(sun.target);
   // 10-04 그림자를 실제 해 쪽으로(세종 위경도·지금 시각, 1분마다) — 밤에는 옅은 달빛 쪽
@@ -204,13 +223,20 @@ if(T&&hasGL()){try{A3D=(function(){
   const rim=new T.DirectionalLight(0xbfd0ff,0.30); rim.position.set(-10,26,-60); scene.add(rim);
 
   // 간이 환경맵(하늘→지면 그라디언트) — 매끈한 반사경/금속이 부드럽게 반사
-  (function(){const cv=document.createElement('canvas');cv.width=16;cv.height=256;const g=cv.getContext('2d');
+  function makeEnv(){const cv=document.createElement('canvas');cv.width=16;cv.height=256;const g=cv.getContext('2d');
    const gr=g.createLinearGradient(0,0,0,256);
    gr.addColorStop(0,'#7f97b8');gr.addColorStop(.42,'#3d506c');
    gr.addColorStop(.62,'#20304a');gr.addColorStop(1,'#080d16');
    g.fillStyle=gr;g.fillRect(0,0,16,256);
    const tex=new T.CanvasTexture(cv);tex.mapping=T.EquirectangularReflectionMapping;
-   const pm=new T.PMREMGenerator(rn);scene.environment=pm.fromEquirectangular(tex).texture;pm.dispose();tex.dispose();})();
+   const pm=new T.PMREMGenerator(rn);if(scene.environment)scene.environment.dispose();scene.environment=pm.fromEquirectangular(tex).texture;pm.dispose();tex.dispose();}
+  makeEnv();
+  // 10-06 미니앱 "확대하고 나면 안테나가 검게 변하고 원상태로 안 돌아온다 · 먹통" — 휴대폰 GPU 메모리가 모자라 WebGL 맥락이 끊긴 것.
+  //   three 가 이어 붙인 뒤에도 환경 지도(GPU 에만 있다)가 검게 남아 흰 칠이 검게 보였다 → 이어지면 다시 만들고 다시 그린다.
+  //   8 s 안에 이어지지 않으면 이 화면을 다시 불러온다(미니앱은 iframe 만)
+  {const cvs=rn.domElement; let lostT=0;
+   cvs.addEventListener('webglcontextlost',e=>{e.preventDefault(); clearTimeout(lostT); lostT=setTimeout(()=>location.reload(),8000);},false);
+   cvs.addEventListener('webglcontextrestored',()=>{clearTimeout(lostT); try{makeEnv();}catch(e){} rn.shadowMap.needsUpdate=true; dirty=true;},false);}
 
   // 지면(콘크리트 패드) + 그리드 + 나침반
   // 10-02 관제 화면 결: 지면을 어둡게 가라앉히고(sRGB 출력이라 옛 색은 회청색으로 떠 보였다) 네온 격자·패드 빛 테·방위 눈금 고리
@@ -349,23 +375,99 @@ if(T&&hasGL()){try{A3D=(function(){
   // 화면 위(먼 쪽)가 북쪽 0° · 오른쪽이 동쪽 90°(10-02 센터장님) — 카메라를 남쪽(+Z)에 두고 북쪽(-Z)을 바라본다: camPh=π/2.
   //   (전에는 camPh=π 로 서쪽에서 동쪽을 봐 북쪽이 화면 왼쪽이었다.) 자동회전 없음(드래그로만 회전)
   // 10-04 실물 모형(높이 28 m × MS 1.7 ≈ 48): 작은 카드는 조금 가깝게
+  // ===================== 걷기(10-06 센터장님 "실제 안테나 아래에서 걸을 수 있게 — 걸어다니면서 볼 수 있게") =====================
+  //   1인칭 — 눈높이 1.65 m · 걸음 1.4 m/s(Shift 4 m/s). 땅 높이는 지형 쌍둥이 DEM(site_dem.json)을 화면 지형과 같은 식으로 읽는다(h·K − 0.05).
+  //   건물·안테나 기단·필라·나무 줄기·가로등·울타리·생울타리는 site_twin.json 의 자리로 막는다(지나가지 못하고 미끄러져 비켜 간다).
+  //   좌표는 ENU m(원점 IVP, x = 동 · z = −북 · 1.7 배) — 지형·트윈과 같다. 보기 전용(장비 명령 없음)
+  const WK={on:false,e:0,n:-17,az:0,pit:16,fov:64,keys:new Set(),joy:{x:0,y:0},obs:null,cam0:null,started:false};
+  const EYE=1.65, BODY=0.32;
+  function demH(e,n){const d=TER.dem; if(!d)return 0; const N=d.n, s=d.side_m, H=d.h;
+    const x=(e+s/2)/s*(N-1), y=(s/2-n)/s*(N-1), j0=Math.max(0,Math.min(N-2,Math.floor(x))), i0=Math.max(0,Math.min(N-2,Math.floor(y)));
+    const fx=Math.max(0,Math.min(1,x-j0)), fy=Math.max(0,Math.min(1,y-i0)), g=(i,j)=>H[i*N+j]||0;
+    const h=g(i0,j0)*(1-fx)*(1-fy)+g(i0,j0+1)*fx*(1-fy)+g(i0+1,j0)*(1-fx)*fy+g(i0+1,j0+1)*fx*fy;
+    if(d.corrected)return h; const r=Math.hypot(e,n), w=r<14?0:r>30?1:(r-14)/16; return h*w*w*(3-2*w);}
+  async function walkObs(){ if(WK.obs)return WK.obs; const O={c:[[0,0,4.0]],p:[],l:[]};   // 안테나 기단(반지름 3.6 m) + 바깥 계단 여유
+    try{ const u='models/site_twin.json'; let j;
+      if(window.TSX&&TSX.fetch&&TSX.has&&TSX.has(u)){const rel=new URL(u,location.href).href.split('?')[0].slice(TSX.base.length); j=JSON.parse(new TextDecoder().decode(await TSX.fetch(rel)));}
+      else{const r=await fetch(u,{cache:'force-cache'}); if(!r.ok)throw new Error(u+' '+r.status); j=await r.json();}
+      for(const b of j.buildings||[]){ if(b.show===false||!b.ring)continue; const k=b.kind||'flat';
+        if(/^(flat|gable|louver)$/.test(k)&&b.ring.length>=3)O.p.push(b.ring); else if(k==='curtain'&&b.ring.length>=2)O.l.push(b.ring);}
+      for(const q of j.pillars||[]){ if(q.show!==false)O.c.push([q.e,q.n,Math.max(0.2,q.r||0.2)]);}
+      const D=j.detail||{};
+      for(const t of D.structs||[]){ if(t.kind==='gable'&&t.c&&t.w&&t.d){const a=(t.bearing||0)*Math.PI/180, ca=Math.cos(a), sa=Math.sin(a), hw=t.w/2, hd=t.d/2;
+          O.p.push([[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]].map(([x,y])=>[t.c[0]+x*ca+y*sa, t.c[1]-x*sa+y*ca]));}
+        else if(t.kind==='mast'&&t.c)O.c.push([t.c[0],t.c[1],0.35]);}
+      for(const t of D.trees||[])O.c.push([t[0],t[1],t[2]==='orn'?0.16:0.26]);
+      for(const l of D.lamps||[])O.c.push([l.e,l.n,0.14]);
+      for(const f of D.fences||[])if(f.pts)O.l.push(f.pts);
+      for(const f of D.hedges||[])if(f.pts)O.l.push(f.pts);
+    }catch(e){console.warn('걷기 — 장애물 자료를 못 읽어 안테나 기단만 막는다',e);}
+    return (WK.obs=O);}
+  function segD(e,n,a,b){const dx=b[0]-a[0], dy=b[1]-a[1], L=dx*dx+dy*dy, t=L?Math.max(0,Math.min(1,((e-a[0])*dx+(n-a[1])*dy)/L)):0;
+    return Math.hypot(e-a[0]-t*dx, n-a[1]-t*dy);}
+  function blocked(e,n){const O=WK.obs; if(!O)return false;
+    for(const c of O.c){const dx=e-c[0], dy=n-c[1], r=c[2]+BODY; if(dx*dx+dy*dy<r*r)return true;}
+    for(const P of O.p){let ins=false; for(let i=0,j=P.length-1;i<P.length;j=i++){const a=P[i], b=P[j];
+        if(((a[1]>n)!==(b[1]>n))&&(e<(b[0]-a[0])*(n-a[1])/(b[1]-a[1])+a[0]))ins=!ins;
+        if(segD(e,n,a,b)<BODY)return true;}
+      if(ins)return true;}
+    for(const L of O.l)for(let i=1;i<L.length;i++)if(segD(e,n,L[i-1],L[i])<BODY)return true;
+    return false;}
+  function walkStep(dt){ if(!WK.on)return false; const k=WK.keys; let f=0, sd=0, turn=0;
+    if(k.has('KeyW')||k.has('ArrowUp'))f+=1; if(k.has('KeyS')||k.has('ArrowDown'))f-=1;
+    if(k.has('KeyD'))sd+=1; if(k.has('KeyA'))sd-=1; if(k.has('ArrowLeft'))turn-=1; if(k.has('ArrowRight'))turn+=1;
+    f-=WK.joy.y; sd+=WK.joy.x; if(turn)WK.az+=turn*75*dt;
+    const m=Math.hypot(f,sd); if(m>1){f/=m;sd/=m;} if(m<0.03)return !!turn;
+    const v=(k.has('ShiftLeft')||k.has('ShiftRight')?4.0:1.4)*dt, a=WK.az*Math.PI/180;
+    const de=(Math.sin(a)*f+Math.cos(a)*sd)*v, dn=(Math.cos(a)*f-Math.sin(a)*sd)*v, lim=TER.dem?TER.dem.side_m/2-6:240;
+    const ok=(e,n)=>Math.abs(e)<lim&&Math.abs(n)<lim&&!blocked(e,n);
+    if(ok(WK.e+de,WK.n+dn)){WK.e+=de;WK.n+=dn;} else if(ok(WK.e+de,WK.n))WK.e+=de; else if(ok(WK.e,WK.n+dn))WK.n+=dn;
+    return true;}
+  function walkCam(){const K=1.7, y=(demH(WK.e,WK.n)+EYE)*K-0.05, a=WK.az*Math.PI/180, q=WK.pit*Math.PI/180;
+    cam.position.set(WK.e*K,y,-WK.n*K);
+    cam.lookAt(WK.e*K+Math.sin(a)*Math.cos(q)*10, y+Math.sin(q)*10, -WK.n*K-Math.cos(a)*Math.cos(q)*10);
+    const rose=document.getElementById('cmpRose'); if(rose)rose.setAttribute('transform','rotate('+(-WK.az).toFixed(1)+')');}
+  async function setWalk(on){ on=!!on; if(on===WK.on)return WK.on;
+    if(on){ if(!TER.on){await setTerrain(true);} for(let i=0;i<150&&!TER.dem;i++)await new Promise(r=>setTimeout(r,100));
+      if(!TER.dem)return false; await walkObs();
+      if(!WK.started){WK.started=true; for(let k=0;k<40&&blocked(WK.e,WK.n);k++)WK.n-=0.6;}   // 처음 자리 — 안테나 남쪽 마당에서 북쪽(안테나)을 본다
+      WK.cam0={fov:cam.fov,near:cam.near}; cam.fov=WK.fov; cam.near=0.12; cam.updateProjectionMatrix(); WK.on=true;}
+    else{ WK.on=false; WK.keys.clear(); WK.joy.x=WK.joy.y=0; if(WK.cam0){cam.fov=WK.cam0.fov; cam.near=WK.cam0.near; cam.updateProjectionMatrix();}}
+    dirty=true; return WK.on;}
+  addEventListener('keydown',e=>{ if(!WK.on)return; if(e.code==='Escape'){window.walkMode&&window.walkMode(false);return;}
+    if(/^(Arrow|Key[WASD]$|Shift)/.test(e.code)){WK.keys.add(e.code); if(/^Arrow/.test(e.code))e.preventDefault(); dirty=true;}});
+  addEventListener('keyup',e=>{WK.keys.delete(e.code);});
+  addEventListener('blur',()=>WK.keys.clear());
+
   let camR=EMBED?124:150, camTh=EMBED?0.45*Math.PI:0.40*Math.PI, camPh=Math.PI/2;
   const tgt=new T.Vector3(0,EMBED?22:23,0);
-  function updCam(){cam.position.set(tgt.x+camR*Math.sin(camTh)*Math.cos(camPh),
+  function updCam(){ if(WK.on){walkCam();return;} cam.position.set(tgt.x+camR*Math.sin(camTh)*Math.cos(camPh),
     tgt.y+camR*Math.cos(camTh), tgt.z+camR*Math.sin(camTh)*Math.sin(camPh)); cam.lookAt(tgt);
     // 나침반: 화면에서 북쪽(-Z)이 위에서 시계 방향으로 몇 도인가 = atan2(cos φ, sin φ) — φ=π/2 이면 0°(북쪽이 위)
     const rose=document.getElementById('cmpRose');
     if(rose) rose.setAttribute('transform','rotate('+(Math.atan2(Math.cos(camPh),Math.sin(camPh))*180/Math.PI).toFixed(1)+')');}
-  let drag=false,px=0,py=0;
-  addEventListener('pointerdown',e=>{drag=true;px=e.clientX;py=e.clientY;});
-  addEventListener('pointerup',()=>drag=false);
-  addEventListener('pointermove',e=>{if(!drag)return;camPh-=(e.clientX-px)*0.006;
+  let drag=false,px=0,py=0; const PT=new Map(); let pinchD=0;
+  const pinchDist=()=>{const a=[...PT.values()];return a.length<2?0:Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);};
+  addEventListener('pointerdown',e=>{ if(e.target&&e.target.closest&&e.target.closest('#wjoy,#wbar,#wgo,.pnl,a,button,input,select'))return;   // 걷기 막대·단추·판은 둘러보기에 끼지 않는다
+    PT.set(e.pointerId,{x:e.clientX,y:e.clientY}); if(PT.size>=2){pinchD=pinchDist();drag=false;return;}
+    drag=true;px=e.clientX;py=e.clientY;});
+  const ptEnd=e=>{PT.delete(e.pointerId); if(PT.size===1){const p=[...PT.values()][0];px=p.x;py=p.y;drag=true;pinchD=0;} else if(!PT.size){drag=false;pinchD=0;}};
+  addEventListener('pointerup',ptEnd); addEventListener('pointercancel',ptEnd);
+  addEventListener('pointermove',e=>{if(PT.has(e.pointerId))PT.set(e.pointerId,{x:e.clientX,y:e.clientY});
+    if(PT.size>=2){const d=pinchDist(); if(pinchD>0&&d>0){ if(WK.on){WK.fov=Math.max(24,Math.min(80,WK.fov*pinchD/d)); cam.fov=WK.fov; cam.updateProjectionMatrix();}
+        else camR=Math.max(50,Math.min(340,camR*pinchD/d)); dirty=true;} pinchD=d; return;}   // 손가락 둘 — 카메라만 당긴다(10-06) · 걷는 중이면 시야각
+    if(!drag)return;
+    if(WK.on){WK.az+=(e.clientX-px)*0.22; WK.pit=Math.max(-70,Math.min(85,WK.pit-(e.clientY-py)*0.22)); px=e.clientX; py=e.clientY; dirty=true; return;}   // 걷는 중 — 마우스를 움직인 쪽으로 시선이 돈다(게임식, 10-06 센터장님)
+    camPh+=(e.clientX-px)*0.006;   // 10-06 센터장님 "마우스가 움직이는 방향으로" — 안테나가 끄는 쪽으로 돈다(다른 3D 칸과 같게, 전에는 거꾸로)
     camTh=Math.max(0.1,Math.min(1.4,camTh-(e.clientY-py)*0.006));px=e.clientX;py=e.clientY;});
-  addEventListener('wheel',e=>{camR=Math.max(50,Math.min(340,camR+e.deltaY*0.07));dirty=true;},{passive:true});
+  document.addEventListener('gesturestart',e=>e.preventDefault(),{passive:false});   // iOS 페이지 확대 막기
+  addEventListener('wheel',e=>{ if(WK.on){WK.fov=Math.max(24,Math.min(80,WK.fov+e.deltaY*0.03)); cam.fov=WK.fov; cam.updateProjectionMatrix(); dirty=true; return;}
+    camR=Math.max(50,Math.min(340,camR+e.deltaY*0.07));dirty=true;},{passive:true});
   addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();rn.setSize(innerWidth,innerHeight);dirty=true;});
   addEventListener('pointermove',()=>{if(drag)dirty=true;});
   document.addEventListener('visibilitychange',()=>{if(!document.hidden)dirty=true;});
-  return {scene,cam,rn,place,parts,updCam,isDrag:()=>drag,ant:ANT,wind:WIND,sunUpd,setTerrain,terrainOn:()=>TER.on,orbit:(d)=>{camPh+=d;}};
+  return {scene,cam,rn,place,parts,updCam,isDrag:()=>drag||WK.on&&PT.size>0,walk:setWalk,walkStep,isWalk:()=>WK.on,walkJoy:(x,y)=>{WK.joy.x=x;WK.joy.y=y;},walkTo:(e,n,az,pit,fov)=>{WK.e=e;WK.n=n;if(az!=null)WK.az=az;if(pit!=null)WK.pit=pit;if(fov){WK.fov=fov;cam.fov=fov;cam.updateProjectionMatrix();}dirty=true;},   // 자리 옮기기(시험·나중에 '여기로 가기')
+ant:ANT,wind:WIND,sunUpd,setTerrain,terrainOn:()=>TER.on,orbit:(d)=>{camPh+=d;}};
 })();}catch(e){A3D=null;}}
 if(!A3D){$('nogl').hidden=false;$('c').style.display='none';}
 
@@ -489,6 +591,28 @@ function toggleTer(on){ if(!A3D)return; const v=on==null?!A3D.terrainOn():!!on; 
 // 10-04 기본으로 켠다 — ?terrain=0 이거나 이 브라우저에서 끈 적이 있으면(크게 보기) 끈 채로. 미니앱도 똑같이(10-04 센터장님 "미니앱에도 정사영상 반영해야지 똑같이")
 setTimeout(()=>{ let v=QS.get('terrain'); if(v==null){try{v=EMBED?null:localStorage.getItem('a3d.terrain');}catch(e){v=null;}}
   if(v!=='0')toggleTer(true); },300);
+// 걷기(10-06) — 운용 화면 '크게 보기'·미니앱. 작은 창(대시보드 카드)에서는 큰 창을 새로 연다.
+//   미니앱(feed=)에서는 바깥 미니앱에 알려 이 창을 화면 가득 키우고(텔레그램 뒤로 단추로도 나간다) 그 자리에서 걷는다
+const TOUCH=matchMedia('(pointer:coarse)').matches||'ontouchstart' in window; if(TOUCH)document.body.classList.add('touch');
+async function walkMode(on){ if(!A3D||!A3D.walk)return;
+  if(on&&EMBED&&!FEEDURL){const u=new URL(location.href); u.searchParams.delete('embed'); u.searchParams.set('walk','1'); u.searchParams.set('terrain','1'); window.open(u.href,'_blank'); return;}
+  const inFrame=parent&&parent!==window;
+  if(on&&inFrame)try{parent.postMessage({ts:'walk',on:true},'*');}catch(e){}
+  const v=await A3D.walk(on); document.body.classList.toggle('walk',v);
+  const b=$('b-walk'); if(b)b.classList.toggle('on',v);
+  if(!v&&inFrame)try{parent.postMessage({ts:'walk',on:false},'*');}catch(e){}
+  const h=$('whint'); if(h&&v){h.textContent=TOUCH?'왼쪽 아래 원을 끌어 걷기 · 화면을 끌어 둘러보기 · 두 손가락 = 확대':'W A S D·↑↓ 걷기 · ←→ 돌기 · 끌어서 둘러보기 · Shift 달리기 · Esc 나가기';
+    h.style.opacity='1'; clearTimeout(h._t); h._t=setTimeout(()=>{h.style.opacity='0';},7000);}
+  setTimeout(()=>dispatchEvent(new Event('resize')),60); }
+addEventListener('message',e=>{ if(e.data&&e.data.ts==='walkExit')walkMode(false); });
+(function(){const J=$('wjoy'); if(!J)return; const K=J.querySelector('i'); let id=null;
+  const put=(e)=>{const r=J.getBoundingClientRect(), R=r.width/2, dx=e.clientX-r.left-R, dy=e.clientY-r.top-R, m=Math.hypot(dx,dy), k=m>R*0.8?R*0.8/m:1;
+    K.style.transform='translate('+(dx*k)+'px,'+(dy*k)+'px)'; if(A3D&&A3D.walkJoy)A3D.walkJoy(dx*k/(R*0.8),dy*k/(R*0.8)); dirty=true;};
+  J.addEventListener('pointerdown',e=>{id=e.pointerId; J.setPointerCapture(id); put(e); e.preventDefault();});
+  J.addEventListener('pointermove',e=>{if(e.pointerId===id)put(e);});
+  const end=e=>{if(e.pointerId!==id)return; id=null; K.style.transform=''; if(A3D&&A3D.walkJoy)A3D.walkJoy(0,0);};
+  J.addEventListener('pointerup',end); J.addEventListener('pointercancel',end);})();
+if(QS.has('walk'))setTimeout(()=>walkMode(true),700);
 // 부품명 라벨(전체페이지)
 const LBL=$('lbls');let showLbl=false;
 function toggleLbl(){showLbl=!showLbl;for(const s of LBL.children)s.style.display=showLbl?'block':'none';}
@@ -502,7 +626,8 @@ let tAz=180,tEl=80,cAz=180,cEl=80,_lastF=0,_lastR=0;
 const TAG={virt:FEEDURL?['ThreeStar','live']:['가상','virt'],live:['실제','live'],calc:['계산','calc'],man:['수동','man']};
 function loop(ts){requestAnimationFrame(loop);
  if(document.hidden)return;
- ts=ts||performance.now(); if(ts-_lastF<42)return; _lastF=ts;   // ~24fps 상한
+ ts=ts||performance.now(); const _wk=!!(A3D&&A3D.isWalk&&A3D.isWalk()); if(ts-_lastF<(_wk?15:42))return;   // ~24fps 상한 · 걷는 중 ~60fps
+ const _dtw=Math.min(0.1,(ts-_lastF)/1000); _lastF=ts; if(_wk&&A3D.walkStep(_dtw))dirty=true;
  let note='',srcName='—',ra=null,dec=null,idle=false,disAz=null,disEl=null,on={txt:'—',cls:'b-idle'},exp='—',tgt='—';
  if(MODE==='calc'){
   ra=parseFloat(($('in-ra')||{}).value);dec=parseFloat(($('in-dec')||{}).value);
@@ -556,7 +681,7 @@ function loop(ts){requestAnimationFrame(loop);
   const ex=(MODE==='virt'&&V.ok&&V.ex)?V.ex:null;
   if(A3D.ant)A3D.ant.status(ex?Object.assign({},ex.faults,{hexapod:ex.hexapod,flow:ex.flow,wrapAz:disAz}):{mount:false,hub:false,data:false,hexapod:false,flow:'idle',wrapAz:MODE==='live'&&L.ok?L.az:null});
   if(A3D.wind){const w=(ex&&ex.wind)||WX; A3D.wind.set(w?w.wdir:null,w?w.wsp:null);}
-  if(ORBIT&&!A3D.isDrag())A3D.orbit(0.0011);
+  if(ORBIT&&!A3D.isDrag()&&!A3D.isWalk())A3D.orbit(0.0011);
   const anim=(A3D.ant?A3D.ant.tick(ts):false)|(A3D.wind?A3D.wind.tick(ts):false)|ORBIT;
   const moving=Math.abs(shortest(cAz,tAz))>0.02||Math.abs(tEl-cEl)>0.02;
   if(dirty||moving||anim||A3D.isDrag()||ts-_lastR>2500){A3D.updCam(); projLbls(); A3D.rn.render(A3D.scene,A3D.cam); _lastR=ts; dirty=false;}}

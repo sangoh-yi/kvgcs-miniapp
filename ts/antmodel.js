@@ -54,7 +54,7 @@
     const T = window.THREE, SJ = window.Sejong22m;
     if (!T || !T.GLTFLoader || !SJ) throw new Error('three.js · GLTFLoader · sejong22m.js 없음');
     const rn = new T.WebGLRenderer({ canvas, antialias: true, alpha: true });
-    rn.setClearColor(0x000000, 0); rn.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    rn.setClearColor(0x000000, 0); rn.setPixelRatio(Math.min(window.devicePixelRatio || 1, (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? 1.5 : 2)));   // 휴대폰 1.5(GPU 메모리, 10-06)
     rn.outputEncoding = T.sRGBEncoding; rn.toneMapping = T.ACESFilmicToneMapping; rn.toneMappingExposure = 0.8;
     rn.shadowMap.enabled = true; rn.shadowMap.type = T.PCFSoftShadowMap;
     const scene = new T.Scene();
@@ -136,6 +136,8 @@
     if ('IntersectionObserver' in window) new IntersectionObserver((es) => { visible = es[0].isIntersecting; }).observe(canvas);
 
     let az = 0, el = 90, azN = 0, elN = 90, st = 'idle', col = new T.Color(COL.idle), dirty = true, last = 0, raf = 0, lw = 0, lh = 0;
+    // 10-06 WebGL 맥락이 끊겼다 이어지면(휴대폰 GPU 메모리) 환경 지도를 다시 만든다 — GPU 에만 있어 그대로 두면 흰 칠이 검게 남는다
+    canvas.addEventListener('webglcontextrestored', () => { try { scene.environment = envMap(T, rn); } catch (e) { /* 다음에 */ } dirty = true; }, false);
     function place() {
       // 모형 기본: 고도 90°(위) · 방위 0 에서 접시 축이 남(+Z). three: 북 = −Z · 동 = +X → AZ 회전 = 180° − 방위
       A.place(azN, Math.max(0, Math.min(90, elN)));

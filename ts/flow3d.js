@@ -102,6 +102,7 @@
     rn.shadowMap.enabled = true; rn.shadowMap.type = T.PCFSoftShadowMap; rn.shadowMap.autoUpdate = false;
     const scene = new T.Scene();
     scene.environment = studioEnv(T, rn);
+    canvas.addEventListener('webglcontextrestored', () => { try { scene.environment = studioEnv(T, rn); } catch (e) { /* 다음에 */ } rn.shadowMap.needsUpdate = true; }, false);   // 맥락이 이어지면(10-06)
     const cam = new T.PerspectiveCamera(30, 4, 0.05, 260);
     scene.add(new T.HemisphereLight(0xcfe0ff, 0x1c2416, 0.5));
     const key = new T.DirectionalLight(0xfff0dc, 2.3); key.position.set(-12, 26, 15); key.target.position.set(2, 0, -3); scene.add(key.target);

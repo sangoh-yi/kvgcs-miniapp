@@ -71,7 +71,7 @@
     if (!T) throw new Error('three.js 없음');
     const rn = new T.WebGLRenderer({ canvas, antialias: true, alpha: true });
     rn.setClearColor(0x000000, 0);
-    rn.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    rn.setPixelRatio(Math.min(window.devicePixelRatio || 1, (/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent) ? 1.5 : 2)));   // 휴대폰 1.5(10-06)
     const scene = new T.Scene();
     const cam = new T.PerspectiveCamera(34, 1, 0.05, 50);
     scene.add(new T.HemisphereLight(0xdfe8ff, 0x1a1f2a, 0.75));

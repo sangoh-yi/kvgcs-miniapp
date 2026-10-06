@@ -320,7 +320,7 @@
 <script>
 const TG=window.Telegram?.WebApp; TG?.ready(); TG?.expand();
 const GIST_ID=(new URLSearchParams(location.search).get("g")||"5404bef7f8d5b9f4e8d2824515fc8728");
-const REV="p10061848";
+const REV="p10061951";
 let GLOBECODE="";      // 지구본 세션 선택(선택기 → postMessage)
 const BODY={};
 async function loadBody(name){
@@ -976,7 +976,7 @@ function mountTS3D(){
 }
 // 3D 안테나(운용 화면판 ts/antenna3d.html, 자료는 gist threestar_live.json) — iframe 은 옮기면 새로 불러오므로
 //   #app 밖(body)에 한 번만 만들고, 다시 그릴 때마다 자리(tsAntSlot)에 위치·크기만 맞춘다(10-02)
-let TSAF=null;
+let TSAF=null, TSWALK=false;   // TSWALK — 걷기 중(창을 화면 가득, 10-06)
 function mountTSAnt(){
   const slot=document.getElementById("tsAntSlot");
   if(TAB!=="ts"||!slot){ if(TSAF) TSAF.style.display="none"; return; }
@@ -984,10 +984,19 @@ function mountTSAnt(){
     TSAF.setAttribute("referrerpolicy","no-referrer");
     TSAF.src="./ts/antenna3d.html?embed=1&v="+REV+"&terrain=1&feed="+encodeURIComponent(new URL(RAW+"threestar_live.json",location.href).href);   // 관측소 지형 쌍둥이(정사영상·건물·필라) — 운용 화면과 똑같이(10-04)
     document.body.appendChild(TSAF); }
+  if(TSWALK){ Object.assign(TSAF.style,{display:"block",position:"fixed",left:"0",top:"0",width:"100vw",height:"100vh",zIndex:"9999",borderRadius:"0"}); return; }   // 걷기 — 화면 가득
   const r=slot.getBoundingClientRect();
-  Object.assign(TSAF.style,{display:"block",left:(r.left+scrollX)+"px",top:(r.top+scrollY)+"px",width:r.width+"px",height:r.height+"px"});
+  Object.assign(TSAF.style,{display:"block",position:"",zIndex:"",borderRadius:"",left:(r.left+scrollX)+"px",top:(r.top+scrollY)+"px",width:r.width+"px",height:r.height+"px"});
 }
 addEventListener("resize",()=>mountTSAnt());
+// 걷기(10-06 센터장님 "실제 안테나 아래에서 걸을 수 있게") — 3D 안테나 창이 알려 오면 그 창을 화면 가득 키운다(새 WebGL 맥락을 만들지 않는다).
+//   텔레그램 뒤로 단추 · 창 안 '나가기' 로 돌아온다
+function tsWalkBack(){ if(TSAF&&TSAF.contentWindow) TSAF.contentWindow.postMessage({ts:"walkExit"},"*"); }
+addEventListener('message',e=>{   // 작은따옴표 — miniapp_deploy 가 "message" 자리로 잘라 붙인다
+  if(!TSAF||e.source!==TSAF.contentWindow||!e.data||e.data.ts!=="walk") return;
+  TSWALK=!!e.data.on; document.body.style.overflow=TSWALK?"hidden":""; mountTSAnt();
+  try{ if(TG&&TG.BackButton){ if(TSWALK){ TG.BackButton.onClick(tsWalkBack); TG.BackButton.show(); } else { TG.BackButton.offClick(tsWalkBack); TG.BackButton.hide(); } } }catch(_){}
+});
 function tickTSL(){
   if(TAB!=="ts"||!TSL||(!TSL.session&&!TSL.pcamp)) return;
   const q=id=>document.getElementById(id), now=Date.now()/1000;
