@@ -1,361 +1,103 @@
 <!doctype html>
-<html lang="ko">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex">
-<title>ThreeStar 소나기 예보 모의</title>
-<!-- 동네 단위 10분 뒤 소나기 예보 모의(2026-10-05): GNSS 위성기준점·조밀망(가정)의 경사 습윤 지연 → 수증기 단층 영상 → 가강수량 이동·늘어남 → 읍면동 경보.
-     VLBI 가 대류권 지연을 추정하는 방식(사상함수·천정 지연·경도)을 그대로 넓혔다. 계산 wxtomo_core.js(웹 워커에서 실제로 돈다) · 3D wxtomo3d.js ·
-     자산 models/wxtomo/(블렌더 wxtomo_assets.glb · 지형·영상·읍면동·기준점·GPS 궤도·OSM 아파트 — wxtomo_prep.py) -->
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<meta name="referrer" content="no-referrer">
+<title>ThreeStar</title>
 <style>
-:root{--bg:#0a1120;--panel:#0f1a2c;--panel2:#13223a;--line:#1f3150;--tx:#dbe7f5;--dim:#8ea3c0;--ac:#37e8cf;--warn:#f0b44c;--bad:#ff6b8a;--mono:ui-monospace,"Cascadia Mono",Consolas,monospace}
-*{box-sizing:border-box}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:13px/1.5 "Noto Sans KR","Malgun Gothic",system-ui,sans-serif}
-header{display:flex;align-items:center;gap:12px;height:50px;padding:0 14px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0f1b30,#0b1424)}
-.rank{display:inline-flex;gap:2px;padding:3px 6px;border:1px solid #c9a13c;border-radius:4px;color:#f2c94c;font-size:12px;letter-spacing:1px}
-.brand{font-weight:800;font-size:15px}.brand span{color:var(--warn)}
-h1{font-size:14px;font-weight:700;margin:0 0 0 4px;white-space:nowrap}
-.chips{display:flex;gap:6px;flex-wrap:wrap;overflow:hidden;max-height:26px}
-.chip{padding:2px 8px;border:1px solid var(--line);border-radius:999px;color:var(--dim);font-size:11.5px;white-space:nowrap}
-.chip b{color:var(--tx);font-family:var(--mono);font-weight:600}
-.back{margin-left:auto;color:var(--tx);text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:12px;white-space:nowrap}
-.back:hover{border-color:var(--ac)}
-main{display:grid;grid-template-columns:minmax(0,1fr) 470px;height:calc(100% - 50px)}
-.view{position:relative;display:flex;flex-direction:column;min-width:0;min-height:0}
-#cv{flex:1 1 auto;width:100%;min-height:0;display:block;cursor:grab;touch-action:none;background:#040913}
-#cv:active{cursor:grabbing}
-.vbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:6px 10px;border-top:1px solid var(--line);background:var(--panel)}
-button{font:inherit}
-.vbar button,.seg button{background:var(--panel2);color:var(--tx);border:1px solid var(--line);border-radius:7px;padding:4px 9px;font-size:12px;cursor:pointer}
-.vbar button.on,.seg button.on{border-color:var(--ac);color:var(--ac)}
-.vbar .sep{width:1px;height:18px;background:var(--line);margin:0 2px}
-.vbar select{width:auto}
-.tl{display:flex;gap:8px;align-items:center;padding:6px 10px;border-top:1px solid var(--line);background:#0b1528}
-.tl input[type=range]{flex:1}
-.tl b{font-family:var(--mono);font-weight:600;color:var(--ac);min-width:92px;text-align:right}
-.status{padding:5px 10px;border-top:1px solid var(--line);background:#0b1528;color:var(--dim);font-size:12px;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:26px}
-.status b{color:var(--ac);font-weight:600}
-.credit{padding:3px 10px;border-top:1px solid var(--line);background:#070d18;color:#6f84a3;font-size:10.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.credit a{color:#8ea3c0}
-aside{border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
-.tabs{display:flex;border-bottom:1px solid var(--line)}
-.tabs button{flex:1;background:none;border:0;border-bottom:2px solid transparent;color:var(--dim);font-weight:700;padding:10px 0;cursor:pointer}
-.tabs button.on{color:var(--tx);border-bottom-color:var(--ac)}
-.pane{flex:1 1 auto;overflow:auto;padding:10px 14px 18px;display:none}
-.pane.on{display:block}
-.go{display:flex;gap:6px;margin:2px 0 8px}
-.go button{flex:1;padding:8px 0;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--tx);font-weight:700;cursor:pointer}
-.go button.pri{border-color:var(--ac);background:rgba(55,232,207,.12);color:var(--ac)}
-.go button:disabled{opacity:.45;cursor:default}
-.bar{height:6px;border-radius:4px;background:#0b1528;border:1px solid var(--line);overflow:hidden}
-.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--ac),#5fb8ff);transition:width .2s}
-.cnt{display:flex;justify-content:space-between;color:var(--dim);font-size:11.5px;margin:4px 0 8px;font-family:var(--mono)}
-.steps{display:flex;gap:4px;margin:4px 0 8px;flex-wrap:wrap}
-.steps button{flex:1;padding:6px 0;border-radius:7px;border:1px solid var(--line);background:#0b1528;color:var(--dim);font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;min-width:62px}
-.steps button.on{border-color:var(--ac);color:var(--ac);background:rgba(55,232,207,.08)}
-h2{font-size:13px;margin:8px 0 4px;display:flex;align-items:baseline;gap:6px}
-h2 small{color:var(--dim);font-weight:400;font-size:11px}
-h3{font-size:12px;margin:12px 0 4px;color:var(--tx)}
-.note{color:var(--dim);font-size:11.8px;line-height:1.6;margin:4px 0}
-.eq{font-family:var(--mono);font-size:11.5px;color:#cfe4ff;background:#0b1528;border:1px solid var(--line);border-radius:7px;padding:6px 8px;margin:6px 0;white-space:pre-wrap;line-height:1.55}
-.tag{display:inline-block;font-size:10.5px;padding:0 6px;border-radius:5px;border:1px solid var(--line);color:var(--dim);margin-left:4px;vertical-align:1px}
-.tag.live{border-color:#2f7d6d;color:var(--ac)}.tag.as{border-color:#7d6a2f;color:var(--warn)}
-canvas.plot{width:100%;height:180px;display:block;background:#0b1528;border:1px solid var(--line);border-radius:8px;margin:6px 0}
-.maps{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:6px 0}
-.maps figure{margin:0}.maps canvas{width:100%;aspect-ratio:1;display:block;background:#0b1528;border:1px solid var(--line);border-radius:7px}
-.maps figcaption{font-size:11px;color:var(--dim);text-align:center;margin-top:2px}
-table{width:100%;border-collapse:collapse;font-size:11.5px}
-th{color:var(--dim);font-weight:600;font-size:10.5px;text-align:right;padding:3px 4px;border-bottom:1px solid var(--line);white-space:nowrap}
-th:first-child,td:first-child{text-align:left}
-td{padding:3px 4px;border-bottom:1px solid rgba(31,49,80,.55);text-align:right;font-family:var(--mono);white-space:nowrap}
-td.n{font-family:inherit;font-weight:700}
-.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:12px}
-.kv span{color:var(--dim)}.kv b{font-family:var(--mono);font-weight:600;text-align:right}
-.box{border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:var(--panel2);margin:8px 0}
-.ctl{display:grid;grid-template-columns:150px 1fr;gap:7px 10px;align-items:center;font-size:12px}
-.ctl label{color:var(--dim)}
-select,input[type=number]{background:#0b1528;color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font:inherit;font-size:12px;width:100%}
-.good{color:var(--ac)}.warn{color:var(--warn)}.bad{color:var(--bad)}
-.lv{display:inline-block;min-width:34px;text-align:center;border-radius:5px;padding:0 5px;font-size:10.5px;font-weight:700}
-.lv0{color:var(--dim);border:1px solid var(--line)}.lv1{color:#1b1406;background:var(--warn)}.lv2{color:#fff;background:#d9465d}
-.pb{display:inline-block;width:46px;height:6px;border-radius:3px;background:#0b1528;border:1px solid var(--line);vertical-align:1px;overflow:hidden}.pb i{display:block;height:100%;background:linear-gradient(90deg,#f0b44c,#ff5c6e)}
-.leg{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--dim)}.leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;vertical-align:-1px}
-ol{margin:4px 0 0 18px;padding:0}ol li{margin:3px 0}
-body.embed header .back{display:none}
-@media (max-width:900px){
-  main{grid-template-columns:1fr;grid-template-rows:52vh auto;height:auto}
-  aside{border-left:0;border-top:1px solid var(--line)}
-  .chips{display:none}
-  .credit{white-space:normal;line-height:1.45}
-  .pane{max-height:none}
-}
-</style>
-</head>
-<body>
-<header>
-  <span class="rank">★★★</span><span class="brand">Three<span>Star</span></span>
-  <h1>동네 소나기 10분 예보 모의</h1>
-  <div class="chips"><span class="chip">장소 <b>세종시 일대 30 km</b></span><span class="chip" id="cScen">시나리오 <b>—</b></span><span class="chip" id="cTime">시각 <b>—</b></span><span class="chip" id="cNet">관측망 <b>—</b></span></div>
-  <a class="back" href="./" id="backA">← 운용 화면</a>
-</header>
-<main>
-  <section class="view">
-    <canvas id="cv"></canvas>
-    <div class="vbar">
-      <button data-v="all" class="on">세종 전체</button><button data-v="city">행복도시</button><button data-v="river">금강 둔치</button><button data-v="north">조치원</button><button data-v="side">옆에서</button><button data-v="top">위에서</button>
-      <span class="sep"></span>
-      <button data-l="img" class="on">영상</button><button data-l="bld" class="on">건물</button><button data-l="cloud" class="on">구름·비</button><button data-l="rays" class="on">GPS 광선</button><button data-l="lbl" class="on">이름</button>
-      <span class="sep"></span>
-      <select id="vapSel" title="수증기 부피"><option value="recon">수증기: 단층 영상</option><option value="truth">수증기: 참값</option><option value="off">수증기: 끔</option></select>
-      <select id="ovSel" title="땅에 입히는 덧그림"><option value="alert">덧그림: 읍면동 경보</option><option value="fc">덧그림: 예보 확률</option><option value="recon">덧그림: PWV 이상(복원)</option><option value="truth">덧그림: PWV 이상(참값)</option><option value="err">덧그림: 복원 − 참값</option><option value="off">덧그림: 끔</option></select>
-      <span class="seg" id="leadSeg"><button data-k="10" class="on">+10분</button><button data-k="20">+20분</button><button data-k="30">+30분</button></span>
-      <span class="seg" id="netSeg"><button data-k="dense" class="on">조밀망</button><button data-k="real">실제만</button></span>
-    </div>
-    <div class="tl"><button id="playB">▶</button><span class="seg" id="spdSeg"><button data-k="1">1×</button><button data-k="4" class="on">4×</button><button data-k="12">12×</button></span><input type="range" id="tR" min="0" max="90" step="0.5" value="0"><b id="tB">—</b></div>
-    <div class="status" id="status">불러오는 중…</div>
-    <div class="credit" id="credit">영상: Sentinel-2 cloudless – <a href="https://s2maps.eu" target="_blank" rel="noopener">https://s2maps.eu</a> by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2020) · CC BY-NC-SA 4.0 · 지형 AWS Terrain Tiles · 건물 © OpenStreetMap 기여자</div>
-  </section>
-  <aside>
-    <div class="tabs"><button data-p="pProc" class="on">과정</button><button data-p="pSet">설정</button><button data-p="pVer">검증</button><button data-p="pTh">이론·자료</button></div>
-    <div class="pane on" id="pProc">
-      <p class="note">GNSS 위성 신호가 대기를 지나며 늦어지는 양(습윤 지연)을 수백 곳에서 재어 <b>수증기를 3차원으로 되살리고</b>, 가강수량이 쌓이며 움직이는 것을 따라가 <b>10·20·30분 뒤 소나기</b>를 읍면동마다 미리 알립니다. VLBI 가 대류권 지연을 추정하는 방식(사상함수·천정 지연·경도)을 그대로 넓혔습니다. 계산은 이 화면에서 실제로 합니다. <b>화면 안 모의 — 장비 명령은 없습니다.</b></p>
-      <div class="go"><button class="pri" id="runB">▶ 다시 계산</button><select id="scSel" style="flex:1.3"></select></div>
-      <div class="bar"><i id="pbar"></i></div><div class="cnt"><span id="pTxt">준비</span><span id="pTm"></span></div>
-      <div class="steps" id="stepBtns"><button data-s="1" class="on">1 관측망</button><button data-s="2">2 경사 지연</button><button data-s="3">3 천정 지연</button><button data-s="4">4 단층 영상</button><button data-s="5">5 이동·예보</button><button data-s="6">6 경보</button></div>
-      <div id="stepBody"></div>
-    </div>
-    <div class="pane" id="pSet">
-      <h2>설정 <small>바꾼 뒤 '다시 계산'</small></h2>
-      <div class="ctl">
-        <label>시나리오</label><select id="scSel2"></select>
-        <label>실제 기준점 잡음(천정)</label><input type="number" id="cSr" step="0.5" min="0.5" max="20" value="3">
-        <label>조밀망 잡음(천정, 가정)</label><input type="number" id="cSd" step="0.5" min="0.5" max="30" value="5">
-        <label>고도각 아래 끊음(°)</label><input type="number" id="cEl" step="1" min="5" max="40" value="15">
-        <label>단층 영상 풀이</label><select id="cMeth"><option value="cg">최소제곱 + 평활(켤레기울기)</option><option value="art">ART(카치마르츠)</option></select>
-        <label>비 문턱 PWV 이상(mm)</label><input type="number" id="cTh" step="0.2" min="1" max="10" value="3.8">
-        <label>주의 · 경보 확률</label><span style="display:flex;gap:6px"><input type="number" id="cW1" step="0.05" min="0.05" max="0.95" value="0.3"><input type="number" id="cW2" step="0.05" min="0.1" max="0.99" value="0.6"></span>
-      </div>
-      <div class="go" style="margin-top:12px"><button class="pri" id="runB2">▶ 다시 계산</button><button id="resetB">처음 값</button></div>
-      <p class="note">비 문턱(3.8 mm)과 폭은 시나리오 1 에서만 맞추었고, 시나리오 2·3 은 맞추는 데 쓰지 않은 검증용입니다. 조밀망 잡음은 이동통신 기지국·아파트 옥상의 측지급 수신기를 가정한 값입니다.</p>
-    </div>
-    <div class="pane" id="pVer"><div id="verBody"><p class="note">계산이 끝나면 보입니다.</p></div></div>
-    <div class="pane" id="pTh">
-      <h2>쓰는 식</h2>
-      <div class="eq">습윤 굴절률   N_wet = k₂′·e/T + k₃·e/T²   (k₂′ 22.1 K/hPa · k₃ 3.739·10⁵ K²/hPa)
-경사 습윤 지연 SWD = 10⁻⁶ ∫ N_wet ds   (국 → 위성, 위 끝 10 km)
-VLBI·GNSS 식  SWD = m_w(E)·ZWD + m_g(E)·(G_N cos A + G_E sin A)
-              m_w = Niell(1996) 습윤 · m_g = 1/(sin E·tan E + 0.0032)
-단층 영상     y = A·x + v,  A_ij = 광선 i 가 복셀 j 를 지난 길
-              최소 Σ w(Aδ − y′)² + λh‖Lh δ‖² + λv‖Lv δ‖² + λ₀‖δ‖²  (켤레기울기)
-가강수량      PWV = Π·ZWD,  Π = 10⁶ / (ρw·Rv·(k₃/Tm + k₂′)),  Tm = 70.2 + 0.72·Ts
-이동          ∂P/∂t + v·∇P = 0 → 전역 루카스–카나데(되풀이 와핑)
-예보          P̂(t+τ) = 옮김[ P(t) + (dP/dt)·min(τ,14분) , v·τ ]
-              p = 1 / (1 + exp(−(P̂ − 3.8 mm)/0.8 mm))  → 주의 ≥ 0.3 · 경보 ≥ 0.6</div>
-      <h2>자료와 출처</h2>
-      <p class="note"><b>위성영상</b> — Sentinel-2 cloudless – <a href="https://s2maps.eu" target="_blank" rel="noopener" style="color:var(--ac)">https://s2maps.eu</a> by EOX IT Services GmbH (Contains modified Copernicus Sentinel data 2020). CC BY-NC-SA 4.0 — 안쪽 ±16 km 는 가장 높은 줌 z14(원래 10 m), 바깥은 z11.</p>
-      <ol id="srcList"></ol>
-      <h2>한계</h2>
-      <ol>
-        <li>대기는 모의다. 배경 수증기·기온 꼴과 대류 세포의 자람·비·사그라듦은 문헌의 크기(가로 2~4 km, PWV +5~10 mm, 30~60분 앞 증가)를 따른 가우스 모형이다. 실제 구름 물리·얼음·하강 기류는 넣지 않았다.</li>
-        <li>광선은 직선이다(고도 15° 위에서는 굽음이 작다). 건조(정수압) 지연은 지상 기압으로 안다고 보고 뺐다.</li>
-        <li>조밀망(기지국·옥상 409곳)은 <b>가정</b>이다. 실제 위성기준점은 영역 안에 5곳뿐이다.</li>
-        <li>예보는 PWV 만 쓴다. 장마 띠처럼 수증기가 넓게 많은 날은 헛경보가 늘어난다 — 실제로는 레이더·위성·수치예보와 함께 써야 한다.</li>
-        <li>지하차도·학교·주차장 자리는 가정이다(이름 '○○'). 세종호수공원·금강 둔치는 실제 자리 근처다.</li>
-      </ol>
-    </div>
-  </aside>
-</main>
-<script src="./three.min.js"></script>
-<script src="./GLTFLoader.js?v=0150"></script>
-<script src="wxtomo_core.js"></script>
-<script src="wxtomo3d.js"></script>
+:root{color-scheme:dark}
+html,body{margin:0;height:100%;background:#060b14;color:#dbe6f3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Apple SD Gothic Neo",sans-serif}
+#tsxLock{position:fixed;inset:0;display:grid;place-items:center;padding:16px;box-sizing:border-box;
+ background:radial-gradient(120% 90% at 50% 10%,#14243d 0%,#0a1322 50%,#05090f 100%)}
+#tsxLock[hidden]{display:none}
+.tsx-card{width:min(360px,100%);box-sizing:border-box;padding:28px 22px 22px;border:1px solid #1f3350;border-radius:16px;
+ background:rgba(10,18,32,.86);box-shadow:0 0 0 1px rgba(88,166,255,.06),0 20px 60px rgba(0,0,0,.5);text-align:center}
+.tsx-stars{display:inline-flex;gap:6px;padding:6px 12px;border:1.5px solid #c9a227;border-radius:8px;background:#0b1426;
+ color:#f2c94c;font-size:20px;letter-spacing:2px;text-shadow:0 0 10px rgba(242,201,76,.55)}
+.tsx-name{margin:12px 0 2px;font-size:24px;font-weight:800;letter-spacing:.5px}
+.tsx-name b{color:#f2c94c;font-weight:800}
+.tsx-sub{margin:0 0 20px;font-size:12.5px;color:#8ea3bd}
+.tsx-in{width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;border:1.5px solid #2a4366;background:#0b1526;
+ color:#eef4fb;font-size:18px;letter-spacing:4px;text-align:center;outline:none}
+.tsx-in:focus{border-color:#58a6ff;box-shadow:0 0 0 3px rgba(88,166,255,.18)}
+.tsx-btn{width:100%;margin-top:10px;padding:12px;border:0;border-radius:10px;background:linear-gradient(180deg,#2f81f7,#1f6feb);
+ color:#fff;font-size:15px;font-weight:700;cursor:pointer}
+.tsx-btn[disabled]{opacity:.6;cursor:wait}
+.tsx-msg{min-height:18px;margin:12px 0 0;font-size:12.5px;line-height:1.5;color:#8ea3bd}
+.tsx-msg.err{color:#ff7b72}
+</style></head><body>
+<div id="tsxLock" hidden>
+ <form class="tsx-card" id="tsxForm" autocomplete="off">
+  <div class="tsx-stars" aria-hidden="true">&#9733;&#9733;&#9733;</div>
+  <div class="tsx-name">Three<b>Star</b></div>
+  <p class="tsx-sub">세종 22m 관측 현황 · 잠긴 화면</p>
+  <input class="tsx-in" id="tsxPw" type="password" autocomplete="current-password" placeholder="암호" aria-label="암호">
+  <button class="tsx-btn" id="tsxGo" type="submit">열기</button>
+  <p class="tsx-msg" id="tsxMsg">처음 한 번만 넣으면 이 기기에서 기억합니다</p>
+ </form>
+</div>
 <script>
-'use strict';
-const $ = (id) => document.getElementById(id), QS = new URLSearchParams(location.search), BASE = 'models/wxtomo/';
-if (QS.has('embed')) document.body.classList.add('embed');
-const S = { data: null, res: null, t: 0, play: false, speed: 4, scen: QS.get('s') || 's1', step: 1, cfg: {}, t1: 90, busy: false };
-const f1 = (v, d = 1) => (v == null || !isFinite(v) ? '—' : v.toFixed(d)), sg = (v, d = 1) => (v == null || !isFinite(v) ? '—' : (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(d));
-const kst = (sec) => { const d = new Date(sec * 1000); return String(d.getUTCHours()).padStart(2, '0') + ':' + String(d.getUTCMinutes()).padStart(2, '0'); };
-let W3 = null;
-
-async function get(u, t) {
-  if (window.TSX && TSX.fetch && TSX.has && TSX.has(u)) { const rel = new URL(u, location.href).href.split('?')[0].slice(TSX.base.length), b = await TSX.fetch(rel); return t === 'text' ? new TextDecoder().decode(b) : JSON.parse(new TextDecoder().decode(b)); }
-  const r = await fetch(u, { cache: 'no-cache' }); if (!r.ok) throw new Error(u + ' ' + r.status); return t === 'text' ? r.text() : r.json();
-}
-function workerMain(e) {                       // Blob 워커 본문(계산 핵심 원문 뒤에 붙인다)
-  const m = e.data;
-  try { const r = self.WXCore.run(m.data, m.scen, m.cfg, { progress: (f, fr) => self.postMessage({ type: 'prog', f, t: fr.t }) }); self.postMessage({ type: 'done', r }); }
-  catch (err) { self.postMessage({ type: 'err', msg: String((err && err.stack) || err) }); }
-}
-let WK = null;
-async function worker() {
-  if (WK) return WK;
-  try { const src = await get('wxtomo_core.js', 'text'); WK = new Worker(URL.createObjectURL(new Blob([src + '\n;self.onmessage=' + workerMain.toString() + ';'], { type: 'text/javascript' }))); }
-  catch (e) { WK = null; }
-  return WK;
-}
-function cfgFromUI() {
-  return { sig_real: +$('cSr').value, sig_dense: +$('cSd').value, elcut: +$('cEl').value, method: $('cMeth').value, p_th: +$('cTh').value, watch: +$('cW1').value, warn: +$('cW2').value };
-}
-async function run() {
-  if (S.busy || !S.data) return; S.busy = true; S.play = false; $('playB').textContent = '▶';
-  $('runB').disabled = $('runB2').disabled = true; $('pTxt').textContent = '계산 중 — 관측 → 단층 영상 → 예보'; $('pbar').style.width = '2%';
-  const t0 = performance.now(), cfg = cfgFromUI(), wk = await worker();
-  const done = (r) => { S.busy = false; $('runB').disabled = $('runB2').disabled = false; S.res = r; S.t1 = r.frames[r.frames.length - 1].t; $('tR').max = S.t1;
-    $('pbar').style.width = '100%'; $('pTxt').textContent = `끝 — 판 ${r.frames.length}개(5분마다) · 조밀망 +10분 CSI ${f1(r.ver.dense[10].csi, 2)} · 실제만 ${f1(r.ver.real[10].csi, 2)}`;
-    $('pTm').textContent = ((performance.now() - t0) / 1000).toFixed(1) + ' s';
-    W3.setResult(r); S.t = 10; $('tR').value = 10; W3.setTime(10); panels(); verify(); S.play = true; $('playB').textContent = '⏸'; };
-  if (wk) {
-    wk.onmessage = (e) => { const m = e.data; if (m.type === 'prog') { $('pbar').style.width = Math.round(100 * m.f) + '%'; $('pTxt').textContent = `계산 중 — ${m.t}분 판`; }
-      else if (m.type === 'done') done(m.r); else if (m.type === 'err') { S.busy = false; $('pTxt').textContent = '오류: ' + m.msg.slice(0, 120); $('runB').disabled = $('runB2').disabled = false; } };
-    wk.postMessage({ data: S.data, scen: S.scen, cfg });
-  } else setTimeout(() => done(WXCore.run(S.data, S.scen, cfg)), 30);        // 워커를 못 만들면 화면 스레드에서(잠깐 멈춤)
-}
-
-// ── 작은 지도(±16 km) ──
-function miniMap(cv, grid, kind, vmax) {
-  const MG = WXCore.MG, n = MG.n, W = cv.width = cv.clientWidth * (devicePixelRatio || 1), g = cv.getContext('2d'); cv.height = W;
-  g.fillStyle = '#0b1528'; g.fillRect(0, 0, W, W); if (!grid) return;
-  const IN = 16, im = g.createImageData(33, 33);
-  for (let i = 0; i < 33; i++) for (let j = 0; j < 33; j++) { const v = grid[(i + 14) * n + (j + 14)];
-    let c; if (kind === 'p') { const t = Math.max(0, Math.min(1, v)); c = t < 0.12 ? [11, 21, 40] : [255, Math.round(210 - 130 * t), Math.round(70 - 20 * t)]; }
-    else { const a = Math.max(-1, Math.min(1, v / vmax)); c = a >= 0 ? [Math.round(20 + 200 * a), Math.round(40 + 215 * a), Math.round(70 + 185 * a)] : [Math.round(20 + 150 * -a), Math.round(30 + 60 * -a), 40]; }
-    const k = (i * 33 + j) * 4; im.data[k] = c[0]; im.data[k + 1] = c[1]; im.data[k + 2] = c[2]; im.data[k + 3] = 255; }
-  const tc = document.createElement('canvas'); tc.width = tc.height = 33; tc.getContext('2d').putImageData(im, 0, 0);
-  g.imageSmoothingEnabled = true; g.drawImage(tc, 0, 0, W, W);
-  const px = (x) => (x + IN) / (2 * IN) * W, py = (y) => (IN - y) / (2 * IN) * W;
-  g.strokeStyle = 'rgba(232,241,255,.45)'; g.lineWidth = 1;
-  for (const u of S.data.admin) for (const r of u.rings) { g.beginPath(); r.forEach((p, k) => (k ? g.lineTo(px(p[0]), py(p[1])) : g.moveTo(px(p[0]), py(p[1])))); g.closePath(); g.stroke(); }
-}
-function chartSWD(cv, f) {
-  const W = cv.width = cv.clientWidth * (devicePixelRatio || 1), Hh = cv.height = cv.clientHeight * (devicePixelRatio || 1), g = cv.getContext('2d'), d = devicePixelRatio || 1;
-  g.fillStyle = '#0b1528'; g.fillRect(0, 0, W, Hh);
-  const si = S.res.st.findIndex((s) => s.id === 'SEJN'), rs = f.rays.filter((r) => r.s === si), z = f.zwd.find((q) => q.id === 'SEJN');
-  if (!rs.length || !z) return;
-  const L = 40 * d, R = W - 10 * d, Tp = 10 * d, B = Hh - 24 * d, x = (el) => L + (el - 10) / 80 * (R - L), ymax = Math.max(...rs.map((r) => r.swd)) * 1.1, y = (v) => B - v / ymax * (B - Tp);
-  g.strokeStyle = '#1f3150'; g.fillStyle = '#8ea3c0'; g.font = `${10 * d}px sans-serif`;
-  for (const e of [15, 30, 45, 60, 75, 90]) { g.beginPath(); g.moveTo(x(e), Tp); g.lineTo(x(e), B); g.stroke(); g.fillText(e + '°', x(e) - 8 * d, Hh - 8 * d); }
-  for (let v = 0; v <= ymax; v += 200) { g.beginPath(); g.moveTo(L, y(v)); g.lineTo(R, y(v)); g.stroke(); g.fillText(v, 4 * d, y(v) + 3 * d); }
-  g.strokeStyle = '#f0b44c'; g.lineWidth = 2 * d; g.beginPath();
-  for (let e = 12; e <= 90; e += 1) { const v = WXCore.mfWet(e * Math.PI / 180) * z.est; e === 12 ? g.moveTo(x(e), y(v)) : g.lineTo(x(e), y(v)); } g.stroke();
-  for (const r of rs) { g.fillStyle = '#5fe3ff'; g.beginPath(); g.arc(x(r.el * 180 / Math.PI), y(r.swd), 3.2 * d, 0, 6.283); g.fill(); }
-}
-function chartRec(cv) {
-  const W = cv.width = cv.clientWidth * (devicePixelRatio || 1), Hh = cv.height = cv.clientHeight * (devicePixelRatio || 1), g = cv.getContext('2d'), d = devicePixelRatio || 1;
-  g.fillStyle = '#0b1528'; g.fillRect(0, 0, W, Hh); const R = S.res.rec, n = R.dense_all.length, ym = Math.max(2.5, ...R.real_all) * 1.1;
-  const L = 34 * d, Rt = W - 8 * d, Tp = 8 * d, B = Hh - 20 * d, x = (i) => L + i / Math.max(1, n - 1) * (Rt - L), y = (v) => B - v / ym * (B - Tp);
-  g.strokeStyle = '#1f3150'; g.fillStyle = '#8ea3c0'; g.font = `${10 * d}px sans-serif`;
-  for (let v = 0; v <= ym; v += 0.5) { g.beginPath(); g.moveTo(L, y(v)); g.lineTo(Rt, y(v)); g.stroke(); g.fillText(v.toFixed(1), 4 * d, y(v) + 3 * d); }
-  for (const [k, c] of [['real_all', '#f0b44c'], ['dense_all', '#37e8cf']]) { g.strokeStyle = c; g.lineWidth = 2 * d; g.beginPath(); R[k].forEach((v, i) => (i ? g.lineTo(x(i), y(v)) : g.moveTo(x(i), y(v)))); g.stroke(); }
-  g.fillText('분 →', Rt - 30 * d, Hh - 6 * d);
-}
-
-function frameNow() { const F = S.res.frames; let f = F[0]; for (const x of F) if (x.t <= S.t + 1e-6) f = x; return f; }
-function panels() {
-  if (!S.res) return; const f = frameNow(), r = S.res, b = $('stepBody'), net = $('netSeg').querySelector('.on').dataset.k, L = +$('leadSeg').querySelector('.on').dataset.k;
-  $('cScen').innerHTML = '시나리오 <b>' + r.scen.name + '</b>'; $('cTime').innerHTML = '시각 <b>' + kst(f.t_kst) + ' KST</b>';
-  const nr = r.st.filter((s) => s.real).length, nd = r.st.length - nr; $('cNet').innerHTML = `관측망 <b>실제 ${nr} + 가정 ${nd}</b>`;
-  const lvCnt = f.units ? f.units.filter((u) => u.lv).length : 0, rainCnt = f.units ? f.units.filter((u) => u.rain >= 1).length : 0;
-  $('status').innerHTML = `${kst(f.t_kst)} KST · 지금 비 <b>${rainCnt}</b>곳 · 30분 안 경보·주의 <b>${lvCnt}</b>곳 · 이동 ${f1(Math.hypot(...f[net].v) * 60 / 3.6, 1)} m/s · 관측 ${f.nobs.dense.toLocaleString()}(실제만 ${f.nobs.real}) · 단층 영상 반복 ${f.dense.it}`;
-  const s = S.step; let h = '';
-  if (s === 1) {
-    h = `<h2>1 관측망 <small>실제 위성기준점 + 가정 조밀망</small><span class="tag live">실제 계산</span></h2>
-    <p class="note">국토지리정보원 <b>위성기준점</b>은 이 30 km 네모 안에 SEJN(세종)·DAEJ(대전)·CNJU(청주)·OKCH·CNAN 정도뿐입니다. 대류 세포는 가로 2~4 km 라 이 간격으로는 보이지 않습니다. 그래서 이동통신 기지국·아파트 옥상에 측지급 GNSS 를 단 <b>조밀망(가정)</b>을 더했습니다.</p>
-    <table><tr><th>점</th><th>종류</th><th>동 km</th><th>북 km</th><th>높이 m</th></tr>${r.st.filter((q) => q.real).map((q) => `<tr><td class="n">${q.id}</td><td>위성기준점</td><td>${f1(q.x)}</td><td>${f1(q.y)}</td><td>${f1(q.z * 1000, 0)}</td></tr>`).join('')}
-    <tr><td class="n">T···</td><td>기지국 GNSS <span class="tag as">가정</span></td><td colspan="3">${r.st.filter((q) => q.kind === 'tower').length}곳 · 2.3 km 간격</td></tr>
-    <tr><td class="n">R···</td><td>옥상 GNSS <span class="tag as">가정</span></td><td colspan="3">${r.st.filter((q) => q.kind === 'roof').length}곳 · 도시(동) 1.3 km 간격</td></tr></table>
-    <p class="note">GPS 위성 자리는 IGS 최종궤도(2025-07-09)이고, 고도 ${r.cfg.elcut}° 위 위성만 씁니다. 5분마다 세 때(−4·−2·0분) 관측을 모아 한 판을 풉니다 — 이번 판 관측 <b>${f.nobs.dense.toLocaleString()}</b>개(실제 기준점만 ${f.nobs.real}개).</p>`;
-  } else if (s === 2) {
-    h = `<h2>2 경사 습윤 지연 <small>신호가 수증기를 지나며 늦어진 길이</small><span class="tag live">실제 계산</span></h2>
-    <div class="eq">N_wet = k₂′·e/T + k₃·e/T²     SWD = 10⁻⁶ ∫ N_wet ds  (국 → 위성)</div>
-    <p class="note">아래는 SEJN 에서 본 위성마다의 경사 지연(점)과, 3단계에서 맞춘 천정 지연에 사상함수를 곱한 곡선입니다. 점이 곡선에서 벗어나는 만큼이 <b>방향마다 다른 수증기</b> — 단층 영상이 쓰는 정보입니다.</p>
-    <canvas class="plot" id="swdC"></canvas><div class="leg"><span><i style="background:#5fe3ff"></i>관측 SWD(잡음 포함)</span><span><i style="background:#f0b44c"></i>m_w(E)·ZWD</span><span>가로 = 고도각</span></div>`;
-  } else if (s === 3) {
-    h = `<h2>3 천정 지연 <small>VLBI·GNSS 해석과 같은 식</small><span class="tag live">실제 계산</span></h2>
-    <div class="eq">SWD = m_w(E)·ZWD + m_g(E)·(G_N cos A + G_E sin A)   → 국마다 가중 최소제곱</div>
-    <table><tr><th>국</th><th>ZWD 추정 mm</th><th>σ</th><th>참값</th><th>차</th><th>경도 북·동 mm</th><th>관측</th></tr>
-    ${f.zwd.map((z) => `<tr><td class="n">${z.id}</td><td>${f1(z.est)}</td><td>${f1(z.s, 1)}</td><td>${f1(z.truth)}</td><td class="${Math.abs(z.est - z.truth) < 5 ? 'good' : 'warn'}">${sg(z.est - z.truth)}</td><td>${sg(z.gn, 2)} · ${sg(z.ge, 2)}</td><td>${z.n}</td></tr>`).join('')}</table>
-    <p class="note">VLBI 가 세종에서 늘 하는 바로 그 추정입니다. 한 국의 천정 지연은 머리 위 평균일 뿐이라, 세포가 한쪽에만 있으면 경도로 조금 보일 뿐 자리는 모릅니다 — 그래서 여러 국의 광선을 엮는 단층 영상이 필요합니다(이 판 국별 ZWD rms ${f1(r.zwd.rms, 1)} mm).</p>`;
-  } else if (s === 4) {
-    h = `<h2>4 수증기 단층 영상 <small>광선 ${f.nobs.dense.toLocaleString()}개 → 복셀 ${WXCore.VX.n.toLocaleString()}개</small><span class="tag live">실제 계산</span></h2>
-    <div class="eq">y′ = A·δ + v  (A_ij = 광선이 복셀을 지난 길 km)
-최소 Σ w(Aδ − y′)² + λh‖Lh δ‖² + λv‖Lv δ‖² + λ₀‖δ‖²  → ${r.cfg.method === 'art' ? 'ART' : '켤레기울기 ' + f.dense.it + '회'}</div>
-    <div class="maps"><figure><canvas id="m1"></canvas><figcaption>참값</figcaption></figure><figure><canvas id="m2"></canvas><figcaption>조밀망 복원</figcaption></figure><figure><canvas id="m3"></canvas><figcaption>실제 기준점만</figcaption></figure></div>
-    <p class="note">PWV 이상(큰 규모를 뺀 값, ±6 mm). 이 판 rms — 조밀망 <b>${f1(r.rec.dense_all[r.frames.indexOf(f)], 2)}</b> mm · 실제만 <b>${f1(r.rec.real_all[r.frames.indexOf(f)], 2)}</b> mm. 실제 기준점만으로는 세포가 번져 사라집니다.</p>`;
-  } else if (s === 5) {
-    const v = f[net].v;
-    h = `<h2>5 이동·예보 <small>${net === 'dense' ? '조밀망' : '실제만'}</small><span class="tag live">실제 계산</span></h2>
-    <div class="eq">이동  ∂P/∂t + v·∇P = 0  → v = (${sg(v[0], 2)}, ${sg(v[1], 2)}) km/분 · ${f1(Math.hypot(...v) * 60 / 3.6, 1)} m/s  (참 바람 ${sg(r.scen.wind[0], 2)}, ${sg(r.scen.wind[1], 2)})
-예보  P̂(t+τ) = 옮김[P + (dP/dt)·min(τ,14), v·τ] → p = σ((P̂ − ${r.cfg.p_th} mm)/${r.cfg.p_s})</div>
-    <div class="maps"><figure><canvas id="m1"></canvas><figcaption>+10분</figcaption></figure><figure><canvas id="m2"></canvas><figcaption>+20분</figcaption></figure><figure><canvas id="m3"></canvas><figcaption>+30분</figcaption></figure></div>
-    <p class="note">주황이 짙을수록 비가 올 가능성이 큽니다. 소나기 30~60분 앞에 가강수량이 5~10 mm 늘어나는 성질을 씁니다.</p>`;
-  } else if (s === 6) {
-    const U = f.units || [];
-    h = `<h2>6 읍면동 경보 <small>${kst(f.t_kst)} KST 발표</small><span class="tag live">실제 계산</span></h2>
-    <table><tr><th>읍면동</th><th>지금 비</th><th>+10</th><th>+20</th><th>+30</th><th>수준</th></tr>
-    ${U.map((u) => ({ u, m: Math.max(u.p[10], u.p[20], u.p[30]) })).sort((a, b) => b.m - a.m).slice(0, 14).map(({ u }) => `<tr><td class="n">${u.name}</td><td>${u.rain >= 1 ? f1(u.rain, 0) + ' mm/h' : '—'}</td>${[10, 20, 30].map((k) => `<td><span class="pb"><i style="width:${Math.round(100 * u.p[k])}%"></i></span></td>`).join('')}<td><span class="lv lv${u.lv}">${['없음', '주의', '경보'][u.lv]}</span></td></tr>`).join('')}</table>
-    ${f.pois && f.pois.length ? `<h3>지점 알림 <small class="note">30분 안 최대 확률 · 참 누적 비</small></h3><table><tr><th>지점</th><th>확률</th><th>언제</th><th>참 30분 누적</th><th>알림</th></tr>${f.pois.map((q) => `<tr><td class="n">${q.name}${q.real ? '' : ' <span class="tag as">가정</span>'}</td><td>${f1(q.p, 2)}</td><td>${q.when ? '+' + q.when + '분' : '—'}</td><td>${f1(q.acc30, 1)} mm</td><td><span class="lv lv${q.lv}">${['—', '주의', '통제 권고'][q.lv]}</span></td></tr>`).join('')}</table>
-    <p class="note">'통제 권고'는 지하차도 진입 차단·둔치 산책로 대피 안내를 30분 앞서 내보내는 수준입니다(모의).</p>` : ''}`;
-  }
-  b.innerHTML = h;
-  if (s === 2) chartSWD($('swdC'), f);
-  if (s === 4) { miniMap($('m1'), f.truthAn, 'an', 6); miniMap($('m2'), f.dense.an, 'an', 6); miniMap($('m3'), f.real.an, 'an', 6); }
-  if (s === 5 && f[net].p) { miniMap($('m1'), f[net].p[10], 'p'); miniMap($('m2'), f[net].p[20], 'p'); miniMap($('m3'), f[net].p[30], 'p'); }
-}
-function verify() {
-  const r = S.res, V = r.ver, row = (k) => [10, 20, 30].map((L) => `<td class="${V[k][L].csi >= 0.5 ? 'good' : V[k][L].csi >= 0.25 ? 'warn' : 'bad'}">${f1(V[k][L].csi, 2)}</td><td>${f1(V[k][L].pod, 2)}</td><td>${f1(V[k][L].far, 2)}</td>`).join('');
-  $('verBody').innerHTML = `<h2>예보 적중 <small>${r.scen.name} · 읍면동 24곳 × 5분마다</small></h2>
-  <table><tr><th></th><th colspan="3">+10분</th><th colspan="3">+20분</th><th colspan="3">+30분</th></tr><tr><th>관측망</th>${'<th>CSI</th><th>POD</th><th>FAR</th>'.repeat(3)}</tr>
-  <tr><td class="n">조밀망 + 실제</td>${row('dense')}</tr><tr><td class="n">실제 기준점만</td>${row('real')}</tr></table>
-  <p class="note">CSI = 맞힘/(맞힘+놓침+헛경보) · POD 맞힌 비율 · FAR 헛경보 비율. '비' = 시간당 1 mm 넘음, '예보' = 주의(확률 ${r.cfg.watch}) 넘음.</p>
-  <h2>단층 영상 복원 <small>PWV 이상 rms(안쪽 ±15 km)</small></h2>
-  <div class="kv"><span>조밀망 + 실제</span><b class="good">${f1(r.rec.dense, 2)} mm</b><span>실제 기준점만</span><b class="warn">${f1(r.rec.real, 2)} mm</b><span>국별 ZWD(실제 5곳)</span><b>${f1(r.zwd.rms, 2)} mm rms</b></div>
-  <canvas class="plot" id="recC"></canvas><div class="leg"><span><i style="background:#37e8cf"></i>조밀망</span><span><i style="background:#f0b44c"></i>실제만</span><span>세로 = 복원 rms mm · 가로 = 판(5분)</span></div>
-  <p class="note">비 문턱은 시나리오 1 에서만 맞추었습니다. 검산 스크립트 <code>models/wxtomo/wxtomo_check.js</code>(Node)로 세 시나리오를 다시 돌릴 수 있습니다.</p>`;
-  chartRec($('recC'));
-}
-
-// ── 묶기 ──
-function seg(id, fn) { $(id).addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; $(id).querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); fn(b.dataset.k); }); }
-document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => { document.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('on', x === b)); document.querySelectorAll('.pane').forEach((p) => p.classList.toggle('on', p.id === b.dataset.p)); if (b.dataset.p === 'pVer' && S.res) verify(); }));
-$('stepBtns').addEventListener('click', (e) => { const b = e.target.closest('button'); if (!b) return; S.step = +b.dataset.s; $('stepBtns').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); panels(); });
-document.querySelectorAll('[data-v]').forEach((b) => b.addEventListener('click', () => { document.querySelectorAll('[data-v]').forEach((x) => x.classList.toggle('on', x === b)); W3.view(b.dataset.v); }));
-document.querySelectorAll('[data-l]').forEach((b) => b.addEventListener('click', () => { b.classList.toggle('on'); W3.layers({ [b.dataset.l]: b.classList.contains('on') }); }));
-$('vapSel').addEventListener('change', () => W3.layers({ vap: $('vapSel').value }));
-$('ovSel').addEventListener('change', () => { const v = $('ovSel').value; W3.layers({ alert: v !== 'off' }); if (v !== 'off') W3.overlay({ mode: v }); });
-seg('leadSeg', (k) => { W3.overlay({ lead: +k }); panels(); });
-seg('netSeg', (k) => { W3.overlay({ net: k }); panels(); });
-seg('spdSeg', (k) => { S.speed = +k; });
-$('playB').addEventListener('click', () => { S.play = !S.play; $('playB').textContent = S.play ? '⏸' : '▶'; });
-$('tR').addEventListener('input', () => { S.t = +$('tR').value; W3.setTime(S.t); panels(); });
-for (const id of ['runB', 'runB2']) $(id).addEventListener('click', () => { S.scen = $(id === 'runB' ? 'scSel' : 'scSel2').value; $('scSel').value = $('scSel2').value = S.scen; run(); });
-for (const id of ['scSel', 'scSel2']) $(id).addEventListener('change', () => { S.scen = $(id).value; $('scSel').value = $('scSel2').value = S.scen; run(); if (S.scen === 's3') W3.view('river'); else W3.view('all'); });
-$('resetB').addEventListener('click', () => { $('cSr').value = 3; $('cSd').value = 5; $('cEl').value = 15; $('cMeth').value = 'cg'; $('cTh').value = 3.8; $('cW1').value = 0.3; $('cW2').value = 0.6; });
-
-let lastT = performance.now(), lastPanel = 0;
-function tick(ts) {
-  requestAnimationFrame(tick);
-  const dt = Math.min(0.2, (ts - lastT) / 1000); lastT = ts;
-  if (S.play && S.res) { S.t += dt * S.speed; if (S.t > S.t1) S.t = 10; $('tR').value = S.t; W3.setTime(S.t); }
-  if (S.res) { const f = frameNow(); $('tB').textContent = kst(S.res.scen.t0_utc_s + 9 * 3600 + S.t * 60) + ' KST'; if (f.t !== lastPanel) { lastPanel = f.t; panels(); } }
-}
-
-(async function boot() {
-  try {
-    const [meta, dem, admin, sta, sats, bld] = await Promise.all(['wx_meta', 'wx_dem', 'wx_admin', 'wx_sta', 'wx_sats', 'wx_bld'].map((n) => get(BASE + n + '.json').catch(() => null)));
-    S.data = { meta, dem, admin, sta, sats, bld };
-    const sc = WXCore.scenarios(WXCore.geo(meta)); for (const id of ['scSel', 'scSel2']) $(id).innerHTML = sc.map((s) => `<option value="${s.id}">${s.name}</option>`).join('');
-    $('scSel').value = $('scSel2').value = S.scen;
-    $('srcList').innerHTML = Object.entries(meta.src).map(([k, v]) => `<li>${v}</li>`).join('') + '<li>계산 방법: Bevis(1992·1994) · Niell(1996) · Chen & Herring(1997) · GNSS 단층 영상(Flores 2000 등) · 루카스–카나데(1981)</li>';
-    W3 = WX3D.create($('cv'), { light: QS.has('light') });
-    $('status').textContent = '지형·영상·자산 불러오는 중…';
-    await W3.load({ meta, dem, admin, sta, bld }, BASE);
-    $('status').textContent = '계산 중…';
-    requestAnimationFrame(tick); run();
-    if (S.scen === 's3') W3.view('river');
-  } catch (e) { $('status').textContent = '불러오기 오류: ' + e; console.error(e); }
+(function(){
+ /* 잠금 껍데기(miniapp_lock.py) — 전역은 window.TSX 하나만. document.open 뒤에도 남는 최상위 let/const 를 만들지 않는다 */
+ var REL="ts/wxtomo.html", ROOT="../", B="p10062032", TG=false, OWN=["antenna3d.html", "globe.html", "index.html", "ts/antenna3d.html", "ts/antmodel.js", "ts/beam3d.js", "ts/cmd3d.js", "ts/flow3d.js", "ts/fx3d.js", "ts/game3d.js", "ts/jamsim.html", "ts/jamsim.js", "ts/jamsim_core.js", "ts/localtie.html", "ts/localtie3d.js", "ts/models/flow/flow_assets.glb", "ts/models/flow/flow_earth.jpg", "ts/models/jamsim/jamsim_assets.glb", "ts/models/jamsim/jamsim_data.json", "ts/models/jamsim/jamsim_dem.bin", "ts/models/jamsim/jamsim_map.jpg", "ts/models/jamsim/jamsim_map_1k.jpg", "ts/models/localtie.json", "ts/models/localtie/localtie_assets.glb", "ts/models/localtie_pub.json", "ts/models/radiocam/radiocam_check.txt", "ts/models/radiocam/radiocam_scenes.json", "ts/models/radiocam/rc_device.glb", "ts/models/radiocam/rc_home.glb", "ts/models/radiocam/rc_hotel.glb", "ts/models/radiocam/rc_office.glb", "ts/models/radiocam/rc_toilet.glb", "ts/models/sejong22m.glb", "ts/models/sejong22m_m.glb", "ts/models/site_twin.glb", "ts/models/terrain/horizon.json", "ts/models/terrain/site_dem.json", "ts/models/terrain/site_ortho.jpg", "ts/models/terrain/site_ortho_1k.jpg", "ts/models/terrain/site_ortho_4k.jpg", "ts/models/terrain/site_ortho_core.jpg", "ts/models/vlbisim/realdata.json", "ts/models/vlbisim/vlbisim_assets.glb", "ts/models/vlbisim/vlbisim_data.json", "ts/models/wxtomo/wx_admin.json", "ts/models/wxtomo/wx_bld.json", "ts/models/wxtomo/wx_dem.json", "ts/models/wxtomo/wx_img_in.jpg", "ts/models/wxtomo/wx_img_in_1k.jpg", "ts/models/wxtomo/wx_img_out.jpg", "ts/models/wxtomo/wx_meta.json", "ts/models/wxtomo/wx_sats.json", "ts/models/wxtomo/wx_sta.json", "ts/models/wxtomo/wxtomo_assets.glb", "ts/radiocam.html", "ts/radiocam.js", "ts/radiocam_core.js", "ts/radiocam_worker.js", "ts/sejong22m.js", "ts/sky3d.js", "ts/vlbisim.html", "ts/vlbisim3d.js", "ts/vlbisim_core.js", "ts/vlbisim_worker.js", "ts/wxtomo.html", "ts/wxtomo3d.js", "ts/wxtomo_core.js"], LSK="tsx_k1";
+ var C=window.crypto&&window.crypto.subtle;
+ var base=new URL(ROOT,location.href).href, LOCK=null;
+ function $(i){return document.getElementById(i);}
+ function b64(buf){var s='',a=new Uint8Array(buf);for(var i=0;i<a.length;i++)s+=String.fromCharCode(a[i]);return btoa(s);}
+ function unb64(s){var t=atob(s),a=new Uint8Array(t.length);for(var i=0;i<t.length;i++)a[i]=t.charCodeAt(i);return a;}
+ function get(rel,json){return fetch(base+rel+'?b='+B,{cache:'no-cache'}).then(function(r){
+   if(!r.ok)throw new Error(rel+' HTTP '+r.status);return json?r.json():r.arrayBuffer();});}
+ function dec(key,buf){var a=new Uint8Array(buf);return C.decrypt({name:'AES-GCM',iv:a.slice(0,12)},key,a.slice(12));}
+ function imp(raw){return C.importKey('raw',raw,{name:'AES-GCM'},false,['decrypt']);}
+ function tryKey(s){if(!s)return Promise.resolve(null);var raw;try{raw=unb64(s);}catch(e){return Promise.resolve(null);}
+   return imp(raw).then(function(k){return dec(k,unb64(LOCK.check)).then(function(p){
+     return new TextDecoder().decode(p)==='threestar'?k:null;});}).catch(function(){return null;});}
+ function lsGet(){try{return localStorage.getItem(LSK);}catch(e){return null;}}
+ function lsSet(v){try{localStorage.setItem(LSK,v);}catch(e){}}
+ function lsDel(){try{localStorage.removeItem(LSK);}catch(e){}}
+ function tgw(){try{var w=window.Telegram&&window.Telegram.WebApp;
+   return w&&w.CloudStorage&&w.isVersionAtLeast&&w.isVersionAtLeast('6.9')?w:null;}catch(e){return null;}}
+ function loadTG(){return new Promise(function(ok){if(window.Telegram&&window.Telegram.WebApp)return ok();
+   var s=document.createElement('script');s.src='https://telegram.org/js/telegram-web-app.js';s.async=true;
+   s.onload=s.onerror=function(){ok();};document.head.appendChild(s);setTimeout(ok,3000);});}
+ function cloudGet(){return new Promise(function(ok){var w=tgw(),done=false;if(!w)return ok(null);
+   try{w.CloudStorage.getItem(LSK,function(e,v){if(!done){done=true;ok(e?null:(v||null));}});}catch(e){return ok(null);}
+   setTimeout(function(){if(!done){done=true;ok(null);}},2500);});}
+ function cloudSet(v){return new Promise(function(ok){var w=tgw();if(!w)return ok();
+   try{w.CloudStorage.setItem(LSK,v,function(){ok();});}catch(e){return ok();}setTimeout(ok,2500);});}
+ function relOf(u){var h=new URL(String(u),location.href).href.split('#')[0].split('?')[0];
+   return h.indexOf(base)===0?h.slice(base.length):null;}
+ function show(key){
+   var T={key:key,base:base,build:B,
+     has:function(u){var r=relOf(u);return !!r&&OWN.indexOf(r)>=0;},
+     fetch:function(rel){return get('x/'+rel+'.bin').then(function(b){return dec(key,b);});},
+     text:function(rel){return T.fetch(rel).then(function(b){return new TextDecoder().decode(b);});},
+     js:function(u){var rel=relOf(u)||String(u);return T.text(rel).then(function(code){
+       var s=document.createElement('script');s.textContent=code+'\n//# sourceURL='+base+rel;document.head.appendChild(s);});},
+     glb:function(u){var rel=relOf(u);if(!rel||OWN.indexOf(rel)<0){var n=String(u).split('#')[0].split('?')[0].split('/').pop();
+       rel=null;for(var i=0;i<OWN.length;i++){if(OWN[i].split('/').pop()===n){rel=OWN[i];break;}}}
+       return rel?T.fetch(rel):Promise.reject(new Error('잠긴 모형 없음: '+u));}};
+   window.TSX=T;
+   return T.text(REL).then(function(html){document.open();document.write(html);document.close();});}
+ function ask(msg,err){$('tsxLock').hidden=false;var m=$('tsxMsg');if(msg)m.textContent=msg;m.className='tsx-msg'+(err?' err':'');
+   setTimeout(function(){try{$('tsxPw').focus();}catch(e){}},60);}
+ function derive(pw){return C.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveBits']).then(function(k){
+   return C.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:unb64(LOCK.salt),iterations:LOCK.iter},k,256);});}
+ $('tsxForm').addEventListener('submit',function(e){e.preventDefault();var pw=$('tsxPw').value;if(!pw||!LOCK)return;
+   var btn=$('tsxGo');btn.disabled=true;ask('확인 중…');
+   derive(pw).then(function(raw){var s=b64(raw);return tryKey(s).then(function(k){
+     if(!k){btn.disabled=false;$('tsxPw').value='';ask('암호가 맞지 않습니다',true);return;}
+     lsSet(s);return cloudSet(s).then(function(){return show(k);});});})
+   .catch(function(x){btn.disabled=false;ask('열지 못했습니다 — '+((x&&x.message)||x),true);});});
+ function start(){
+   if(!C){ask('이 브라우저에서는 잠금을 풀 수 없습니다(https 필요)',true);return;}
+   get('lock.json',true).then(function(j){LOCK=j;
+     return tryKey(lsGet()).then(function(k){if(k)return show(k);
+       lsDel();if(!TG){ask();return;}
+       return loadTG().then(cloudGet).then(function(s){return tryKey(s).then(function(k2){
+         if(k2){lsSet(s);return show(k2);}ask();});});});})
+   .catch(function(x){ask('불러오지 못했습니다 — '+((x&&x.message)||x),true);});}
+ start();
 })();
 </script>
-</body>
-</html>
+</body></html>

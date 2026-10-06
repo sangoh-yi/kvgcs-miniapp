@@ -1,271 +1,103 @@
 <!doctype html>
-<html lang="ko">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="robots" content="noindex">
-<title>ThreeStar 연결측량</title>
-<!-- 연결측량 디지털 트윈 + 토탈스테이션·타겟 관측 모의(2026-10-05). 3D·모의는 localtie3d.js, 자료는 models/localtie.json(공개판 localtie_pub.json) -->
+<html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<meta name="referrer" content="no-referrer">
+<title>ThreeStar</title>
 <style>
-:root{--bg:#0a1120;--panel:#0f1a2c;--panel2:#13223a;--line:#1f3150;--tx:#dbe7f5;--dim:#8ea3c0;--ac:#37e8cf;--warn:#f0b44c;--bad:#ff6b8a;
-  --vlbi:#ffcf5a;--gnss:#4fe3c1;--pil:#7cb8ff;--mono:ui-monospace,"Cascadia Mono",Consolas,monospace}
-*{box-sizing:border-box}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:13px/1.5 "Noto Sans KR","Malgun Gothic",system-ui,sans-serif}
-header{display:flex;align-items:center;gap:12px;height:50px;padding:0 14px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#0f1b30,#0b1424)}
-.rank{display:inline-flex;gap:2px;padding:3px 6px;border:1px solid #c9a13c;border-radius:4px;color:#f2c94c;font-size:12px;letter-spacing:1px}
-.brand{font-weight:800;font-size:15px}.brand span{color:var(--warn)}
-h1{font-size:14px;font-weight:700;margin:0 0 0 4px;white-space:nowrap}
-.chips{display:flex;gap:6px;flex-wrap:wrap;overflow:hidden;max-height:26px}
-.chip{padding:2px 8px;border:1px solid var(--line);border-radius:999px;color:var(--dim);font-size:11.5px;white-space:nowrap}
-.chip b{color:var(--tx);font-family:var(--mono);font-weight:600}
-.back{margin-left:auto;color:var(--tx);text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:5px 10px;font-size:12px;white-space:nowrap}
-.back:hover{border-color:var(--ac)}
-main{display:grid;grid-template-columns:minmax(0,1fr) 430px;height:calc(100% - 50px)}
-.view{position:relative;display:flex;flex-direction:column;min-width:0;min-height:0}
-#cv{flex:1 1 auto;width:100%;min-height:0;display:block;cursor:grab;touch-action:none;background:radial-gradient(120% 90% at 50% 10%,#17284a 0%,#0b1426 55%,#070c16 100%)}
-#cv:active{cursor:grabbing}
-.vbar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:6px 10px;border-top:1px solid var(--line);background:var(--panel)}
-.vbar button,.seg button{background:var(--panel2);color:var(--tx);border:1px solid var(--line);border-radius:7px;padding:4px 9px;font:inherit;font-size:12px;cursor:pointer}
-.vbar button.on,.seg button.on{border-color:var(--ac);color:var(--ac)}
-.vbar .sep{width:1px;height:18px;background:var(--line);margin:0 2px}
-.status{padding:5px 10px;border-top:1px solid var(--line);background:#0b1528;color:var(--dim);font-size:12px;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:27px}
-.status b{color:var(--ac);font-weight:600}
-aside{border-left:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
-.tabs{display:flex;border-bottom:1px solid var(--line)}
-.tabs button{flex:1;background:none;border:0;border-bottom:2px solid transparent;color:var(--dim);font:inherit;font-weight:700;padding:10px 0;cursor:pointer}
-.tabs button.on{color:var(--tx);border-bottom-color:var(--ac)}
-.pane{flex:1 1 auto;overflow:auto;padding:12px 14px 18px;display:none}
-.pane.on{display:block}
-h2{font-size:12.5px;margin:14px 0 6px;color:var(--tx);display:flex;align-items:baseline;gap:6px}
-h2:first-child{margin-top:2px}
-h2 small{color:var(--dim);font-weight:400;font-size:11px}
-table{width:100%;border-collapse:collapse;font-size:11.5px}
-th{color:var(--dim);font-weight:600;font-size:10.5px;text-align:right;padding:3px 4px;border-bottom:1px solid var(--line);white-space:nowrap}
-th:first-child,td:first-child{text-align:left}
-td{padding:3px 4px;border-bottom:1px solid rgba(31,49,80,.55);text-align:right;font-family:var(--mono);white-space:nowrap}
-td.n{font-family:inherit;font-weight:700}
-tr.pt{cursor:pointer}tr.pt:hover td{background:rgba(55,232,207,.07)}
-tr.pt.sel td{background:rgba(255,226,138,.10)}
-.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:0}
-.note{color:var(--dim);font-size:11.5px;line-height:1.55;margin:6px 0}
-.box{border:1px solid var(--line);border-radius:9px;padding:9px 10px;background:var(--panel2);margin:8px 0}
-.lock{border:1px dashed #3a4f73;border-radius:9px;padding:10px;color:var(--dim);font-size:12px;margin:8px 0}
-.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:12px}
-.kv span{color:var(--dim)}.kv b{font-family:var(--mono);font-weight:600;text-align:right}
-.ctl{display:grid;grid-template-columns:118px 1fr;gap:7px 10px;align-items:center;font-size:12px}
-.ctl label{color:var(--dim)}
-select,input[type=number]{background:#0b1528;color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font:inherit;font-size:12px;width:100%}
-.stations{display:flex;gap:5px;flex-wrap:wrap}
-.stations label{display:inline-flex;align-items:center;gap:3px;border:1px solid var(--line);border-radius:6px;padding:2px 6px;color:var(--tx);cursor:pointer}
-.custom{display:none;grid-column:1/-1;grid-template-columns:repeat(3,1fr);gap:6px}
-.custom.on{display:grid}
-.custom div{font-size:11px;color:var(--dim)}
-.go{display:flex;gap:6px;margin:10px 0 6px}
-.go button{flex:1;padding:8px 0;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--tx);font:inherit;font-weight:700;cursor:pointer}
-.go button.pri{border-color:var(--ac);background:rgba(55,232,207,.12);color:var(--ac)}
-.go button:disabled{opacity:.45;cursor:default}
-.bar{height:6px;border-radius:4px;background:#0b1528;border:1px solid var(--line);overflow:hidden}
-.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--ac),#5fb8ff)}
-.cnt{display:flex;justify-content:space-between;color:var(--dim);font-size:11.5px;margin-top:4px;font-family:var(--mono)}
-.good{color:var(--ac)}.warn{color:var(--warn)}.bad{color:var(--bad)}
-ol{margin:4px 0 0 18px;padding:0}ol li{margin:4px 0;color:var(--tx)}ol li span{color:var(--dim)}
-body.embed header .back{display:none}
-@media (max-width:900px){
-  main{grid-template-columns:1fr;grid-template-rows:56vh auto;height:auto}
-  aside{border-left:0;border-top:1px solid var(--line)}
-  .pane{overflow:visible}
-  h1{display:none}
-}
-</style>
-</head>
-<body>
-<header>
-  <span class="rank">★★★</span><b class="brand">Three<span>Star</span></b>
-  <h1>연결측량 디지털 트윈</h1>
-  <div class="chips" id="chips"></div>
-  <a class="back" href="/" id="back">← 운용 화면</a>
-</header>
-<main>
-  <section class="view">
-    <canvas id="cv"></canvas>
-    <div class="vbar">
-      <button data-v="all" class="on">전체</button><button data-v="ant">안테나</button><button data-v="ivp">IVP</button>
-      <span class="sep"></span>
-      <button data-t="vectors" class="on" title="IVP → 점 연결 벡터">벡터</button>
-      <button data-t="sigma" title="점의 σ(절대, mm) 타원체 — 300 배 확대">σ ×300</button>
-      <button data-t="points" class="on" title="모의 관측으로 얻은 타겟 점">관측점</button>
-      <button data-t="fit" class="on" title="맞춘 원 · 방위축(청록) · 고도축(호박)">원·축</button>
-      <button data-t="mag" class="on" title="IVP 추정 − 성과 화살표와 몬테카를로 σ 타원체 — 500 배 확대">차 ×500</button>
-      <button id="bXray" title="안테나를 반투명하게 — 구조물 속 IVP·축을 본다">투시</button>
-    </div>
-    <div class="status" id="status">끌어서 돌리기 · 휠 확대 · 오른쪽(또는 Shift) 끌기 이동 · 두 번 누르면 처음 시점</div>
-  </section>
-  <aside>
-    <div class="tabs"><button class="on" data-p="res">성과</button><button data-p="sim">모의 관측</button><button data-p="how">방법</button></div>
-    <div class="pane on" id="p-res"></div>
-    <div class="pane" id="p-sim">
-      <div class="note">화면 안에서만 도는 모의입니다 — <b>실제 장비 명령은 없습니다.</b> 필라 위 토탈스테이션이 안테나에 붙은 타겟을 잽니다. 기준(0)은 2026 연결측량 채택 IVP 이고 차는 <b>모의 추정 − 성과</b> 입니다.</div>
-      <div class="ctl">
-        <label>기계점</label><div class="stations" id="stations"></div>
-        <label>관측 오차</label>
-        <select id="noise">
-          <option value="set">VIP 설정값 — 거리 3 mm · 각 3″</option>
-          <option value="man">VIP 설명서 기본 — 2 mm · 14.4″</option>
-          <option value="res">실측 잔차 수준 — 3.5 mm · 수평 27″ · 연직 11″</option>
-          <option value="cus">직접 넣기</option>
-        </select>
-        <div class="custom" id="custom">
-          <div>거리 mm<input type="number" id="sd" value="3" step="0.5" min="0"></div>
-          <div>수평각 ″<input type="number" id="sh" value="3" step="0.5" min="0"></div>
-          <div>연직각 ″<input type="number" id="sv" value="3" step="0.5" min="0"></div>
-        </div>
-        <label>프리즘 상수 오차</label><input type="number" id="pc" value="0" step="0.5" title="모든 경사거리에 더하는 계통 오차(mm)">
-        <label>수평 타겟 방위 간격</label><select id="phStep"><option value="15">15° (24자세)</option><option value="30">30° (12자세)</option><option value="45">45° (8자세)</option></select>
-        <label>수직 타겟 방위</label><select id="pvAz"><option value="0,330">0° · 330° (설명서)</option><option value="0,90,180,270">0° · 90° · 180° · 270°</option></select>
-        <label>고도 간격</label><select id="elStep"><option value="10">10° (10~90°)</option><option value="20">20° (10~90°)</option></select>
-        <label>참 축 오프셋</label><input type="number" id="eoff" value="2.6" step="0.1" title="모의의 참값(mm) — IVS antenna-info 2025-09-17 판 +2.6 · 옛 −5.8">
-        <label>배속</label><div class="seg" id="speed"><button data-k="1">1×</button><button data-k="4" class="on">4×</button><button data-k="16">16×</button><button data-k="999">즉시</button></div>
-      </div>
-      <div class="go"><button class="pri" id="bStart">▶ 관측 시작</button><button id="bPause" disabled>❚❚ 멈춤</button><button id="bReset">↺ 다시</button></div>
-      <div class="bar"><i id="pbar"></i></div>
-      <div class="cnt"><span id="cntA">자세 0 / 0</span><span id="cntB">관측 0 (수평 타겟 0 · 수직 타겟 0)</span></div>
-      <div id="simRes"></div>
-    </div>
-    <div class="pane" id="p-how"></div>
-  </aside>
-</main>
-<script src="./three.min.js"></script>
-<script src="./GLTFLoader.js?v=0150"></script>
-<script src="./sejong22m.js?v=0150"></script>
-<script src="localtie3d.js"></script>
+:root{color-scheme:dark}
+html,body{margin:0;height:100%;background:#060b14;color:#dbe6f3;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR","Apple SD Gothic Neo",sans-serif}
+#tsxLock{position:fixed;inset:0;display:grid;place-items:center;padding:16px;box-sizing:border-box;
+ background:radial-gradient(120% 90% at 50% 10%,#14243d 0%,#0a1322 50%,#05090f 100%)}
+#tsxLock[hidden]{display:none}
+.tsx-card{width:min(360px,100%);box-sizing:border-box;padding:28px 22px 22px;border:1px solid #1f3350;border-radius:16px;
+ background:rgba(10,18,32,.86);box-shadow:0 0 0 1px rgba(88,166,255,.06),0 20px 60px rgba(0,0,0,.5);text-align:center}
+.tsx-stars{display:inline-flex;gap:6px;padding:6px 12px;border:1.5px solid #c9a227;border-radius:8px;background:#0b1426;
+ color:#f2c94c;font-size:20px;letter-spacing:2px;text-shadow:0 0 10px rgba(242,201,76,.55)}
+.tsx-name{margin:12px 0 2px;font-size:24px;font-weight:800;letter-spacing:.5px}
+.tsx-name b{color:#f2c94c;font-weight:800}
+.tsx-sub{margin:0 0 20px;font-size:12.5px;color:#8ea3bd}
+.tsx-in{width:100%;box-sizing:border-box;padding:12px 14px;border-radius:10px;border:1.5px solid #2a4366;background:#0b1526;
+ color:#eef4fb;font-size:18px;letter-spacing:4px;text-align:center;outline:none}
+.tsx-in:focus{border-color:#58a6ff;box-shadow:0 0 0 3px rgba(88,166,255,.18)}
+.tsx-btn{width:100%;margin-top:10px;padding:12px;border:0;border-radius:10px;background:linear-gradient(180deg,#2f81f7,#1f6feb);
+ color:#fff;font-size:15px;font-weight:700;cursor:pointer}
+.tsx-btn[disabled]{opacity:.6;cursor:wait}
+.tsx-msg{min-height:18px;margin:12px 0 0;font-size:12.5px;line-height:1.5;color:#8ea3bd}
+.tsx-msg.err{color:#ff7b72}
+</style></head><body>
+<div id="tsxLock" hidden>
+ <form class="tsx-card" id="tsxForm" autocomplete="off">
+  <div class="tsx-stars" aria-hidden="true">&#9733;&#9733;&#9733;</div>
+  <div class="tsx-name">Three<b>Star</b></div>
+  <p class="tsx-sub">세종 22m 관측 현황 · 잠긴 화면</p>
+  <input class="tsx-in" id="tsxPw" type="password" autocomplete="current-password" placeholder="암호" aria-label="암호">
+  <button class="tsx-btn" id="tsxGo" type="submit">열기</button>
+  <p class="tsx-msg" id="tsxMsg">처음 한 번만 넣으면 이 기기에서 기억합니다</p>
+ </form>
+</div>
 <script>
 (function(){
-const $=id=>document.getElementById(id), QS=new URLSearchParams(location.search);
-if(QS.has('embed')){document.body.classList.add('embed');}
-const inMini=location.pathname.indexOf('/ts/')>=0;
-if(inMini)$('back').href='../';
-const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const f=(v,k)=>v==null||!isFinite(v)?'–':(+v).toFixed(k);
-const sg=(v,k)=>v==null||!isFinite(v)?'–':((v>0?'+':v<0?'−':'')+Math.abs(v).toFixed(k));
-const COL={vlbi:'var(--vlbi)',gnss:'var(--gnss)',pillar:'var(--pil)'};
-let L=null, DATA=null;
-try{ L=LocalTie.create($('cv'),{onStatus:s=>$('status').innerHTML=esc(s).replace(/^([^—]+—)/,'<b>$1</b>'),onProgress:prog,onResult:showRes,onMc:showMC,onXray:on=>$('bXray').classList.toggle('on',on)}); }
-catch(e){ $('status').textContent='3D 를 그릴 수 없습니다 — '+e.message; }
-
-// 자료 — 운용 화면·미니앱 잠금판은 mm 판, 미니앱 공개판은 공개판
-async function getJSON(u){
-  if(window.TSX&&TSX.fetch&&TSX.has&&TSX.has(u)){const rel=new URL(u,location.href).href.split('?')[0].slice(TSX.base.length);return JSON.parse(new TextDecoder().decode(await TSX.fetch(rel)));}
-  const r=await fetch(u,{cache:'no-cache'}); if(!r.ok)throw new Error(u+' '+r.status); return r.json();
-}
-(async()=>{
-  const order=inMini&&!window.TSX?['models/localtie_pub.json']:['models/localtie.json','models/localtie_pub.json'];
-  for(const u of order){ try{ DATA=await getJSON(u); break; }catch(e){} }
-  if(!DATA){ $('p-res').innerHTML='<div class="lock">연결측량 자료를 불러오지 못했습니다</div>'; return; }
-  if(L)L.load(DATA);
-  renderRes(); renderHow(); renderStations();
-})();
-
-function chips(){
-  const c=[`시점 <b>${esc(DATA.epoch)}</b>`,`1차 ${esc(DATA.epochs['1차'])} · 2차 ${esc(DATA.epochs['2차'])}`,`기준 <b>${esc(DATA.frame.anchor)}</b>`];
-  $('chips').innerHTML=c.map(x=>`<span class="chip">${x}</span>`).join('');
-}
-function renderRes(){
-  chips();
-  const P=DATA.points, pub=!!DATA.public;
-  let h=`<h2>연결 벡터 <small>IVP → 점 · 동·북·높이(m)</small></h2><table><tr><th>점</th><th>동</th><th>북</th><th>높이</th><th>길이</th>${pub?'':'<th>σ 동·북·높이 mm</th>'}</tr>`;
-  for(const p of P){ if(p.id==='IVP')continue; const k=pub?1:4;
-    h+=`<tr class="pt" data-id="${p.id}"><td class="n"><i class="dot" style="background:${COL[p.kind]}"></i>${esc(p.id)}</td><td>${sg(p.enu[0],k)}</td><td>${sg(p.enu[1],k)}</td><td>${sg(p.enu[2],k)}</td><td>${f(p.L,k)}</td>${pub?'':`<td>${f(p.s_enu_mm[0],1)} · ${f(p.s_enu_mm[1],1)} · ${f(p.s_enu_mm[2],1)}</td>`}</tr>`; }
-  h+=`</table><div class="note">점 이름을 누르면 3D 에서 그 벡터를 밝힌다. 점: <i class="dot" style="background:var(--vlbi)"></i>VLBI IVP <i class="dot" style="background:var(--gnss)"></i>위성기준점 SEJN <i class="dot" style="background:var(--pil)"></i>필라 VP01~05 · SLR 은 이번에는 넣지 않았다.</div>`;
-  if(pub){ h+=`<div class="lock">🔒 mm 단위 좌표(측지·지역좌표)와 σ 는 잠금판에서만 보입니다. 공개판은 3D 자리와 0.1 m 로 반올림한 벡터만 싣습니다.</div>`; }
-  else{
-    h+=`<h2>측지좌표 <small>GRS80 · ITRF2020-u2024 · ${esc(DATA.epoch)}</small></h2><table><tr><th>점</th><th>위도</th><th>경도</th><th>타원체고 m</th><th>σ 동·북·높이 mm</th></tr>`;
-    for(const p of P) h+=`<tr class="pt" data-id="${p.id}"><td class="n"><i class="dot" style="background:${COL[p.kind]}"></i>${esc(p.id)}</td><td>${dms(p.llh[0])}</td><td>${dms(p.llh[1])}</td><td>${f(p.llh[2],4)}</td><td>${f(p.a_enu_mm[0],1)} · ${f(p.a_enu_mm[1],1)} · ${f(p.a_enu_mm[2],1)}</td></tr>`;
-    h+=`</table><div class="note">σ 는 IVP(ITRF2020-u2024) σ 를 더한 절대값. 벡터 표의 σ 는 IVP 에 대한 상대값.</div>`;
-    h+=`<h2>VIP 지역좌표 <small>원점 VP01 · x = VP01→VP02(진방위 ${f(DATA.frame.local_x_az_deg,4)}°) · z = 연직</small></h2><table><tr><th>점</th><th>x</th><th>y</th><th>z</th><th>2차 − 1차 mm</th></tr>`;
-    for(const p of P){ const l=p.local||{}; if(!l.mean||!l.mean.length)continue;
-      h+=`<tr class="pt" data-id="${p.id}"><td class="n"><i class="dot" style="background:${COL[p.kind]}"></i>${esc(p.id)}</td><td>${f(l.mean[0],4)}</td><td>${f(l.mean[1],4)}</td><td>${f(l.mean[2],4)}</td><td>${(l.diff21_mm||[]).map(v=>sg(v,1)).join(' · ')}</td></tr>`; }
-    const q=DATA.quality||{};
-    h+=`</table><div class="note">1·2차(${esc(DATA.epochs['1차'])} · ${esc(DATA.epochs['2차'])}) 평균. 2차는 필라 5점 강체 정렬(RMS ${f(q.align_rms_mm,1)} mm). 지역좌표 → ITRF 회전 σ ${f(DATA.frame.rot_sigma_arcsec,1)}″ (${esc(DATA.frame.rotation_source)})</div>`;
-    h+=`<div class="box kv"><span>단일 회차 경험 σ</span><b>${(q.emp_single_mm||[]).map(v=>f(v,1)).join(' · ')} mm</b><span>두 회차 평균 경험 σ</span><b>${(q.emp_mean_mm||[]).map(v=>f(v,1)).join(' · ')} mm</b><span>ITRF2020 본판 대비</span><b>${(q.check_vs_itrf2020_enu_mm||[]).map(v=>sg(v,1)).join(' · ')} mm</b></div>`;
-  }
-  const T=DATA.ties;
-  h+=`<h2>IERS 결합 잔차 <small>SEJN–7368 · 우주측지 해 − 지상 연결측량 · 동·북·높이 mm</small></h2><table><tr><th>ITRF2020 판</th><th>공개</th><th>동</th><th>북</th><th>높이</th><th>3D</th></tr>`;
-  for(const t of T.gnss_vlbi) h+=`<tr><td class="n">${esc(t.version.replace('ITRF2020','본판').replace('본판-',''))}</td><td>${esc(t.published)}</td><td>${sg(t.enu[0],1)}</td><td>${sg(t.enu[1],1)}</td><td>${sg(t.enu[2],1)}</td><td>${f(t.norm3d,1)}</td></tr>`;
-  h+=`</table><div class="note">공표값은 2020 세종 연결측량(시점 ${esc(T.tie_epoch)}) 기준. 2026 연결측량으로 다시 내면 높이: ${T.gnss_vlbi.map(t=>`${esc(t.version.replace('ITRF2020','본판').replace('본판-',''))} ${sg(t.with_2026[2],1)}`).join(' · ')} mm.</div>`;
-  const A=DATA.axis_offset;
-  h+=`<h2>축 오프셋 <small>IVS antenna-info</small></h2><div class="box kv"><span>2025-02-21 판까지</span><b class="warn">${sg(A.old_mm,1)} mm</b><span>${esc(A.change_date)} 판부터</span><b class="good">${sg(A.new_mm,1)} mm</b>
-    <span>VLBI 높이 변화(기대)</span><b>${(A.dh_vlbi_up_mm||[]).map(v=>sg(v,1)).join(' ~ ')} mm</b><span>u2024 결합 잔차 높이(기대)</span><b>${(A.expected_u2024_U_mm||[]).map(v=>sg(v,1)).join(' ~ ')} mm</b></div>
-    <div class="note">${esc(A.note)}. 모의 관측 탭에서 축 오프셋을 바꿔 연결측량이 그것을 얼마나 되찾는지 볼 수 있다.</div>`;
-  h+=`<div class="note" style="margin-top:12px">자료: ${DATA.src.map(esc).join(' · ')} · 만든 때 ${esc(DATA.made)}</div>`;
-  $('p-res').innerHTML=h;
-  for(const tr of document.querySelectorAll('#p-res tr.pt')) tr.onclick=()=>{ const id=tr.dataset.id, on=!tr.classList.contains('sel');
-    document.querySelectorAll('#p-res tr.pt').forEach(x=>x.classList.toggle('sel',on&&x.dataset.id===id)); if(L)L.highlight(on?id:null); };
-}
-function dms(deg){ const d=Math.floor(deg), mm=(deg-d)*60, m=Math.floor(mm), s=(mm-m)*60; return `${d}°${String(m).padStart(2,'0')}′${s.toFixed(5).padStart(8,'0')}″`; }
-function renderHow(){
-  $('p-how').innerHTML=`<h2>VIP 연결측량은 이렇게 한다 <small>VIP 사용자매뉴얼(국토지리정보원 2026-02)</small></h2>
-  <ol>
-   <li>필라 VP01~05 에 토탈스테이션을 세우고(강제 구심), 다른 필라를 후시로 방향을 잡는다. <span>위성기준점 SEJN 도 같은 망에서 함께 잰다.</span></li>
-   <li>필라끼리 각·거리를 재 필라 좌표를 정한다. <span>1단계 Partial-MINOLESS(자유망) — 원점 VP01, x = VP01→VP02, z = 연직</span></li>
-   <li>안테나를 고도 90° 에 두고 방위를 15° 씩 돌리며 <b>수평 타겟 PH</b>(#01~#15)를 잰다. <span>타겟마다 수평 원을 그리고, 원 중심이 방위축 위에 있다(IVP 의 수평 자리).</span></li>
-   <li>방위를 고정(0°·330°)하고 고도를 10° 씩 바꾸며 <b>수직 타겟 PV</b>를 잰다. <span>수직 원의 중심이 고도축 위에 있다(IVP 의 높이).</span></li>
-   <li>두 축의 공통 수선을 구한다. <span>방위축 위의 발이 <b>IVP</b>, 두 축 사이 거리가 <b>축 오프셋</b>(지향 방향 +).</span></li>
-   <li>VIP 는 이 모든 관측을 <b>Universal Cone 모델</b>(제약 GMM)로 한꺼번에 조정해 IVP·축 오프셋·원뿔 반경·프리즘 상수를 함께 낸다. <span>외접원 중심점 계산법·IVS 오프셋 계산(PH08·PH09 쌍)으로 교차 검증한다.</span></li>
-   <li>필라 좌표를 GNSS 로 ITRF 에 잇는다(7-파라미터, TLS). <span>2026: GAMIT L1 단기선 — 필라 5점 + SEJN 12점, 회전 σ ${f(DATA.frame.rot_sigma_arcsec,1)}″</span></li>
-  </ol>
-  <h2>이 화면의 모의 <small>화면 안에서만</small></h2>
-  <div class="note">타겟 배치는 매뉴얼 9.6절(슬랜트 높이 4.3~6.0 m)·10절(외접원 중심 높이 +1.83 · 0 · −3.13 m, 수직 타겟은 고도축 따라 ±3.72 m)에서 잡았다.
-  관측마다 경사거리·수평각·천정각에 정규 잡음을 넣고, 기계점마다 방향 오차(후시)와 자리 오차(0.3 mm)를 준다. 보이는 타겟만 잰다(타겟 면이 기계점 쪽을 볼 때).
-  분석은 외접원 중심점 계산법과 같은 기하(타겟별 3D 원 맞춤 → 방위축·고도축 → 공통 수선)이고, 같은 설정을 여러 번 돌린 흩어짐(몬테카를로)으로 σ 를 낸다.
-  실제 VIP 결과(매뉴얼 9.4·9.5절 예): IVP σ 1.0 · 1.1 · 6.2 mm, 축 오프셋 0.7 ± 5.1 mm.</div>`;
-}
-function renderStations(){
-  const ids=DATA.points.filter(p=>p.kind==='pillar').map(p=>p.id);
-  $('stations').innerHTML=ids.map(id=>`<label><input type="checkbox" value="${id}" checked>${id}</label>`).join('');
-}
-// 모의 조작
-const NOISE={set:[3,3,3],man:[2,14.4,14.4],res:[3.5,27,11]};
-$('noise').onchange=()=>{ const v=$('noise').value; $('custom').classList.toggle('on',v==='cus'); if(NOISE[v]){$('sd').value=NOISE[v][0];$('sh').value=NOISE[v][1];$('sv').value=NOISE[v][2];} };
-let SPEED=4;
-for(const b of document.querySelectorAll('#speed button')) b.onclick=()=>{ document.querySelectorAll('#speed button').forEach(x=>x.classList.toggle('on',x===b)); SPEED=+b.dataset.k; if(L)L.sim.setSpeed(SPEED); };
-function cfg(){
-  const AS=Math.PI/180/3600, v=$('noise').value, n=NOISE[v]||[+$('sd').value,+$('sh').value,+$('sv').value];
-  return { stations:[...document.querySelectorAll('#stations input:checked')].map(x=>x.value), phStep:+$('phStep').value, pvAz:$('pvAz').value.split(',').map(Number),
-    elMin:10, elStep:+$('elStep').value, e_mm:+$('eoff').value||0, speed:SPEED, mc:40,
-    sig:{ d:n[0]/1000, h:n[1]*AS, v:n[2]*AS, ppm:1, pc:(+$('pc').value||0)/1000, st:0.0003 } };
-}
-$('bStart').onclick=()=>{ if(!L||!DATA)return; const c=cfg(); if(!c.stations.length){ $('status').textContent='기계점을 하나 넘게 고르세요'; return; }
-  $('simRes').innerHTML=''; L.sim.start(c); $('bPause').disabled=false; $('bPause').textContent='❚❚ 멈춤'; $('bStart').disabled=true; L.view('ant'); };
-$('bPause').onclick=()=>{ if(!L)return; if(L.sim.paused){L.sim.resume();$('bPause').textContent='❚❚ 멈춤';} else {L.sim.pause();$('bPause').textContent='▶ 계속';} };
-$('bReset').onclick=()=>{ if(!L)return; L.sim.reset(); $('simRes').innerHTML=''; $('pbar').style.width='0'; $('cntA').textContent='자세 0 / 0'; $('cntB').textContent='관측 0 (수평 타겟 0 · 수직 타겟 0)';
-  $('bStart').disabled=false; $('bPause').disabled=true; };
-function prog(p){ $('pbar').style.width=(p.frac*100).toFixed(1)+'%'; $('cntA').textContent=`자세 ${p.step} / ${p.steps}`; $('cntB').textContent=`관측 ${p.obs} (수평 타겟 ${p.ph} · 수직 타겟 ${p.pv})`; }
-let RES=null;
-function q(v,a,b){ const x=Math.abs(v); return x<=a?'good':x<=b?'warn':'bad'; }
-function showRes(r){
-  $('bStart').disabled=false; $('bPause').disabled=true; RES=r;
-  if(!r||!r.ivp){ $('simRes').innerHTML='<div class="lock">분석할 관측이 모자랍니다 — 기계점이나 자세를 늘려 보세요</div>'; return; }
-  const d=r.diff_mm, n=r.counts;
-  $('simRes').innerHTML=`<h2>결과 <small>모의 추정 − 성과(2026 연결측량 채택 IVP)</small></h2>
-   <table><tr><th>항목</th><th>동</th><th>북</th><th>높이</th></tr>
-    <tr><td class="n">IVP 차 mm</td><td class="${q(d[0],1,3)}">${sg(d[0],2)}</td><td class="${q(d[1],1,3)}">${sg(d[1],2)}</td><td class="${q(d[2],2,5)}">${sg(d[2],2)}</td></tr>
-    <tr><td class="n">σ(몬테카를로) mm</td><td id="mc0">…</td><td id="mc1">…</td><td id="mc2">…</td></tr></table>
-   <div class="box kv"><span>축 오프셋 추정</span><b>${sg(r.e_mm,2)} mm <span style="color:var(--dim)">(참 ${sg(r.e_true_mm,1)})</span></b><span>축 오프셋 σ</span><b id="mce">…</b>
-    <span>원 맞춤 잔차 RMS</span><b>수평 ${f(r.rmsPH_mm,2)} · 수직 ${f(r.rmsPV_mm,2)} mm</b><span>방위축 기울기</span><b>${f(r.tilt_as,1)}″</b>
-    <span>관측</span><b>${n.obs}점 × 3(경사거리·수평각·천정각) — 수평 ${n.ph} · 수직 ${n.pv}</b></div>
-   <div class="note">3D 의 분홍 화살표·타원체가 IVP 차와 σ 를 500 배로 키워 보인다. 실측 VIP(매뉴얼 예) σ 1.0 · 1.1 · 6.2 mm · 축 오프셋 0.7 ± 5.1 mm 와 견줘 보세요.</div>`;
-}
-function showMC(m){
-  if(m.sd_mm){ for(let k=0;k<3;k++){ const e=$('mc'+k); if(e)e.textContent=f(m.sd_mm[k],2); } const e=$('mce'); if(e)e.textContent=`${f(m.e_sd_mm,2)} mm (${m.N}판 평균 ${sg(m.e_mean_mm,2)})`; }
-  else { const e=$('mce'); if(e)e.textContent=`재는 중 ${m.done}/${m.N}`; }
-}
-// 보기 단추
-for(const b of document.querySelectorAll('.vbar [data-v]')) b.onclick=()=>{ document.querySelectorAll('.vbar [data-v]').forEach(x=>x.classList.toggle('on',x===b)); if(L)L.view(b.dataset.v); };
-for(const b of document.querySelectorAll('.vbar [data-t]')) b.onclick=()=>{ b.classList.toggle('on'); if(L)L.show({[b.dataset.t]:b.classList.contains('on')}); };
-$('bXray').onclick=()=>{ const on=!$('bXray').classList.contains('on'); $('bXray').classList.toggle('on',on); if(L)L.xray(on); };
-for(const b of document.querySelectorAll('.tabs button')) b.onclick=()=>{ document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b)); document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id==='p-'+b.dataset.p)); };
-new ResizeObserver(()=>L&&L.resize()).observe($('cv'));
+ /* 잠금 껍데기(miniapp_lock.py) — 전역은 window.TSX 하나만. document.open 뒤에도 남는 최상위 let/const 를 만들지 않는다 */
+ var REL="ts/localtie.html", ROOT="../", B="p10062032", TG=false, OWN=["antenna3d.html", "globe.html", "index.html", "ts/antenna3d.html", "ts/antmodel.js", "ts/beam3d.js", "ts/cmd3d.js", "ts/flow3d.js", "ts/fx3d.js", "ts/game3d.js", "ts/jamsim.html", "ts/jamsim.js", "ts/jamsim_core.js", "ts/localtie.html", "ts/localtie3d.js", "ts/models/flow/flow_assets.glb", "ts/models/flow/flow_earth.jpg", "ts/models/jamsim/jamsim_assets.glb", "ts/models/jamsim/jamsim_data.json", "ts/models/jamsim/jamsim_dem.bin", "ts/models/jamsim/jamsim_map.jpg", "ts/models/jamsim/jamsim_map_1k.jpg", "ts/models/localtie.json", "ts/models/localtie/localtie_assets.glb", "ts/models/localtie_pub.json", "ts/models/radiocam/radiocam_check.txt", "ts/models/radiocam/radiocam_scenes.json", "ts/models/radiocam/rc_device.glb", "ts/models/radiocam/rc_home.glb", "ts/models/radiocam/rc_hotel.glb", "ts/models/radiocam/rc_office.glb", "ts/models/radiocam/rc_toilet.glb", "ts/models/sejong22m.glb", "ts/models/sejong22m_m.glb", "ts/models/site_twin.glb", "ts/models/terrain/horizon.json", "ts/models/terrain/site_dem.json", "ts/models/terrain/site_ortho.jpg", "ts/models/terrain/site_ortho_1k.jpg", "ts/models/terrain/site_ortho_4k.jpg", "ts/models/terrain/site_ortho_core.jpg", "ts/models/vlbisim/realdata.json", "ts/models/vlbisim/vlbisim_assets.glb", "ts/models/vlbisim/vlbisim_data.json", "ts/models/wxtomo/wx_admin.json", "ts/models/wxtomo/wx_bld.json", "ts/models/wxtomo/wx_dem.json", "ts/models/wxtomo/wx_img_in.jpg", "ts/models/wxtomo/wx_img_in_1k.jpg", "ts/models/wxtomo/wx_img_out.jpg", "ts/models/wxtomo/wx_meta.json", "ts/models/wxtomo/wx_sats.json", "ts/models/wxtomo/wx_sta.json", "ts/models/wxtomo/wxtomo_assets.glb", "ts/radiocam.html", "ts/radiocam.js", "ts/radiocam_core.js", "ts/radiocam_worker.js", "ts/sejong22m.js", "ts/sky3d.js", "ts/vlbisim.html", "ts/vlbisim3d.js", "ts/vlbisim_core.js", "ts/vlbisim_worker.js", "ts/wxtomo.html", "ts/wxtomo3d.js", "ts/wxtomo_core.js"], LSK="tsx_k1";
+ var C=window.crypto&&window.crypto.subtle;
+ var base=new URL(ROOT,location.href).href, LOCK=null;
+ function $(i){return document.getElementById(i);}
+ function b64(buf){var s='',a=new Uint8Array(buf);for(var i=0;i<a.length;i++)s+=String.fromCharCode(a[i]);return btoa(s);}
+ function unb64(s){var t=atob(s),a=new Uint8Array(t.length);for(var i=0;i<t.length;i++)a[i]=t.charCodeAt(i);return a;}
+ function get(rel,json){return fetch(base+rel+'?b='+B,{cache:'no-cache'}).then(function(r){
+   if(!r.ok)throw new Error(rel+' HTTP '+r.status);return json?r.json():r.arrayBuffer();});}
+ function dec(key,buf){var a=new Uint8Array(buf);return C.decrypt({name:'AES-GCM',iv:a.slice(0,12)},key,a.slice(12));}
+ function imp(raw){return C.importKey('raw',raw,{name:'AES-GCM'},false,['decrypt']);}
+ function tryKey(s){if(!s)return Promise.resolve(null);var raw;try{raw=unb64(s);}catch(e){return Promise.resolve(null);}
+   return imp(raw).then(function(k){return dec(k,unb64(LOCK.check)).then(function(p){
+     return new TextDecoder().decode(p)==='threestar'?k:null;});}).catch(function(){return null;});}
+ function lsGet(){try{return localStorage.getItem(LSK);}catch(e){return null;}}
+ function lsSet(v){try{localStorage.setItem(LSK,v);}catch(e){}}
+ function lsDel(){try{localStorage.removeItem(LSK);}catch(e){}}
+ function tgw(){try{var w=window.Telegram&&window.Telegram.WebApp;
+   return w&&w.CloudStorage&&w.isVersionAtLeast&&w.isVersionAtLeast('6.9')?w:null;}catch(e){return null;}}
+ function loadTG(){return new Promise(function(ok){if(window.Telegram&&window.Telegram.WebApp)return ok();
+   var s=document.createElement('script');s.src='https://telegram.org/js/telegram-web-app.js';s.async=true;
+   s.onload=s.onerror=function(){ok();};document.head.appendChild(s);setTimeout(ok,3000);});}
+ function cloudGet(){return new Promise(function(ok){var w=tgw(),done=false;if(!w)return ok(null);
+   try{w.CloudStorage.getItem(LSK,function(e,v){if(!done){done=true;ok(e?null:(v||null));}});}catch(e){return ok(null);}
+   setTimeout(function(){if(!done){done=true;ok(null);}},2500);});}
+ function cloudSet(v){return new Promise(function(ok){var w=tgw();if(!w)return ok();
+   try{w.CloudStorage.setItem(LSK,v,function(){ok();});}catch(e){return ok();}setTimeout(ok,2500);});}
+ function relOf(u){var h=new URL(String(u),location.href).href.split('#')[0].split('?')[0];
+   return h.indexOf(base)===0?h.slice(base.length):null;}
+ function show(key){
+   var T={key:key,base:base,build:B,
+     has:function(u){var r=relOf(u);return !!r&&OWN.indexOf(r)>=0;},
+     fetch:function(rel){return get('x/'+rel+'.bin').then(function(b){return dec(key,b);});},
+     text:function(rel){return T.fetch(rel).then(function(b){return new TextDecoder().decode(b);});},
+     js:function(u){var rel=relOf(u)||String(u);return T.text(rel).then(function(code){
+       var s=document.createElement('script');s.textContent=code+'\n//# sourceURL='+base+rel;document.head.appendChild(s);});},
+     glb:function(u){var rel=relOf(u);if(!rel||OWN.indexOf(rel)<0){var n=String(u).split('#')[0].split('?')[0].split('/').pop();
+       rel=null;for(var i=0;i<OWN.length;i++){if(OWN[i].split('/').pop()===n){rel=OWN[i];break;}}}
+       return rel?T.fetch(rel):Promise.reject(new Error('잠긴 모형 없음: '+u));}};
+   window.TSX=T;
+   return T.text(REL).then(function(html){document.open();document.write(html);document.close();});}
+ function ask(msg,err){$('tsxLock').hidden=false;var m=$('tsxMsg');if(msg)m.textContent=msg;m.className='tsx-msg'+(err?' err':'');
+   setTimeout(function(){try{$('tsxPw').focus();}catch(e){}},60);}
+ function derive(pw){return C.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveBits']).then(function(k){
+   return C.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:unb64(LOCK.salt),iterations:LOCK.iter},k,256);});}
+ $('tsxForm').addEventListener('submit',function(e){e.preventDefault();var pw=$('tsxPw').value;if(!pw||!LOCK)return;
+   var btn=$('tsxGo');btn.disabled=true;ask('확인 중…');
+   derive(pw).then(function(raw){var s=b64(raw);return tryKey(s).then(function(k){
+     if(!k){btn.disabled=false;$('tsxPw').value='';ask('암호가 맞지 않습니다',true);return;}
+     lsSet(s);return cloudSet(s).then(function(){return show(k);});});})
+   .catch(function(x){btn.disabled=false;ask('열지 못했습니다 — '+((x&&x.message)||x),true);});});
+ function start(){
+   if(!C){ask('이 브라우저에서는 잠금을 풀 수 없습니다(https 필요)',true);return;}
+   get('lock.json',true).then(function(j){LOCK=j;
+     return tryKey(lsGet()).then(function(k){if(k)return show(k);
+       lsDel();if(!TG){ask();return;}
+       return loadTG().then(cloudGet).then(function(s){return tryKey(s).then(function(k2){
+         if(k2){lsSet(s);return show(k2);}ask();});});});})
+   .catch(function(x){ask('불러오지 못했습니다 — '+((x&&x.message)||x),true);});}
+ start();
 })();
 </script>
-</body>
-</html>
+</body></html>
