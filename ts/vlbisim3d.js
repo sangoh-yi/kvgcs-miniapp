@@ -173,7 +173,8 @@
     if (T.GLTFLoader) glbLoad(new T.GLTFLoader(), o.assetsUrl, (g) => {
       assets = g.scene;
       const e = assets.getObjectByName('Earth');
-      if (e) { const ec = e.clone(true); ec.scale.setScalar(RE); ec.traverse((m) => { if (m.isMesh && m.material) { m.material.envMapIntensity = 0; if (m.material.map) m.material.map.encoding = T.sRGBEncoding; m.material.roughness = 0.9; } }); earthG.add(ec); }
+      // 10-06 지구는 거칠기 무늬(바다 0.30 · 육지 0.92)를 싣는다 — 있으면 계수 1(무늬 값 그대로, 바다에 해 반사), 없으면(옛 판·구름층) 0.9
+      if (e) { const ec = e.clone(true); ec.scale.setScalar(RE); ec.traverse((m) => { if (m.isMesh && m.material) { m.material.envMapIntensity = 0; if (m.material.map) m.material.map.encoding = T.sRGBEncoding; m.material.roughness = m.material.roughnessMap ? 1.0 : 0.9; } }); earthG.add(ec); }
       buildChain(); for (const st of ST) if (st && st.pending) ant12(st);
       dirty = true; if (o.onload) o.onload();
     }, undefined, (err) => { if (o.onerror) o.onerror(err); });

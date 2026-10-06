@@ -161,7 +161,8 @@
         else if (mn === 'Grass') { if (!faded.has(mt)) { fadeGround(mt); faded.add(mt); } o.castShadow = false; mt.envMapIntensity = 0.25; }
         else if (mn === 'Floor_Room') { Object.assign(mt, { transparent: true, opacity: 0.66, roughness: 0.16, metalness: 0.25 }); o.renderOrder = -1; o.castShadow = false; mt.envMapIntensity = 0.9; }   // 비침 판(아래 거울 랙이 은은히)
         else if (mn === 'Pave' || mn === 'Concrete' || mn === 'Wall_Paint' || mn === 'Wall_Inner') mt.envMapIntensity = 0.35;
-        if (/^(Panel_Grey|Steel_Galv|Wall_Cut|Lamp_Room)$/.test(mn) && /^env_/.test((o.parent && o.parent.name) || '')) o.castShadow = false;   // 천장 보·트레이 그림자 줄무늬 없게
+        else if (mn === 'Pit_Dark') { o.visible = false; o.castShadow = false; }   // 바닥 밑 어두운 통 — 옅어지는 잔디 너머로 관측동 앞에 검은 사각형으로 비쳤다(0.15.0, 빼도 비침 판은 그대로)
+        if (/^(Panel_Grey|Steel_Galv|Wall_Cut|Lamp_Room|Duct_Fiber)$/.test(mn) && /^env_/.test((o.parent && o.parent.name) || '')) o.castShadow = false;   // 천장 보·트레이·광 덕트 그림자 줄무늬 없게
         if (mn === 'Lamp_Room' || mn === 'Screen_Ops' || mn === 'Holo_Emit') { mt.toneMapped = false; o.castShadow = false; }
         let a = o; while (a && !/^(st_[a-z0-9]+|env_[a-z0-9]+)$/.test(a.name || '')) a = a.parent;   // 합친 부품 이름(st_fb__Rack_Black)은 건너뛰고 묶음까지
         if (a && a.name.startsWith('st_')) { o.userData.node = a.name.slice(3); PICK.push(o); }

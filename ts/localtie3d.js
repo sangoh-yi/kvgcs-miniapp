@@ -258,13 +258,19 @@
         const sh = new T.Mesh(geo, new T.ShadowMaterial({ opacity: 0.36 })); sh.receiveShadow = true; sh.position.y = 0.03; G.base.add(sh);
         st.dirty = true;
         if (T.GLTFLoader) {
-          const roof = new T.Texture(isUrl ? img : await loadImg(imgSrc, false)); roof.flipY = false;   // glTF 무늬 좌표 — 뒤집지 않은 판 roof.encoding = T.sRGBEncoding; roof.needsUpdate = true;
+          const roof = new T.Texture(isUrl ? img : await loadImg(imgSrc, false)); roof.flipY = false;   // glTF 무늬 좌표 — 뒤집지 않은 판
+          roof.encoding = T.sRGBEncoding; roof.anisotropy = rn.capabilities.getMaxAnisotropy(); roof.needsUpdate = true;   // 10-06: 이 줄이 주석 안에 들어가 지붕이 검게 나왔다
           const L = new T.GLTFLoader(), url = 'models/site_twin.glb';
           const g = await new Promise((ok, no) => { if (window.TSX && TSX.glb) TSX.glb(url).then((b) => L.parse(b, '', ok, no), no); else L.load(url, ok, undefined, no); });
           g.scene.traverse((o) => {
             if (/slr|sp0|sp1a/i.test(o.name || '')) o.visible = false;               // SLR 건물·돔·필라는 이번에는 넣지 않는다(10-05)
+            if (/^Pillar_.*_Cover/.test(o.name || '')) o.visible = false;             // 10-06 필라 보호 덮개 — 측량 때는 벗긴다(구심판·점 표지가 보이게)
             if (!o.isMesh) return; o.castShadow = o.receiveShadow = true; const m = o.material;
             if (m && m.name === 'Roof_Ortho') { m.map = roof; m.color.setRGB(1, 1, 1); m.roughness = 0.9; m.needsUpdate = true; }
+            if (m && m.alphaTest > 0 && m.map) {                                       // 10-06 잎·격자 울타리(MASK) — 그림자도 구멍 난 모양
+              if (!m.userData.dep) m.userData.dep = new T.MeshDepthMaterial({ depthPacking: T.RGBADepthPacking, map: m.map, alphaTest: m.alphaTest });
+              o.customDepthMaterial = m.userData.dep;
+            }
           });
           G.base.add(g.scene); st.dirty = true;
         }

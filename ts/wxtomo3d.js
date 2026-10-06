@@ -143,8 +143,14 @@
       for (const { m, gs } of by.values()) {
         let n = 0; for (const g of gs) n += g.attributes.position.count;
         const P = new Float32Array(n * 3), N = new Float32Array(n * 3); let o = 0;
-        for (const g of gs) { P.set(g.attributes.position.array, o * 3); if (g.attributes.normal) N.set(g.attributes.normal.array, o * 3); o += g.attributes.position.count; }
+        // 무늬 UV(uv)·AO UV(uv2, 블렌더가 구운 occlusionTexture 용)도 함께 옮긴다 — 없으면 0(10-06 PBR 판)
+        const U = gs.some((g) => g.attributes.uv) ? new Float32Array(n * 2) : null, U2 = gs.some((g) => g.attributes.uv2) ? new Float32Array(n * 2) : null;
+        for (const g of gs) { const a = g.attributes;
+          P.set(a.position.array, o * 3); if (a.normal) N.set(a.normal.array, o * 3);
+          if (U && a.uv) U.set(a.uv.array, o * 2); if (U2 && a.uv2) U2.set(a.uv2.array, o * 2); o += a.position.count; }
         const g = new T.BufferGeometry(); g.setAttribute('position', new T.BufferAttribute(P, 3)); g.setAttribute('normal', new T.BufferAttribute(N, 3));
+        if (U) g.setAttribute('uv', new T.BufferAttribute(U, 2));
+        if (U2 || (U && m.aoMap)) g.setAttribute('uv2', new T.BufferAttribute(U2 || U, 2));
         const mm = m.clone(); out.push({ g, m: mm });
       }
       return out;

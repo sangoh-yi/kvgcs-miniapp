@@ -16,7 +16,7 @@
 (function () {
   const D2R = Math.PI / 180;
   // 실물 모형 경로 — 이 파일 옆 models/(운용 화면 /web/models/ · 미니앱 ts/models/). 불러올 때 한 번 정한다
-  const GLB = (document.currentScript && document.currentScript.src) ? new URL('models/sejong22m.glb', document.currentScript.src).href : 'models/sejong22m.glb';
+  const GLB = (document.currentScript && document.currentScript.src) ? new URL('models/sejong22m_m.glb', document.currentScript.src).href : 'models/sejong22m_m.glb';   // 작게 그리니 가벼운 판(0.15.0)
   const dir = (T, az, el, r) => {                         // 방위(북→동)·고도 → 북 = −z · 동 = +x · 위 = +y
     const a = az * D2R, e = el * D2R, R = r || 1;
     return new T.Vector3(R * Math.sin(a) * Math.cos(e), R * Math.sin(e), -R * Math.cos(a) * Math.cos(e));

@@ -156,8 +156,8 @@ body.embed #foot{display:block}
 </div>
 
 <script src="./three.min.js"></script>
-<script src="./GLTFLoader.js"></script>
-<script src="./sejong22m.js"></script>
+<script src="./GLTFLoader.js?v=0150"></script>
+<script src="./sejong22m.js?v=0150"></script>
 <script>
 'use strict';
 const T=window.THREE, D2R=Math.PI/180, R2D=180/Math.PI;
@@ -331,7 +331,9 @@ if(T&&hasGL()){try{A3D=(function(){
           const tw=g.scene; tw.scale.setScalar(K);
           tw.traverse(o=>{ if(!o.isMesh)return; o.castShadow=o.receiveShadow=true; const m=o.material;
             if(m&&m.name==='Roof_Ortho'){m.map=roofTex; m.color.setRGB(1,1,1); m.roughness=.9; m.needsUpdate=true;}
-            if(m&&m.map&&m.name!=='Roof_Ortho')m.map.encoding=T.sRGBEncoding; if(m)m.envMapIntensity=.45; });
+            if(m&&m.map&&m.name!=='Roof_Ortho')m.map.encoding=T.sRGBEncoding; if(m)m.envMapIntensity=.45;
+            // 10-06 트윈 v3: 잎·격자 울타리(alphaMode MASK)는 그림자도 구멍 난 모양으로 — 재질마다 깊이 재질 하나(미니앱도 같은 파일)
+            if(m&&m.alphaTest>0&&m.map){ if(!m.userData.dep)m.userData.dep=new T.MeshDepthMaterial({depthPacking:T.RGBADepthPacking,map:m.map,alphaTest:m.alphaTest}); o.customDepthMaterial=m.userData.dep; } });
           scene.add(tw); TER.twin=tw; tw.visible=TER.on;
           // 이름표(부품명 단추) — 트윈의 주요 점
           for(const [k,label,pos3] of TWIN_LBL){const a=new T.Object3D(); a.position.set(pos3[0],pos3[1],-pos3[2]); tw.add(a); parts[k]=a;

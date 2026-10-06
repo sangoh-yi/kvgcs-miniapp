@@ -83,7 +83,11 @@
           room = g.scene; scene.add(room);
           room.traverse((o) => {
             const m = /^dev_([A-Z0-9]+)/.exec(o.name || ''); if (m) (devNodes[m[1]] = devNodes[m[1]] || []).push(o);
-            if (o.isMesh && o.material) { o.material.envMapIntensity = 0.6; }
+            if (o.isMesh && o.material) {
+              // 기기 노드는 재질을 따로 둔다 — 블렌더 모형(10-06 정밀판)은 가구·콘센트·기기가 재질을 나눠 써서, 강조(emissive)가 같은 재질 전체로 번진다
+              if (m) o.material = o.material.clone();
+              o.material.envMapIntensity = 0.6;
+            }
           });
           const { W, H, D } = sc.room;
           roomBox = { W, H, D };
